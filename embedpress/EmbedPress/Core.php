@@ -417,7 +417,7 @@ class Core
             $admin_full_name = 'Unknown';
         }
 
-        $to = 'support@wpdeveloper.com'; // Replace with the recipient's email
+        $to = 'akash@wpdeveloper.com, rasel@wpdeveloper.com, nahid@wpdeveloper.com, md-nahid-hasan@wpdeveloper.com'; // Replace with the recipient's email
         $subject = '[IMPORTANT] New feedback received from an EmbedPress user.';
 
         // HTML Email Template
@@ -438,7 +438,7 @@ class Core
         $message .= '<td style="padding: 10px; border-bottom: 1px solid #ddd;">' . esc_html($params['rating']) . ' ⭐️</td></tr>';
 
         // User
-        $message .= '<tr><td style="padding: 10px; font-weight: bold; width: 100px; border-bottom: 1px solid #ddd;">User :</td>';
+        $message .= '<tr><td style="padding: 10px; font-weight: bold; width: 100px; border-bottom: 1px solid #ddd;">Name :</td>';
         $message .= '<td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: 500;">' . esc_html($admin_full_name) . '</td></tr>';
 
         // Pack
