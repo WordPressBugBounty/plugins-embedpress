@@ -125,22 +125,20 @@ class AssetManager
         'bootstrap-js' => [
             'file' => 'js/vendor/bootstrap/bootstrap.min.js',
             'deps' => ['jquery'],
-            'contexts' => ['admin'],
+            'contexts' => ['editor'],
             'type' => 'script',
             'footer' => true,
             'handle' => 'embedpress-bootstrap',
             'priority' => 2,
-            'page' => 'embedpress'
         ],
         'bootbox-js' => [
             'file' => 'js/vendor/bootbox.min.js',
             'deps' => ['jquery', 'embedpress-bootstrap'],
-            'contexts' => ['admin'],
+            'contexts' => ['editor'],
             'type' => 'script',
             'footer' => true,
             'handle' => 'embedpress-bootbox',
             'priority' => 3,
-            'page' => 'embedpress'
         ],
         // Priority 5-6: Main application build assets
         'admin-js' => [
@@ -284,8 +282,8 @@ class AssetManager
         ],
         'preview-js' => [
             'file' => 'js/preview.js',
-            'deps' => ['jquery'],
-            'contexts' => ['admin'],
+            'deps' => ['jquery', 'embedpress-bootbox'],
+            'contexts' => ['editor'],
             'type' => 'script',
             'footer' => true,
             'handle' => 'embedpress-preview',
@@ -322,7 +320,7 @@ class AssetManager
         'el-icon-css' => [
             'file' => 'css/el-icon.css',
             'deps' => [],
-            'contexts' => ['admin', 'frontend', 'elementor'],
+            'contexts' => ['elementor-editor'],
             'type' => 'style',
             'handle' => 'embedpress-el-icon',
             'priority' => 5,
@@ -342,23 +340,6 @@ class AssetManager
             'type' => 'style',
             'handle' => 'embedpress-css',
             'priority' => 5,
-        ],
-        'font-css' => [
-            'file' => 'css/font.css',
-            'deps' => [],
-            'contexts' => ['admin', 'frontend', 'elementor'],
-            'type' => 'style',
-            'handle' => 'embedpress-font',
-            'priority' => 5,
-        ],
-        'preview-css' => [
-            'file' => 'css/preview.css',
-            'deps' => [],
-            'contexts' => ['admin'],
-            'type' => 'style',
-            'handle' => 'embedpress-preview-css',
-            'priority' => 5,
-            'page' => 'embedpress'
         ],
         'settings-icons-css' => [
             'file' => 'css/settings-icons.css',
@@ -406,8 +387,6 @@ class AssetManager
         add_action('elementor/frontend/after_enqueue_styles', [__CLASS__, 'enqueue_elementor_assets'], 5);
 
         add_action('elementor/editor/after_enqueue_styles', [__CLASS__, 'enqueue_elementor_editor_assets'], 5);
-
-
     }
 
     /**
@@ -485,9 +464,10 @@ class AssetManager
      */
     public static function enqueue_elementor_editor_assets()
     {
-        // In Elementor editor, we need both elementor and editor context assets
+        // In Elementor editor, load elementor, editor, and elementor-editor contexts
         self::enqueue_assets_for_context('elementor');
         self::enqueue_assets_for_context('editor');
+        self::enqueue_assets_for_context('elementor-editor');
 
         // Setup Elementor editor localization
         LocalizationManager::setup_elementor_localization();
@@ -654,6 +634,13 @@ class AssetManager
                     }
                     break;
 
+                case 'elementor-editor':
+                    // Load only in Elementor editor (not preview or frontend)
+                    if ($is_elementor_editor) {
+                        return true;
+                    }
+                    break;
+
                 case 'settings':
                     // Load only on EmbedPress settings pages
                     if ($is_admin && !$is_elementor_editor && !$is_elementor_preview) {
@@ -737,14 +724,21 @@ class AssetManager
      */
     private static function has_elementor_content()
     {
-        if (!class_exists('\Elementor\Plugin')) {
+        if (! class_exists('\Elementor\Plugin')) {
             return false;
         }
 
-        // Check if we're on a singular post/page
         if (is_singular()) {
             $post_id = get_the_ID();
-            return \Elementor\Plugin::$instance->documents->get($post_id)->is_built_with_elementor();
+            if (empty($post_id) || ! is_numeric($post_id)) {
+                return false;
+            }
+
+            $document = \Elementor\Plugin::$instance->documents->get($post_id);
+
+            if ($document && method_exists($document, 'is_built_with_elementor')) {
+                return (bool) $document->is_built_with_elementor();
+            }
         }
 
         return false;

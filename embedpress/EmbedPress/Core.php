@@ -83,6 +83,8 @@ class Core
         add_action('ep_admin_notices', [$this, 'admin_notice']);
 
         add_filter('upload_mimes', [$this, 'extended_mime_types']);
+
+        add_action('wp_mail_failed', [$this, 'capture_mail_error'], 10, 1);
     }
 
     /**
@@ -421,6 +423,18 @@ class Core
     {
         $params = $params->get_params();
 
+        // Safely extract and sanitize incoming params to avoid undefined index notices
+        $params = is_array($params) ? $params : [];
+        $user_email  = isset($params['email']) ? sanitize_email($params['email']) : '';
+        $user_name   = isset($params['name']) ? sanitize_text_field($params['name']) : '';
+        $user_rating = isset($params['rating']) ? intval($params['rating']) : 0;
+        $user_msg    = isset($params['message']) ? sanitize_textarea_field($params['message']) : '';
+
+        $email_html   = $user_email ? '<a href="mailto:' . esc_attr($user_email) . '">' . esc_html($user_email) . '</a>' : 'N/A';
+        $rating_html  = $user_rating ? esc_html($user_rating) . ' ⭐️' : 'N/A';
+        $message_html = $user_msg !== '' ? nl2br(esc_html($user_msg)) : 'N/A';
+
+
         $site_name   = get_bloginfo('name');
         $site_url    = get_site_url();
         $admin_email = get_option('admin_email');
@@ -455,11 +469,11 @@ class Core
 
         // Email
         $message .= '<tr><td style="padding: 10px; font-weight: bold; width: 100px; border-bottom: 1px solid #ddd;">Email :</td>';
-        $message .= '<td style="padding: 10px; border-bottom: 1px solid #ddd;"><a href="mailto:' . esc_attr($params['email']) . '">' . esc_html($params['email']) . '</a></td></tr>';
+        $message .= '<td style="padding: 10px; border-bottom: 1px solid #ddd;">' . $email_html . '</td></tr>';
 
         // Rating
         $message .= '<tr><td style="padding: 10px; font-weight: bold; width: 100px; border-bottom: 1px solid #ddd;">Rating :</td>';
-        $message .= '<td style="padding: 10px; border-bottom: 1px solid #ddd;">' . esc_html($params['rating']) . ' ⭐️</td></tr>';
+        $message .= '<td style="padding: 10px; border-bottom: 1px solid #ddd;">' . $rating_html . '</td></tr>';
 
         // User
         $message .= '<tr><td style="padding: 10px; font-weight: bold; width: 100px; border-bottom: 1px solid #ddd;">Name :</td>';
@@ -471,15 +485,19 @@ class Core
 
         // Feedback
         $message .= '<tr><td style="padding: 10px; font-weight: bold; width: 100px; display: flex;">Feedback :</td>';
-        $message .= '<td style="padding: 10px;">' . nl2br(esc_html($params['message'])) . '</td></tr>';
+        $message .= '<td style="padding: 10px;">' . $message_html . '</td></tr>';
 
         $message .= '</table>';
         $message .= '</div></body></html>';
 
         $headers = [
             'Content-Type: text/html; charset=UTF-8',
-            'From: ' . esc_html($params['name']) . ' <' . esc_html($params['email']) . '>'
+            'From: ' . esc_html($site_name) . ' <' . sanitize_email($admin_email) . '>'
         ];
+        if ($user_email) {
+            $reply_to = $user_name ? esc_html($user_name) . ' <' . sanitize_email($user_email) . '>' : sanitize_email($user_email);
+            $headers[] = 'Reply-To: ' . $reply_to;
+        }
 
         // Send the email
         $sent = wp_mail($to, $subject, $message, $headers);
@@ -488,9 +506,26 @@ class Core
             update_option('embedpress_feedback_submited', true);
             return new \WP_REST_Response(['message' => 'Email sent successfully!'], 200);
         } else {
-            return new \WP_REST_Response(['message' => 'Failed to send email.'], 500);
+            // Retrieve last error
+            $last_error = get_transient('embedpress_last_mail_error');
+            $error_message = 'Failed to send email.';
+            if ($last_error instanceof \WP_Error) {
+                $error_message = $last_error->get_error_message();
+            }
+
+            return new \WP_REST_Response([
+                'message' => $error_message
+            ], 422); // using 422 instead of 500
         }
     }
+
+    public function capture_mail_error($wp_error)
+    {
+        if ($wp_error instanceof \WP_Error) {
+            set_transient('embedpress_last_mail_error', $wp_error, 60);
+        }
+    }
+
 
 
     public function register_feedback_email_endpoint()

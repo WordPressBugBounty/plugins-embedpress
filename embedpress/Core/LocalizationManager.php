@@ -147,6 +147,9 @@ class LocalizationManager
         $static_url = defined('EMBEDPRESS_URL_STATIC') ? EMBEDPRESS_URL_STATIC : '';
 
         wp_localize_script($script_handle, 'embedpressGutenbergData', [
+
+
+            // Keep only the variables that are actually used in JavaScript
             'wistiaLabels'  => json_encode($wistia_labels),
             'wistiaOptions' => $wistia_options,
             'poweredBy' => apply_filters('embedpress_document_block_powered_by', true),
@@ -176,6 +179,38 @@ class LocalizationManager
             'currentUser' => $current_user->data,
             'feedbackSubmitted' => get_option('embedpress_feedback_submited'),
             'ratingHelpDisabled' => Helper::get_options_value('turn_off_rating_help', false),
+
+            // Legacy support
+            'wistia_labels'  => json_encode($wistia_labels),
+            'wisita_options' => $wistia_options,
+            'embedpress_powered_by' => apply_filters('embedpress_document_block_powered_by', true),
+            'embedpress_pro' => defined('EMBEDPRESS_PRO_PLUGIN_FILE'),
+            'twitch_host' => !empty($pars_url['host']) ? $pars_url['host'] : '',
+            'site_url' => site_url(),
+            'rest_url' => get_rest_url(),
+            'embedpress_rest_url' => get_rest_url(null, 'embedpress/v1/oembed/embedpress'),
+            'active_blocks' => $active_blocks,
+            'document_cta' => $documents_cta_options,
+            'pdf_renderer' => Helper::get_pdf_renderer(),
+            'is_pro_plugin_active' => defined('EMBEDPRESS_SL_ITEM_SLUG'),
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'source_nonce' => wp_create_nonce('source_nonce_embedpress'),
+            'can_upload_media' => current_user_can('upload_files'),
+            'permalink_structure' => get_option('permalink_structure'),
+            'EMBEDPRESS_URL_ASSETS' => EMBEDPRESS_URL_ASSETS,
+            'iframe_width' => Helper::get_options_value('enableEmbedResizeWidth'),
+            'iframe_height' => Helper::get_options_value('enableEmbedResizeHeight'),
+            'pdf_custom_color' => Helper::get_options_value('custom_color'),
+            'pdf_custom_color' => Helper::get_options_value('custom_color'),
+            'youtube_brand_logo_url' => Helper::get_branding_value('logo_url', 'youtube'),
+            'vimeo_brand_logo_url' => Helper::get_branding_value('logo_url', 'vimeo'),
+            'wistia_brand_logo_url' => Helper::get_branding_value('logo_url', 'wistia'),
+            'twitch_brand_logo_url' => Helper::get_branding_value('logo_url', 'twitch'),
+            'dailymotion_brand_logo_url' => Helper::get_branding_value('logo_url', 'dailymotion'),
+            'user_roles' => Helper::get_user_roles(),
+            'current_user' => $current_user->data,
+            'is_embedpress_feedback_submited' => get_option('embedpress_feedback_submited'),
+            'turn_off_rating_help' => Helper::get_options_value('turn_off_rating_help'),
         ]);
     }
 
@@ -412,19 +447,28 @@ class LocalizationManager
      */
     private static function get_analytics_session_id()
     {
-        // Only start session if we're in a web context and headers haven't been sent
-        if (!session_id() && !headers_sent() && !defined('WP_CLI')) {
-            session_start();
+        // Prefer cookie-based session IDs to avoid server PHP session configuration issues
+        if (isset($_COOKIE['ep_session_id'])) {
+            $cookie = $_COOKIE['ep_session_id'];
+            // Allow only safe characters and a minimum length
+            if (is_string($cookie) && preg_match('/^[A-Za-z0-9._:-]{8,}$/', $cookie)) {
+                return sanitize_text_field($cookie);
+            }
         }
 
-        if (session_id() && !isset($_SESSION['embedpress_session_id'])) {
-            $_SESSION['embedpress_session_id'] = wp_generate_uuid4();
+        // Generate a new ephemeral session ID
+        $id = 'ep-sess-' . time() . '-' . wp_generate_password(8, false);
+
+        // Set a session cookie (expires when the browser closes)
+        if (!headers_sent()) {
+            $path = defined('COOKIEPATH') ? COOKIEPATH : '/';
+            $domain = (defined('COOKIE_DOMAIN') && COOKIE_DOMAIN) ? COOKIE_DOMAIN : '';
+            $secure = is_ssl();
+            $httponly = true;
+            setcookie('ep_session_id', $id, 0, $path, $domain, $secure, $httponly);
         }
 
-        // Fallback to a generated session ID if session is not available
-        return isset($_SESSION['embedpress_session_id'])
-            ? $_SESSION['embedpress_session_id']
-            : 'session_' . wp_generate_uuid4();
+        return $id;
     }
 
     /**
