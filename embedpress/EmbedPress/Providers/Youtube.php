@@ -653,7 +653,7 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
                             <div class="item" data-vid="<?php echo $vid; ?>">
                                 <div class="thumb" style="background: <?php echo "url({$thumbnail}) no-repeat center"; ?>">
                                     <div class="play-icon">
-                                        <img src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS. 'images/youtube/youtube-play.png'); ?>" alt="">
+                                        <img src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS. 'images/youtube.svg'); ?>" alt="">
                                     </div>
                                 </div>
                                 <div class="body">

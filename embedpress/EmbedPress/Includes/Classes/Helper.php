@@ -125,11 +125,23 @@ class Helper
 		return $renderer;
 	}
 
+	public static function get_flipbook_renderer()
+	{
+		$renderer = admin_url('admin-ajax.php?action=get_flipbook_viewer');
+		return $renderer;
+	}
+
 	public static  function get_extension_from_file_url($url)
 	{
 		$urlSplit = explode(".", $url);
 		$ext = end($urlSplit);
 		return $ext;
+	}
+
+
+	public static function is_instagram_feed($url)
+	{
+		return (bool) preg_match('~(?:https?://)?(?:www\.)?instagram\.com/(?!p/|reel/|tv/|stories/)[^/]+/?$~i', (string) $url);
 	}
 
 	public static function is_file_url($url)
@@ -155,8 +167,6 @@ class Helper
 	// Saved sources data temporary in wp_options table
 	public static function get_source_data($blockid, $source_url, $source_option_name, $source_temp_option_name)
 	{
-
-
 		if (self::is_youtube_channel($source_url)) {
 			$source_name = 'YoutubeChannel';
 		} else if (self::is_youtube($source_url)) {
@@ -165,6 +175,8 @@ class Helper
 			$source_name = 'document_' . self::get_extension_from_file_url($source_url);
 		} else if (self::is_opensea($source_url)) {
 			$source_name  = 'OpenSea';
+		} else if (self::is_instagram_feed($source_url)) {
+			$source_name  = 'InstagramFeed';
 		} else {
 			Shortcode::get_embera_instance();
 			$collectios = Shortcode::get_collection();
@@ -401,7 +413,7 @@ class Helper
 		$lock_icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g fill="#6354a5" class="color134563 svgShape"><path d="M46.3 28.7h-3v-6.4C43.3 16.1 38.2 11 32 11c-6.2 0-11.3 5.1-11.3 11.3v6.4h-3v-6.4C17.7 14.4 24.1 8 32 8s14.3 6.4 14.3 14.3v6.4" fill="#6354a5" class="color000000 svgShape"></path><path d="M44.8 55.9H19.2c-2.6 0-4.8-2.2-4.8-4.8V31.9c0-2.6 2.2-4.8 4.8-4.8h25.6c2.6 0 4.8 2.2 4.8 4.8v19.2c0 2.7-2.2 4.8-4.8 4.8zM19.2 30.3c-.9 0-1.6.7-1.6 1.6v19.2c0 .9.7 1.6 1.6 1.6h25.6c.9 0 1.6-.7 1.6-1.6V31.9c0-.9-.7-1.6-1.6-1.6H19.2z" fill="#6354a5" class="color000000 svgShape"></path><path d="M35.2 36.7c0 1.8-1.4 3.2-3.2 3.2s-3.2-1.4-3.2-3.2 1.4-3.2 3.2-3.2 3.2 1.5 3.2 3.2" fill="#6354a5" class="color000000 svgShape"></path><path d="M32.8 36.7h-1.6l-1.6 9.6h4.8l-1.6-9.6" fill="#6354a5" class="color000000 svgShape"></path></g></svg>';
 
 		echo '
-		<div class="password-form-container">
+		<div class="password-form-container sd">
 			<h2>' . esc_html($lock_heading) . '</h2>
 			<p>' . esc_html($lock_subheading) . ' </p>
 				<form class="password-form" method="post" class="password-form" data-unlocking-text="' . esc_attr($unlocking_text) . '">
@@ -862,7 +874,7 @@ class Helper
 							</div>
 						</div>
 						<div class="insta-gallery-item-info">
-							<?php if (strtolower($connected_account_type) === 'business') : ?>
+							<?php if (apply_filters('embedpress/is_allow_rander', false)): ?>
 								<div class="insta-item-reaction-count">
 									<div class="insta-gallery-item-likes">
 										<?php echo Helper::get_insta_like_icon();
@@ -1283,10 +1295,10 @@ class Helper
 			return $userInfo;
 		}
 
-		if (strtolower($accountType) === 'business') {
-			$api_url = 'https://graph.facebook.com/' . $userId . '?fields=biography,id,username,website,followers_count,media_count,profile_picture_url,name&access_token=' . $accessToken;
+		if (strtolower($accountType) === 'personal') {
+			$api_url = 'https://graph.instagram.com/v24.0/me?fields=biography,id,username,website,followers_count,media_count,profile_picture_url,name&access_token=' . $accessToken;
 		} else {
-			$api_url = "https://graph.instagram.com/me?fields=id,username,account_type,media_count,followers_count,biography,website&access_token={$accessToken}";
+			$api_url = 'https://graph.facebook.com/' . $userId . '?fields=biography,id,username,website,followers_count,media_count,profile_picture_url,name&access_token=' . $accessToken;
 		}
 
 		$connected_account_type = $accountType;
@@ -1334,10 +1346,10 @@ class Helper
 			return $posts;
 		}
 
-		if (strtolower($account_type) === 'business') {
-			$api_url = 'https://graph.facebook.com/v17.0/' . $userId . '/media?fields=media_url,media_product_type,thumbnail_url,caption,id,media_type,timestamp,username,comments_count,like_count,permalink,children%7Bmedia_url,id,media_type,timestamp,permalink,thumbnail_url%7D&limit=' . $limit . '&access_token=' . $access_token;
+		if (strtolower($account_type) === 'personal') {
+			$api_url = 'https://graph.instagram.com/v24.0/me/media?fields=id,caption,media_type,media_url,children{media_url,id,media_type},permalink,timestamp,username,thumbnail_url,comments_count,like_count&limit=' . $limit . '&access_token=' . $access_token;
 		} else {
-			$api_url = "https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,children{media_url,id,media_type},permalink,timestamp,username,thumbnail_url&limit=$limit&access_token=$access_token";
+			$api_url = 'https://graph.facebook.com/v17.0/' . $userId . '/media?fields=media_url,media_product_type,thumbnail_url,caption,id,media_type,timestamp,username,comments_count,like_count,permalink,children%7Bmedia_url,id,media_type,timestamp,permalink,thumbnail_url%7D&limit=' . $limit . '&access_token=' . $access_token;
 		}
 
 		$postsResponse = wp_remote_get($api_url);
@@ -1601,7 +1613,13 @@ class Helper
 
 	public static function getBooleanParam($param, $default = false)
 	{
-		return isset($param) && is_string($param) && ($param == 'true' || $param == 'yes') ? 'true' : ($default ? 'true' : 'false');
+		if (in_array($param, [true, 'true', 'yes', 1, '1'], true)) {
+			return true;
+		}
+		if (in_array($param, [false, 'false', 'no', 0, '0'], true)) {
+			return false;
+		}
+		return (bool) $default;
 	}
 
 	public static function has_allowed_roles($allowed_roles = [])
@@ -1656,7 +1674,9 @@ class Helper
 			$source_name = 'document_' . self::get_extension_from_file_url($source_url);
 		} else if (self::is_opensea($source_url)) {
 			$source_name  = 'OpenSea';
-		} else {
+		} else if (self::is_instagram_feed($source_url)) {
+			$source_name  = 'InstagramFeed';
+		}else {
 			Shortcode::get_embera_instance();
 			$collectios = Shortcode::get_collection();
 			$provider = $collectios->findProviders($source_url);

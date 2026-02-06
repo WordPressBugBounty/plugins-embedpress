@@ -1228,6 +1228,10 @@ class BlockManager
                 'type' => 'number',
                 'default' => 600
             ],
+            'showTitle' => [
+                'type' => 'boolean',
+                'default' => true
+            ],
             'playerAutoplay' => [
                 'type' => 'boolean',
                 'default' => false

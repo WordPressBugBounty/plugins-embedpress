@@ -3,10 +3,10 @@
 /**
  * Plugin Name: EmbedPress
  * Plugin URI:  https://embedpress.com/
- * Description: EmbedPress lets you embed videos, images, posts, audio, maps and upload PDF, DOC, PPT & all other types of content into your WordPress site with one-click and showcase it beautifully for the visitors. 150+ sources supported.
+ * Description: EmbedPress lets you embed videos, images, posts, audio, maps and upload PDF, DOC, PPT & all other types of content into your WordPress site with one-click and showcase it beautifully for the visitors. 250+ sources supported.
  * Author: WPDeveloper
  * Author URI: https://wpdeveloper.com
- * Version: 4.4.2
+ * Version: 4.4.9
  * Text Domain: embedpress
  * Domain Path: /languages
  *
@@ -31,6 +31,7 @@ use EmbedPress\Includes\Classes\Feature_Enhancer;
 use EmbedPress\Includes\Classes\Extend_Elementor_Controls;
 use EmbedPress\Includes\Classes\Extend_CustomPlayer_Controls;
 use EmbedPress\Includes\Classes\Helper;
+use EmbedPress\MilestoneNotification;
 use EmbedPress\Shortcode;
 
 
@@ -60,7 +61,7 @@ if (!defined('EMBEDPRESS_PLUGIN_VERSION')) {
     if (defined('EMBEDPRESS_DEV_MODE') && EMBEDPRESS_DEV_MODE) {
         define('EMBEDPRESS_PLUGIN_VERSION', time());
     } else {
-        define('EMBEDPRESS_PLUGIN_VERSION', '4.4.2');
+        define('EMBEDPRESS_PLUGIN_VERSION', '4.4.9');
     }
 }
 
@@ -134,6 +135,12 @@ new Extend_Elementor_Controls();
 new Extend_CustomPlayer_Controls();
 if (is_admin()) {
     new Analytics();
+
+    // Initialize Milestone Notification
+
+    if (!defined('EMBEDPRESS_SL_ITEM_SLUG')) {
+        MilestoneNotification::init();
+    }
 }
 
 new Helper();

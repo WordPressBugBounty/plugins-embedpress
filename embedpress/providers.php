@@ -22,6 +22,7 @@ $additionalServiceProviders = [
 	EMBEDPRESS_NAMESPACE . "\\Providers\\GoogleDrive" => ["drive.google.com"],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\GooglePhotos" => ["photos.app.goo.gl", "photos.google.com"],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\GoogleDocs" => ["docs.google.com"],
+	EMBEDPRESS_NAMESPACE . "\\Providers\\GoogleCalendar" => ["calendar.google.com"],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\Twitch"     => ["twitch.tv", "clips.twitch.tv"],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\Giphy"      => ["giphy.com", "i.giphy.com"],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\Boomplay"   => ["boomplay.com"],
@@ -44,4 +45,5 @@ $additionalServiceProviders = [
 	EMBEDPRESS_NAMESPACE . "\\Providers\\FITE"    => ['fite.tv', 'triller.tv','trillertv.com'],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\Meetup"    => ['meetup.com'],
 	EMBEDPRESS_NAMESPACE . "\\Providers\\GettyImages"    => ['gettyimages.com'],
+	EMBEDPRESS_NAMESPACE . "\\Providers\\Wistia"    => ['*.wistia.com', 'wistia.com'],
 ];

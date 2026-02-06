@@ -22,6 +22,7 @@ class LocalizationManager
         global $pagenow;
 
         self::setup_license_localization();
+        self::setup_feature_notices_localization();
 
         // Setup settings page localization if on EmbedPress settings page
         if (strpos($hook, 'embedpress') !== false) {
@@ -43,6 +44,7 @@ class LocalizationManager
         self::setup_frontend_script_localization();
         self::setup_gutenberg_localization();
         self::setup_new_blocks_localization();
+        self::setup_preview_localization();
     }
 
     /**
@@ -67,15 +69,12 @@ class LocalizationManager
     }
 
     /**
-     * Setup preview localization (attached to admin script)
+     * Setup preview localization (attached to preview script)
      */
     private static function setup_preview_localization()
     {
-        $script_handle = 'embedpress-admin';
-
-        if (!wp_script_is($script_handle, 'enqueued') && !wp_script_is($script_handle, 'registered')) {
-            return;
-        }
+        // Try both admin and preview script handles
+        $script_handles = ['embedpress-admin', 'embedpress-preview'];
 
         $url_schemes = apply_filters('embedpress:getAdditionalURLSchemes', self::get_url_schemes());
 
@@ -84,7 +83,7 @@ class LocalizationManager
         $shortcode = defined('EMBEDPRESS_SHORTCODE') ? EMBEDPRESS_SHORTCODE : 'embedpress';
         $assets_url = defined('EMBEDPRESS_URL_ASSETS') ? EMBEDPRESS_URL_ASSETS : '';
 
-        wp_localize_script($script_handle, 'embedpressPreviewData', [
+        $localization_data = [
             'previewSettings' => [
                 'baseUrl'    => get_site_url() . '/',
                 'versionUID' => $version,
@@ -92,8 +91,14 @@ class LocalizationManager
             ],
             'shortcode'  => $shortcode,
             'assetsUrl' => $assets_url,
-            'urlSchemes'            => $url_schemes,
-        ]);
+            'urlSchemes' => $url_schemes,
+        ];
+
+        foreach ($script_handles as $script_handle) {
+            if (wp_script_is($script_handle, 'enqueued') || wp_script_is($script_handle, 'registered')) {
+                wp_localize_script($script_handle, 'embedpressPreviewData', $localization_data);
+            }
+        }
 
         wp_localize_script($script_handle, 'embedpressAdminParams', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -116,6 +121,23 @@ class LocalizationManager
 
         wp_localize_script($script_handle, 'embedpressLicenseData', [
             'nonce' => wp_create_nonce('wpdeveloper_sl_' . $item_id . '_nonce')
+        ]);
+    }
+
+    /**
+     * Setup feature notices script localization
+     */
+    private static function setup_feature_notices_localization()
+    {
+        $script_handle = 'embedpress-feature-notices';
+
+        if (!wp_script_is($script_handle, 'enqueued') && !wp_script_is($script_handle, 'registered')) {
+            return;
+        }
+
+        wp_localize_script($script_handle, 'embedpressFeatureNotices', [
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('embedpress_feature_notice'),
         ]);
     }
 
@@ -146,44 +168,57 @@ class LocalizationManager
         $assets_url = defined('EMBEDPRESS_URL_ASSETS') ? EMBEDPRESS_URL_ASSETS : '';
         $static_url = defined('EMBEDPRESS_URL_STATIC') ? EMBEDPRESS_URL_STATIC : '';
 
+        // Get global powered_by setting
+        $g_settings = get_option(EMBEDPRESS_PLG_NAME, []);
+        $powered_by_default = isset($g_settings['embedpress_document_powered_by']) && $g_settings['embedpress_document_powered_by'] === 'yes';
+        $lazy_load_default = isset($g_settings['g_lazyload']) && $g_settings['g_lazyload'] == 1;
+
         wp_localize_script($script_handle, 'embedpressGutenbergData', [
 
 
             // Keep only the variables that are actually used in JavaScript
             'wistiaLabels'  => json_encode($wistia_labels),
             'wistiaOptions' => $wistia_options,
-            'poweredBy' => apply_filters('embedpress_document_block_powered_by', true),
+            'poweredBy' => apply_filters('embedpress_document_block_powered_by', $powered_by_default),
             'isProVersion' => defined('EMBEDPRESS_PRO_PLUGIN_FILE'),
             'twitchHost' => !empty($pars_url['host']) ? $pars_url['host'] : '',
             'siteUrl' => site_url(),
             'activeBlocks' => $active_blocks,
             'documentCta' => $documents_cta_options,
             'pdfRenderer' => Helper::get_pdf_renderer(),
+            'flipbookRenderer' => Helper::get_flipbook_renderer(),
             'isProPluginActive' => defined('EMBEDPRESS_SL_ITEM_SLUG'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
+            'adminUrl' => admin_url(),
             'sourceNonce' => wp_create_nonce('source_nonce_embedpress'),
             'canUploadMedia' => current_user_can('upload_files'),
             'assetsUrl' => $assets_url,
             'staticUrl' => $static_url,
-            'iframeWidth' => Helper::get_options_value('enableEmbedResizeWidth', '600'),
-            'iframeHeight' => Helper::get_options_value('enableEmbedResizeHeight', '400'),
+            // Use underscore naming for consistency with block attributes
+            'iframe_width' => Helper::get_options_value('enableEmbedResizeWidth', '600'),
+            'iframe_height' => Helper::get_options_value('enableEmbedResizeHeight', '400'),
+            'iframeWidth' => Helper::get_options_value('enableEmbedResizeWidth', '600'), // Keep camelCase for backward compatibility
+            'iframeHeight' => Helper::get_options_value('enableEmbedResizeHeight', '400'), // Keep camelCase for backward compatibility
             'pdfCustomColor' => Helper::get_options_value('custom_color', '#403A81'),
+            'lazyLoad' => $lazy_load_default,
             'brandingLogos' => [
                 'youtube' => Helper::get_branding_value('logo_url', 'youtube'),
                 'vimeo' => Helper::get_branding_value('logo_url', 'vimeo'),
                 'wistia' => Helper::get_branding_value('logo_url', 'wistia'),
                 'twitch' => Helper::get_branding_value('logo_url', 'twitch'),
                 'dailymotion' => Helper::get_branding_value('logo_url', 'dailymotion'),
+                'document' => Helper::get_branding_value('logo_url', 'document'),
             ],
             'userRoles' => Helper::get_user_roles(),
             'currentUser' => $current_user->data,
             'feedbackSubmitted' => get_option('embedpress_feedback_submited'),
             'ratingHelpDisabled' => Helper::get_options_value('turn_off_rating_help', false),
+            'milestoneDisabled' => Helper::get_options_value('turn_off_milestone', false),
 
             // Legacy support
             'wistia_labels'  => json_encode($wistia_labels),
             'wisita_options' => $wistia_options,
-            'embedpress_powered_by' => apply_filters('embedpress_document_block_powered_by', true),
+            'embedpress_powered_by' => apply_filters('embedpress_document_block_powered_by', $powered_by_default),
             'embedpress_pro' => defined('EMBEDPRESS_PRO_PLUGIN_FILE'),
             'twitch_host' => !empty($pars_url['host']) ? $pars_url['host'] : '',
             'site_url' => site_url(),
@@ -192,6 +227,7 @@ class LocalizationManager
             'active_blocks' => $active_blocks,
             'document_cta' => $documents_cta_options,
             'pdf_renderer' => Helper::get_pdf_renderer(),
+            'flipbook_renderer' => Helper::get_flipbook_renderer(),
             'is_pro_plugin_active' => defined('EMBEDPRESS_SL_ITEM_SLUG'),
             'ajaxurl' => admin_url('admin-ajax.php'),
             'source_nonce' => wp_create_nonce('source_nonce_embedpress'),
@@ -211,6 +247,7 @@ class LocalizationManager
             'current_user' => $current_user->data,
             'is_embedpress_feedback_submited' => get_option('embedpress_feedback_submited'),
             'turn_off_rating_help' => Helper::get_options_value('turn_off_rating_help'),
+            'turn_off_milestone' => Helper::get_options_value('turn_off_milestone'),
         ]);
     }
 
@@ -248,6 +285,7 @@ class LocalizationManager
 
         wp_localize_script($script_handle, 'embedpressSettingsData', [
             'nonce' => wp_create_nonce('embedpress_elements_action'),
+            'ajaxNonce' => wp_create_nonce('embedpress_ajax_nonce'),
         ]);
     }
 

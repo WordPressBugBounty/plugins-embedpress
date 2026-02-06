@@ -51,14 +51,15 @@ class Embedpress_Elementor extends Widget_Base
 		$handles = [];
 
 		if (isset($handler_keys['enabled_custom_player']) && $handler_keys['enabled_custom_player'] === 'yes') {
-			$handles[] = 'plyr';
+			$handles[] = 'embedpress-plyr-css';
 		}
 		if (isset($handler_keys['enabled_instafeed']) && $handler_keys['enabled_instafeed'] === 'yes') {
-			$handles[] = 'cg-carousel';
+			$handles[] = 'embedpress-carousel-vendor-css';
+			$handles[] = 'embedpress-glider-css';
 		}
 
 		$handles[] = 'embedpress-elementor-css';
-		$handles[] = 'embedpress-style';
+		$handles[] = 'embedpress-css';
 
 
 		return $handles;
@@ -73,9 +74,9 @@ class Embedpress_Elementor extends Widget_Base
 		$handles = [];
 
 		if (isset($handler_keys['enabled_custom_player']) && $handler_keys['enabled_custom_player'] === 'yes') {
-			$handles[] = 'plyr.polyfilled';
-			$handles[] = 'initplyr';
-			$handles[] = 'vimeo-player';
+			$handles[] = 'embedpress-plyr-polyfilled';
+			$handles[] = 'embedpress-init-plyr';
+			$handles[] = 'embedpress-vimeo-player';
 		}
 		$handles[] = 'embedpress-front';
 
@@ -84,7 +85,8 @@ class Embedpress_Elementor extends Widget_Base
 		}
 
 		if (isset($handler_keys['enabled_instafeed']) && $handler_keys['enabled_instafeed'] === 'yes') {
-			$handles[] = 'cg-carousel';
+			$handles[] = 'embedpress-carousel-vendor';
+			$handles[] = 'embedpress-glider';
 		}
 
 		return $handles;
@@ -184,6 +186,7 @@ class Embedpress_Elementor extends Widget_Base
 					'soundcloud'  => __('SoundCloud', 'embedpress'),
 					'dailymotion' => __('Dailymotion', 'embedpress'),
 					'wistia'      => __('Wistia', 'embedpress'),
+					'meetup'      => __('Meetup', 'embedpress'),
 					'calendly'    => __('Calendly', 'embedpress'),
 					'opensea'     => __('OpenSea', 'embedpress'),
 					'spreaker'    => __('Spreaker', 'embedpress'),
@@ -431,10 +434,15 @@ class Embedpress_Elementor extends Widget_Base
 
 		$this->init_google_photos_control_setion();
 
-
+		/**
+		 * Meetup Control section
+		 */
+		$this->init_meetup_control_section();
 
 		do_action('extend_elementor_controls', $this, '_', $this->pro_text, $this->pro_class);
 
+		$this->init_performance_controls();
+		
 		$this->init_style_controls();
 		$this->init_opensea_color_and_typography();
 	}
@@ -1785,6 +1793,7 @@ class Embedpress_Elementor extends Widget_Base
 						'dailymotion',
 						'wistia',
 						'twitch',
+						'meetup',
 						'soundcloud',
 						'instafeed',
 						'calendly',
@@ -1816,6 +1825,7 @@ class Embedpress_Elementor extends Widget_Base
 						'vimeo',
 						'dailymotion',
 						'wistia',
+						'meetup',
 						'twitch',
 						'soundcloud',
 						'instafeed',
@@ -2961,30 +2971,8 @@ class Embedpress_Elementor extends Widget_Base
 				'label_block'  => false,
 				'return_value' => 'true',
 				'default'      => 'true',
-				'conditions' => [
-					'relation' => 'or',
-					'terms' => [
-						[
-							'name' => 'instafeedFeedType',
-							'operator' => '===',
-							'value' => 'hashtag_type',
-						],
-						[
-							'relation' => 'and',
-							'terms' => [
-								[
-									'name' => 'instafeedAccountType',
-									'operator' => '===',
-									'value' => 'business',
-								],
-								[
-									'name' => 'embedpress_pro_embeded_source',
-									'operator' => '===',
-									'value' => 'instafeed',
-								],
-							],
-						],
-					],
+				'condition'    => [
+					'embedpress_pro_embeded_source' => 'instafeed',
 				],
 			]
 		);
@@ -2998,33 +2986,9 @@ class Embedpress_Elementor extends Widget_Base
 				'label_block'  => false,
 				'return_value' => 'true',
 				'default'      => 'true',
-
-				'conditions' => [
-					'relation' => 'or',
-					'terms' => [
-						[
-							'name' => 'instafeedFeedType',
-							'operator' => '===',
-							'value' => 'hashtag_type',
-						],
-						[
-							'relation' => 'and',
-							'terms' => [
-								[
-									'name' => 'instafeedAccountType',
-									'operator' => '===',
-									'value' => 'business',
-								],
-								[
-									'name' => 'embedpress_pro_embeded_source',
-									'operator' => '===',
-									'value' => 'instafeed',
-								],
-							],
-						],
-					],
+				'condition'    => [
+					'embedpress_pro_embeded_source' => 'instafeed',
 				],
-
 			]
 		);
 
@@ -3227,7 +3191,6 @@ class Embedpress_Elementor extends Widget_Base
 				'return_value' => 'yes',
 				'default'      => 'yes',
 				'condition' => [
-					'instafeedAccountType!' => 'personal',
 					'instafeedFeedType!' => 'hashtag_type',
 					'embedpress_pro_embeded_source' => 'instafeed',
 				],
@@ -3243,7 +3206,6 @@ class Embedpress_Elementor extends Widget_Base
 				'label_block' => false,
 				'separator'    => 'after',
 				'condition' => [
-					'instafeedAccountType!' => 'personal',
 					'instafeedFollowersCount' => 'yes',
 					'instafeedFeedType!' => 'hashtag_type',
 					'embedpress_pro_embeded_source' => 'instafeed'
@@ -3261,7 +3223,6 @@ class Embedpress_Elementor extends Widget_Base
 				'return_value' => 'yes',
 				'default'      => 'yes',
 				'condition' => [
-					'instafeedAccountType!' => 'personal',
 					'instafeedFeedType!' => 'hashtag_type',
 					'embedpress_pro_embeded_source' => 'instafeed'
 				],
@@ -3760,6 +3721,20 @@ class Embedpress_Elementor extends Widget_Base
 			);
 		}
 
+		$this->add_control(
+			'showTitle',
+			[
+				'label' => __('Show Title', 'embedpress'),
+				'type' => \Elementor\Controls_Manager::SWITCHER,
+				'label_on' => __('Yes', 'embedpress'),
+				'label_off' => __('No', 'embedpress'),
+				'default' => 'yes',
+				'condition' => [
+					'embedpress_pro_embeded_source' => 'google_photos',
+				],
+			]
+		);
+
 
 		// Player Autoplay, Delay, and Repeat
 		$this->add_control(
@@ -3882,11 +3857,180 @@ class Embedpress_Elementor extends Widget_Base
 		$this->end_controls_section();
 	}
 
+	/**
+	 * Meetup Controls
+	 */
+	public function init_meetup_control_section()
+	{
+		$condition = [
+			'embedpress_pro_embeded_source' => 'meetup',
+		];
+
+		$this->start_controls_section(
+			'meetup_controls_section',
+			[
+				'label' => __('Meetup Settings', 'embedpress'),
+				'condition'    => $condition,
+			]
+		);
+
+		$this->add_control(
+			'meetup_rss_feed_note',
+			[
+				'type' => \Elementor\Controls_Manager::RAW_HTML,
+				'raw' => esc_html__('Note: Order By, Order, Events Per Page, and Load More controls only apply to Meetup RSS feeds (URLs with /events). For single event embeds, only timezone and date/time format settings will be used.', 'embedpress'),
+				'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
+			]
+		);
+
+		$this->add_control(
+			'meetup_orderby',
+			[
+				'label' => __('Order By', 'embedpress'),
+				'type' => Controls_Manager::SELECT,
+				'options' => [
+					'date' => __('Date', 'embedpress'),
+					'title' => __('Title', 'embedpress'),
+					'attendees' => __('Attendees', 'embedpress'),
+				],
+				'default' => 'date',
+				'description' => __('Choose how to sort the events (RSS feeds only)', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'meetup_order',
+			[
+				'label' => __('Order', 'embedpress'),
+				'type' => Controls_Manager::SELECT,
+				'options' => [
+					'ASC' => __('Ascending', 'embedpress'),
+					'DESC' => __('Descending', 'embedpress'),
+				],
+				'default' => 'ASC',
+				'description' => __('Sort direction (RSS feeds only)', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'meetup_per_page',
+			[
+				'label' => __('Events Per Page', 'embedpress'),
+				'type' => Controls_Manager::NUMBER,
+				'min' => 1,
+				'max' => 50,
+				'default' => 10,
+				'description' => __('Number of events to show per page (RSS feeds only)', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'meetup_enable_pagination',
+			[
+				'label' => __('Enable Load More', 'embedpress'),
+				'type' => Controls_Manager::SWITCHER,
+				'label_on' => __('Yes', 'embedpress'),
+				'label_off' => __('No', 'embedpress'),
+				'default' => 'yes',
+				'description' => __('Show a "Load More" button to load additional events (RSS feeds only)', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'meetup_timezone',
+			[
+				'label' => __('Timezone', 'embedpress'),
+				'type' => Controls_Manager::SELECT,
+				'options' => [
+					'visitor_timezone' => __('Visitor Timezone (Auto-detect)', 'embedpress'),
+					'wp_timezone' => __('WordPress Site Timezone', 'embedpress'),
+					'UTC' => __('UTC', 'embedpress'),
+					'America/New_York' => __('America/New_York (EST/EDT)', 'embedpress'),
+					'America/Chicago' => __('America/Chicago (CST/CDT)', 'embedpress'),
+					'America/Denver' => __('America/Denver (MST/MDT)', 'embedpress'),
+					'America/Los_Angeles' => __('America/Los_Angeles (PST/PDT)', 'embedpress'),
+					'Europe/London' => __('Europe/London (GMT/BST)', 'embedpress'),
+					'Europe/Paris' => __('Europe/Paris (CET/CEST)', 'embedpress'),
+					'Asia/Tokyo' => __('Asia/Tokyo (JST)', 'embedpress'),
+					'Australia/Sydney' => __('Australia/Sydney (AEST/AEDT)', 'embedpress'),
+				],
+				'default' => 'visitor_timezone',
+				'description' => __('Select timezone for displaying event dates and times. Visitor timezone will auto-detect based on their browser.', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'meetup_date_format',
+			[
+				'label' => __('Date Format', 'embedpress'),
+				'type' => Controls_Manager::SELECT,
+				'options' => [
+					'wp_date_format' => __('WordPress Date Format', 'embedpress'),
+					'm/d/Y' => __('MM/DD/YYYY', 'embedpress'),
+					'd/m/Y' => __('DD/MM/YYYY', 'embedpress'),
+					'Y-m-d' => __('YYYY-MM-DD', 'embedpress'),
+					'F j, Y' => __('Month DD, YYYY', 'embedpress'),
+					'j F Y' => __('DD Month YYYY', 'embedpress'),
+				],
+				'default' => 'wp_date_format',
+				'description' => __('Select date format for event dates', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'meetup_time_format',
+			[
+				'label' => __('Time Format', 'embedpress'),
+				'type' => Controls_Manager::SELECT,
+				'options' => [
+					'wp_time_format' => __('WordPress Time Format', 'embedpress'),
+					'g:i A' => __('12-hour (h:mm AM/PM)', 'embedpress'),
+					'H:i' => __('24-hour (HH:mm)', 'embedpress'),
+				],
+				'default' => 'wp_time_format',
+				'description' => __('Select time format for event times', 'embedpress'),
+			]
+		);
+
+		$this->end_controls_section();
+	}
 
 	/**
 	 * End Spreaker Controls
 	 */
 
+	/**
+	 * Performance Settings Section
+	 */
+	public function init_performance_controls()
+	{
+		// Get global lazy load setting
+		$g_settings = get_option(EMBEDPRESS_PLG_NAME, []);
+		$lazy_load_default = isset($g_settings['g_lazyload']) && $g_settings['g_lazyload'] == 1 ? 'yes' : '';
+
+		$this->start_controls_section(
+			'embedpress_performance_section',
+			[
+				'label' => __('Performance', 'embedpress'),
+			]
+		);
+
+		$this->add_control(
+			'enable_lazy_load',
+			[
+				'label' => sprintf(__('Enable Lazy Loading %s', 'embedpress'), $this->pro_text),
+				'type' => \Elementor\Controls_Manager::SWITCHER,
+				'label_on' => __('Yes', 'embedpress'),
+				'label_off' => __('No', 'embedpress'),
+				'return_value' => 'yes',
+				'default' => $lazy_load_default,
+				'description' => __('Load iframe only when it enters the viewport for better performance', 'embedpress'),
+				'classes' => $this->pro_class,
+			]
+		);
+
+		$this->end_controls_section();
+	}
 
 	public function init_style_controls()
 	{
@@ -4349,6 +4493,32 @@ class Embedpress_Elementor extends Widget_Base
         $_settings = Helper::removeQuote($_settings);
 
 
+
+		// Map Meetup-specific settings to shortcode attributes
+		if (strpos($embed_link, 'meetup.com') !== false) {
+			if (isset($settings['meetup_orderby'])) {
+				$_settings['orderby'] = $settings['meetup_orderby'];
+			}
+			if (isset($settings['meetup_order'])) {
+				$_settings['order'] = $settings['meetup_order'];
+			}
+			if (isset($settings['meetup_per_page'])) {
+				$_settings['per_page'] = $settings['meetup_per_page'];
+			}
+			if (isset($settings['meetup_enable_pagination'])) {
+				$_settings['enable_pagination'] = ($settings['meetup_enable_pagination'] === 'yes');
+			}
+			if (isset($settings['meetup_timezone'])) {
+				$_settings['timezone'] = $settings['meetup_timezone'];
+			}
+			if (isset($settings['meetup_date_format'])) {
+				$_settings['date_format'] = $settings['meetup_date_format'];
+			}
+			if (isset($settings['meetup_time_format'])) {
+				$_settings['time_format'] = $settings['meetup_time_format'];
+			}
+		}
+
 		$embed_content = Shortcode::parseContent($settings['embedpress_embeded_link'], true, $_settings);
 		$embed_content = $this->onAfterEmbedSpotify($embed_content, $settings);
 		$embed         = apply_filters('embedpress_elementor_embed', $embed_content, $settings);
@@ -4495,6 +4665,7 @@ class Embedpress_Elementor extends Widget_Base
 						<?php echo isset($settings['custom_player_preset']) ? esc_attr($settings['custom_player_preset']) : ''; ?>
 						<?php echo esc_attr($this->get_instafeed_layout($settings)); ?>
 						<?php echo esc_attr('ep-google-photos-'.$settings['mode']); ?>
+						<?php echo 'data-show-title="' . (isset($settings['showTitle']) ? $settings['showTitle'] : 'yes') . '"'; ?>
 						<?php echo esc_attr($hosted_format); ?>"
 						<?php echo $data_playerid; ?>
 						<?php echo $data_carouselid; ?>
@@ -4530,10 +4701,68 @@ class Embedpress_Elementor extends Widget_Base
 											$content .= Helper::embed_content_share($content_id, $embed_settings);
 										}
 
+										// Apply lazy loading if enabled (but not when custom player is active or in editor mode)
+										$custom_player_enabled = !empty($settings['emberpress_custom_player']) && $settings['emberpress_custom_player'] === 'yes';
+										if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !$custom_player_enabled && !$is_editor_view) {
+											$content = preg_replace_callback(
+												'/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
+												function($matches) {
+													$before = $matches[1];
+													$src = $matches[2];
+													$after = $matches[3];
+
+													// Extract style attribute if exists
+													$style = '';
+													if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
+														$style = $style_match[1];
+													}
+
+													return sprintf(
+														'<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
+														esc_attr($src),
+														esc_attr($style),
+														$before,
+														$after,
+														esc_attr($style)
+													);
+												},
+												$content
+											);
+										}
+
 										echo $content;
 									} else {
 										if (!empty($settings['embedpress_content_share'])) {
 											$content .= Helper::embed_content_share($content_id, $embed_settings);
+										}
+
+										// Apply lazy loading if enabled (but not when custom player is active or in editor mode)
+										$custom_player_enabled = !empty($settings['emberpress_custom_player']) && $settings['emberpress_custom_player'] === 'yes';
+										if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !$custom_player_enabled && !$is_editor_view) {
+											$content = preg_replace_callback(
+												'/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
+												function($matches) {
+													$before = $matches[1];
+													$src = $matches[2];
+													$after = $matches[3];
+
+													// Extract style attribute if exists
+													$style = '';
+													if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
+														$style = $style_match[1];
+													}
+
+													return sprintf(
+														'<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
+														esc_attr($src),
+														esc_attr($style),
+														$before,
+														$after,
+														esc_attr($style)
+													);
+												},
+												$content
+											);
 										}
 
 										if ($settings['embedpress_protection_type'] == 'password') {

@@ -31,6 +31,8 @@ class EmbedPressBlockRenderer
         'photos.google.com',
         'instagram.com',
         'opensea.io',
+        'wistia.com',
+        'wistia.net',
     ];
 
     /**
@@ -75,6 +77,31 @@ class EmbedPressBlockRenderer
 
         if (!class_exists('\\EmbedPress\\Shortcode')) {
             return null;
+        }
+
+        // Map Meetup-specific Gutenberg attributes to shortcode attributes
+        if (!empty($url) && strpos($url, 'meetup.com') !== false) {
+            if (isset($attributes['meetupOrderBy'])) {
+                $attributes['orderby'] = $attributes['meetupOrderBy'];
+            }
+            if (isset($attributes['meetupOrder'])) {
+                $attributes['order'] = $attributes['meetupOrder'];
+            }
+            if (isset($attributes['meetupPerPage'])) {
+                $attributes['per_page'] = $attributes['meetupPerPage'];
+            }
+            if (isset($attributes['meetupEnablePagination'])) {
+                $attributes['enable_pagination'] = $attributes['meetupEnablePagination'];
+            }
+            if (isset($attributes['meetupTimezone'])) {
+                $attributes['timezone'] = $attributes['meetupTimezone'];
+            }
+            if (isset($attributes['meetupDateFormat'])) {
+                $attributes['date_format'] = $attributes['meetupDateFormat'];
+            }
+            if (isset($attributes['meetupTimeFormat'])) {
+                $attributes['time_format'] = $attributes['meetupTimeFormat'];
+            }
         }
 
         try {
@@ -251,13 +278,17 @@ class EmbedPressBlockRenderer
         $renderer = Helper::get_pdf_renderer();
 
         $src = $renderer . ((strpos($renderer, '?') == false) ? '?' : '&') . 'file=' . urlencode($href) . self::generate_pdf_params($attributes);
+        
+        $iframe_title = self::get_iframe_title_from_url($href);
 
-        $embed_code = '<iframe title="' . esc_attr(Helper::get_file_title($href)) . '" class="embedpress-embed-document-pdf ' . esc_attr($id) . '" style="' . esc_attr($legacy_config['dimension']) . '; max-width:100%; display: inline-block" src="' . esc_url($src) . '" frameborder="0" oncontextmenu="return false;"></iframe> ';
+        $embed_code = '<iframe title="' . esc_attr($iframe_title) . '" class="embedpress-embed-document-pdf ' . esc_attr($id) . '" style="' . esc_attr($legacy_config['dimension']) . '; max-width:100%; display: inline-block" src="' . esc_url($src) . '" frameborder="0" oncontextmenu="return false;"></iframe> ';
 
         // Handle flip-book viewer style
         if (isset($attributes['viewerStyle']) && $attributes['viewerStyle'] === 'flip-book') {
             $src = urlencode($href) . self::generate_pdf_params($attributes);
-            $embed_code = '<iframe title="' . esc_attr(Helper::get_file_title($href)) . '" class="embedpress-embed-document-pdf ' . esc_attr($id) . '" style="' . esc_attr($legacy_config['dimension']) . '; max-width:100%; display: inline-block" src="' . esc_url(EMBEDPRESS_URL_ASSETS . 'pdf-flip-book/viewer.html?file=' . $src) . '" frameborder="0" oncontextmenu="return false;"></iframe> ';
+            $renderer = Helper::get_flipbook_renderer();
+            $src_url = $renderer . ((strpos($renderer, '?') == false) ? '?' : '&') . 'file=' . $src;
+            $embed_code = '<iframe title="' . esc_attr(Helper::get_file_title($href)) . '" class="embedpress-embed-document-pdf ' . esc_attr($id) . '" style="' . esc_attr($legacy_config['dimension']) . '; max-width:100%; display: inline-block" src="' . esc_url($src_url) . '" frameborder="0" oncontextmenu="return false;"></iframe> ';
         }
 
         // Add powered by if enabled
@@ -344,7 +375,9 @@ class EmbedPressBlockRenderer
 
         echo '<div class="ep-embed-content-wraper">';
         if ($attributes['protectionType'] == 'password') {
+            echo '<div id="ep-gutenberg-content-' . esc_attr($client_id) . '" class="ep-gutenberg-content">';
             do_action('embedpress/display_password_form', $client_id, $embed, $styling['pass_hash_key'], $attributes);
+            echo '</div>';
         } else {
             do_action('embedpress/content_protection_content', $client_id, $attributes['protectionMessage'], $attributes['userRole']);
         }
@@ -480,6 +513,17 @@ class EmbedPressBlockRenderer
         // Get dynamic content
         $embed = self::get_embed_content($attributes, $content);
 
+        // Inject iframeTitle derived from URL
+        $url = $attributes['url'] ?? '';
+        $title = self::get_iframe_title_from_url($url);
+        
+        if (!empty($title)) {
+            if (is_array($embed) && isset($embed['html'])) {
+                $embed['html'] = preg_replace('/<iframe(.*?)>/i', '<iframe$1 title="' . esc_attr($title) . '">', $embed['html']);
+            } elseif (is_string($embed)) {
+                $embed = preg_replace('/<iframe(.*?)>/i', '<iframe$1 title="' . esc_attr($title) . '">', $embed);
+            }
+        }
 
         // Build CSS classes and styling
         $styling = self::build_styling_config($attributes, $protection_data);
@@ -1115,7 +1159,9 @@ class EmbedPressBlockRenderer
         }
 
         if ($protection_data['protection_type'] === 'password') {
+            echo '<div id="ep-gutenberg-content-' . esc_attr($protection_data['client_id']) . '" class="ep-gutenberg-content">';
             do_action('embedpress/display_password_form', $protection_data['client_id'], $embed, $styling['pass_hash_key'], $attributes);
+            echo '</div>';
         } else {
             do_action('embedpress/content_protection_content', $protection_data['client_id'], $protection_data['protection_message'], $protection_data['user_role']);
         }
@@ -1262,6 +1308,121 @@ class EmbedPressBlockRenderer
     {
         preg_match('~medias/(.*)~i', esc_url($url), $matches);
         return isset($matches[1]) ? $matches[1] : false;
+    }
+
+    /**
+     * Calendar block render method
+     *
+     * @param array $attributes Block attributes
+     * @param string $content Block content
+     * @param object $block Block object (unused but kept for compatibility)
+     * @return string Rendered HTML content
+     */
+    public static function render_embedpress_calendar($attributes, $content = '', $block = null)
+    {
+        if (!empty($content)) {
+            return $content;
+        }
+
+        // Extract basic attributes for Calendar block
+        $url = $attributes['url'] ?? '';
+        $width = $attributes['width'] ?? '600';
+        $height = $attributes['height'] ?? '600';
+        $powered_by = $attributes['powered_by'] ?? false;
+        $is_public = $attributes['is_public'] ?? true;
+        $align = $attributes['align'] ?? 'center';
+
+        // If no URL is provided, return empty
+        if (empty($url)) {
+            return '';
+        }
+
+        // Validate Google Calendar URL
+        if (!self::is_google_calendar_url($url)) {
+            return '<p class="embedpress-el-powered">' . esc_html__('Invalid Calendar Link', 'embedpress') . '</p>';
+        }
+
+        // Build alignment class
+        $align_class = 'align' . $align;
+
+        // Sanitize URL
+        $sanitized_url = esc_url($url);
+
+        // Generate Calendar block HTML
+        ob_start();
+    ?>
+        <figure class="wp-block-embedpress-embedpress-calendar <?php echo esc_attr($align_class); ?>" style="width: <?php echo esc_attr($width); ?>px; height: <?php echo esc_attr($height); ?>px;">
+            <?php if ($is_public && self::is_google_calendar_url($url)) : ?>
+                <iframe src="<?php echo esc_url($sanitized_url); ?>"
+                        width="<?php echo esc_attr($width); ?>"
+                        height="<?php echo esc_attr($height); ?>"
+                        frameborder="0"
+                        scrolling="no"
+                        title="<?php echo esc_attr(self::get_iframe_title_from_url($url)); ?>">
+                </iframe>
+            <?php endif; ?>
+
+            <?php if ($powered_by && self::is_google_calendar_url($url)) : ?>
+                <p class="embedpress-el-powered"><?php echo esc_html__('Powered By EmbedPress', 'embedpress'); ?></p>
+            <?php endif; ?>
+        </figure>
+    <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Validate if URL is a Google Calendar URL
+     *
+     * @param string $url URL to validate
+     * @return bool True if valid Google Calendar URL, false otherwise
+     */
+    private static function is_google_calendar_url($url)
+    {
+        $pattern = '/^https:\/\/calendar\.google\.com\/calendar\/(?:u\/\d+\/)?embed\?.*/';
+        return preg_match($pattern, $url);
+    }
+
+    /**
+     * Get iframe title from URL
+     *
+     * @param string $url URL to derive title from
+     * @return string Derived title
+     */
+    private static function get_iframe_title_from_url($url)
+    {
+        if (empty($url)) {
+            return '';
+        }
+
+        // Try getting title from WordPress attachment if it's a local file
+        $file_title = Helper::get_file_title($url);
+        if (!empty($file_title)) {
+            return $file_title;
+        }
+
+        // Try to get filename from URL
+        $path = parse_url($url, PHP_URL_PATH);
+        if ($path) {
+            $filename = basename($path);
+            // Remove extension
+            $filename = preg_replace('/\.[^.]+$/', '', $filename);
+            // Decode URL encoding
+            $filename = urldecode($filename);
+            // Replace hyphens/underscores with spaces
+            $filename = str_replace(['-', '_'], ' ', $filename);
+            
+            if (!empty($filename)) {
+                return ucfirst($filename);
+            }
+        }
+
+        // Fallback to domain name
+        $host = parse_url($url, PHP_URL_HOST);
+        if ($host) {
+            return $host;
+        }
+
+        return $url;
     }
 }
 ?>

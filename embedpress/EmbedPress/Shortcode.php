@@ -285,7 +285,7 @@ class Shortcode
             // Identify what service provider the shortcode's link belongs to
             $is_embra_provider = apply_filters('embedpress:isEmbra', false, $url, self::get_embera_settings());
 
-            if ($is_embra_provider || (strpos($url, 'meetup.com') !== false) || (strpos($url, 'sway.office.com') !== false) || self::is_problematic_provider($url)) {
+            if ($is_embra_provider || (strpos($url, 'meetup.com') !== false) || (strpos($url, 'sway.office.com') !== false) || (strpos($url, 'wistia.com') !== false) || self::is_problematic_provider($url) ) {
                 $serviceProvider = '';
             } else {
                 $serviceProvider = self::get_oembed()->get_provider($url);
@@ -321,18 +321,28 @@ class Shortcode
             //foreach ( self::$ombed_attributes as $attrName => $attrValue ) {
             //    $attributesHtml[] = $attrName . '="' . $attrValue . '"';
             //}
+
+            // Check if $url is a google shortened url and tries to extract from it which Google service it refers to.
+            self::check_for_google_url($url);
+            $provider_name = self::get_provider_name($urlData, $url);
+
+            // Get excluded height sources
+            $excludedHeightSources = self::get_excluded_height_sources();
+            $shouldExcludeHeight = in_array($provider_name, $excludedHeightSources);
+
             if (isset($customAttributes['height'])) {
                 $height = esc_attr($customAttributes['height']);
             }
 
             if (isset($customAttributes['width'])) {
                 $width = esc_attr($customAttributes['width']);
-                $attributesHtml[] = "style=\"width:{$width}px; height:{$height}px; max-height:{$height}px; max-width:100%; display:inline-block;\"";
+                // Only apply height to wrapper if provider is not excluded
+                if ($shouldExcludeHeight) {
+                    $attributesHtml[] = "style=\"width:{$width}px; max-width:100%; display:inline-block;\"";
+                } else {
+                    $attributesHtml[] = "style=\"width:{$width}px; height:{$height}px; max-height:{$height}px; max-width:100%; display:inline-block;\"";
+                }
             }
-
-            // Check if $url is a google shortened url and tries to extract from it which Google service it refers to.
-            self::check_for_google_url($url);
-            $provider_name = self::get_provider_name($urlData, $url);
             $provider_name = sanitize_text_field($provider_name);
 
             // $html = '{html}';
@@ -788,6 +798,14 @@ KAMAL;
             }
         }
 
+        // Add Meetup-specific attributes to Embera settings
+        $meetup_attributes = ['orderby', 'order', 'per_page', 'enable_pagination', 'timezone', 'date_format', 'time_format'];
+        foreach ($meetup_attributes as $attr) {
+            if (isset($attributes[$attr])) {
+                self::$emberaInstanceSettings[$attr] = $attributes[$attr];
+            }
+        }
+
         foreach ($attributes as $key => $value) {
             if (strpos($key, 'data-') === 0) {
                 $key = str_replace('data-', '', $key);
@@ -1089,7 +1107,9 @@ KAMAL;
     protected static function get_excluded_height_sources()
     {
         // Default excluded sources - you can add more here
-        $defaultExcluded = [];
+        $defaultExcluded = [
+            'meetup' // Meetup events should not have fixed height
+        ];
 
         // Allow filtering of excluded sources
         $excludedSources = apply_filters('embedpress_excluded_height_sources', $defaultExcluded);
@@ -1194,11 +1214,20 @@ KAMAL;
             $urlParamData['customColor'] = isset($attributes['custom_color']) ? esc_attr($attributes['custom_color']) : '#333333';
         }
 
+        $queryString = http_build_query($urlParamData);
+
+        // Ensure UTF-8 encoding with fallback for when mbstring is not available
+        if (function_exists('mb_convert_encoding')) {
+            $queryString = \mb_convert_encoding($queryString, 'UTF-8');
+        } 
+        // If neither mbstring nor iconv is available, use the string as-is
+        // since http_build_query() already produces valid output
+
         if (isset($attributes['viewer_style']) && $attributes['viewer_style'] == 'flip-book') {
-            return "&key=" . base64_encode(mb_convert_encoding(http_build_query($urlParamData), 'UTF-8'));
+            return "&key=" . base64_encode($queryString);
         }
 
-        return "#key=" . base64_encode(mb_convert_encoding(http_build_query($urlParamData), 'UTF-8'));
+        return "#key=" . base64_encode($queryString);
     }
 
     public static function getUnit($value)
@@ -1288,11 +1317,10 @@ KAMAL;
 
 
                     if (isset($attributes['viewer_style']) && $attributes['viewer_style'] === 'flip-book') {
-                        $src = urlencode($url) . self::getParamData($attributes);
-            ?>
-                        <iframe title="<?php echo esc_attr(Helper::get_file_title($url)); ?>" class="embedpress-embed-document-pdf <?php echo esc_attr($id); ?>" style="<?php echo esc_attr($dimension); ?>; max-width:100%; display: inline-block" src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS . 'pdf-flip-book/viewer.html?file=' . $src); ?>" frameborder="0" oncontextmenu="return false;">
-                        </iframe>
-                    <?php
+                        $src = urlencode($url) . self::getParamData($attributes); // Assuming generate_pdf_params is meant to be getParamData
+                        $renderer = Helper::get_flipbook_renderer();
+                        $src_url = $renderer . ((strpos($renderer, '?') === false) ? '?' : '&') . 'file=' . $src;
+                        echo '<iframe title="' . esc_attr(Helper::get_file_title($url)) . '" class="embedpress-embed-document-pdf ' . esc_attr($id) . '" style="' . esc_attr($dimension) . '; max-width:100%; display: inline-block" src="' . esc_url($src_url) . '" frameborder="0" oncontextmenu="return false;"></iframe>';
                     } else {
                     ?>
                         <iframe title="<?php echo esc_attr(Helper::get_file_title($url)); ?>" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true" style="<?php echo esc_attr($dimension); ?>; max-width:100%; display: inline-block" data-emsrc="<?php echo esc_url($url); ?>" data-emid="<?php echo esc_attr($id); ?>" class="embedpress-embed-document-pdf <?php echo esc_attr($id); ?>" src="<?php echo esc_url($src); ?>" frameborder="0">
