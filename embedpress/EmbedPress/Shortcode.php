@@ -457,6 +457,14 @@ class Shortcode
             $embedTemplate = '<div ' . implode(' ', $attributesHtml) . $embedTypeAttr . '>{html}</div>';
 
             $parsedContent = self::get_content_from_template($url, $embedTemplate, $serviceProvider);
+            // Embera's ResponsiveEmbeds::addClasses() runs a global
+            // `class="(.+?)"` replace. When an oEmbed payload carries a
+            // wrapper element with a class AND an iframe with an empty
+            // class="" (Sketchfab, Flourish, …), the non-greedy capture
+            // jumps the gap and swallows the iframe's ` src="` opening
+            // quote, leaving `src= <classtokens>"<URL>"`. Restore a proper
+            // quoted src before any later transform can truncate the URL.
+            $parsedContent = self::repair_responsive_class_corruption($parsedContent, $url);
             // Replace all single quotes to double quotes. I.e: foo='joe' -> foo="joe"
             $parsedContent = str_replace("'", '"', $parsedContent);
             $parsedContent = str_replace("{provider_alias}", esc_html($provider_name), $parsedContent);
@@ -1045,6 +1053,46 @@ KAMAL;
         return self::$collection;
     }
 
+    /**
+     * Repairs an iframe whose `src` was corrupted by Embera's responsive
+     * class injection (see ResponsiveEmbeds::addClasses()).
+     *
+     * The corruption signature is a `src=` that is NOT immediately followed
+     * by a quote — instead the responsive-item class tokens leak in:
+     *   src= embera-embed-responsive-item embera-embed-responsive-item-rich"<URL>"
+     * The real URL is still intact between the stray quote and the next
+     * quote, so we drop the leaked tokens and restore a proper quoted src.
+     *
+     * @param string $html The (possibly corrupted) embed markup.
+     * @param string $url  The original embed URL (kept for signature stability).
+     * @return string
+     */
+    protected static function repair_responsive_class_corruption($html, $url)
+    {
+        // Fast bail: only act on the exact corruption signature so we never
+        // touch healthy embeds. The injected tokens always land right after
+        // an unquoted `src=`, i.e.  src= embera-embed-responsive-item …
+        if (strpos($html, 'src= embera-embed-responsive-item') === false) {
+            return $html;
+        }
+
+        // The damage is mechanically reversible from the string itself:
+        // addClasses() consumed the iframe's `src="` opening quote, so the
+        // markup now reads
+        //   src= embera-embed-responsive-item embera-embed-responsive-item-<type>"<URL>"
+        // The real URL is still intact between the stray quote and the next
+        // quote — we just drop the leaked class tokens and restore a proper
+        // quoted `src`. The iframe keeps its own (empty) class="" attribute,
+        // and the responsive-item class already lives on the wrapper <div>,
+        // so nothing else needs re-adding.
+        return preg_replace(
+            '~src=\s+embera-embed-responsive-item\s+embera-embed-responsive-item-[a-z0-9_-]+\s*"([^"]+)"~i',
+            'src="$1"',
+            $html,
+            1
+        );
+    }
+
     protected static function purify_html_content(&$html)
     {
         if (!class_exists('\simple_html_dom')) {
@@ -1341,6 +1389,7 @@ KAMAL;
             'bookmark' => isset($attributes['bookmark'])  ? $attributes['bookmark'] : 'true',
             'sound' => isset($attributes['sound'])  ? $attributes['sound'] : 'true',
             'flipbook_toolbar_position' => !empty($attributes['toolbar_position'])  ? $attributes['toolbar_position'] : 'bottom',
+            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['flipbook_rtl']) && ($attributes['flipbook_rtl'] === 'true' || $attributes['flipbook_rtl'] === true) ? 'true' : 'false',
             'pageNumber' => isset($attributes['page_number']) ? absint($attributes['page_number']) : 1,
             'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkText']) ? esc_attr($attributes['watermarkText']) : '',
             'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkFontSize']) ? esc_attr($attributes['watermarkFontSize']) : '48',
@@ -1744,6 +1793,7 @@ KAMAL;
             'zoom_out'          => 'true',
             'fit_view'          => 'true',
             'bookmark'          => 'true',
+            'flipbook_rtl'      => 'false',
             'watermark_text'    => '',
             'watermark_font_size' => '48',
             'watermark_color'   => '#000000',
@@ -1900,6 +1950,7 @@ KAMAL;
             'zoom_out' => esc_attr($attributes['zoom_out']),
             'fit_view' => esc_attr($attributes['fit_view']),
             'bookmark' => esc_attr($attributes['bookmark']),
+            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['flipbook_rtl']) && ($attributes['flipbook_rtl'] === 'true' || $attributes['flipbook_rtl'] === true) ? 'true' : 'false',
             'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_text']) : '',
             'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_font_size']) : '48',
             'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_color']) : '#000000',

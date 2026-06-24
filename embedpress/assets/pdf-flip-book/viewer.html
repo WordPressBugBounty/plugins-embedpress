@@ -230,6 +230,20 @@
             template: template,
           };
 
+          // Right-to-left page flipping for right-to-left reading direction.
+          // The library reads `rtl` from the BOOK PROPS, not from a top-level option —
+          // FlipBook(options) never copies options.rtl through. The one reliable hook is
+          // `propertiesCallback`, which the lib invokes with the fully-built props
+          // (containing the default rtl:false) right before constructing the Book; the
+          // returned object is what Book receives. Set rtl there so flip direction,
+          // cover placement, and page numbering all invert.
+          if (params.flipbook_rtl === true || params.flipbook_rtl === "true") {
+            flipBookOptions.propertiesCallback = function (props) {
+              props.rtl = true;
+              return props;
+            };
+          }
+
           // Set initial page via autoNavigation option
           if (epPageNumber && epPageNumber > 1) {
             flipBookOptions.autoNavigation = {

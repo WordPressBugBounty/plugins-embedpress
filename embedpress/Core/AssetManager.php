@@ -1680,6 +1680,7 @@ class AssetManager
                     'googledocs' => 'google-docs',
                     'googlesheets' => 'google-sheets',
                     'googleslides' => 'google-slides',
+                    'googlephotos' => 'google-photos',
                 ];
 
                 // Check if provider name matches our map
@@ -1712,6 +1713,10 @@ class AssetManager
             } else {
                 $types[] = 'youtube';
             }
+        }
+        // Google Photos (shared album links)
+        elseif (strpos($url_lower, 'photos.app.goo.gl') !== false || strpos($url_lower, 'photos.google.com') !== false) {
+            $types[] = 'google-photos';
         }
         // PDF detection
         elseif (preg_match('/\.pdf$/i', $url)) {

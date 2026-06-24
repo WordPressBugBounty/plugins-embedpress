@@ -6,7 +6,7 @@ Tags: embed, embed YouTube, embed PDF, Google Docs, Social Feeds
 Requires at least: 4.6
 Tested up to: 7.0
 Requires PHP: 5.6
-Stable tag: 4.5.5
+Stable tag: 4.5.6
 License: GPLv3 or later
 License URI: https://opensource.org/licenses/GPL-3.0
 
@@ -348,6 +348,15 @@ With EmbedPress you can easily create PDF flipbooks. First, upload PDF into your
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
+
+= [4.5.6] – 2026-06-24 =
+- Improved: PDF download count now increments on every download.
+- Added: View Count positioning controls for PDF embeds.
+- Fixed: PDF block placeholder not selectable before uploading a PDF.
+- Fixed: Google Photos block showing an empty URL when re-editing.
+- Fixed: Missing SameSite attribute for the ep_session_id cookie.
+- Fixed: Sketchfab embedding issue.
+- Few minor bug fixes and improvements.
 
 = [4.5.5] – 2026-06-08 =
 - Added: Visitor counter for PDF and Document embeds.
