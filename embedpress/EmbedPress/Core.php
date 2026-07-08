@@ -7,6 +7,7 @@ use EmbedPress\Ends\Back\Settings\EmbedpressSettings;
 use EmbedPress\Ends\Front\Handler as EndHandlerPublic;
 use EmbedPress\Includes\Traits\Shared;
 use EmbedPress\Includes\Classes\FeatureNotices;
+use EmbedPress\Includes\Classes\FeaturePreviewModal;
 
 
 (defined('ABSPATH') && defined('EMBEDPRESS_IS_LOADED')) or die("No direct script access allowed.");
@@ -136,6 +137,20 @@ class Core
         global $wp_actions;
         add_filter('oembed_providers', [$this, 'addOEmbedProviders']);
         add_action('rest_api_init', [$this, 'registerOEmbedRestRoutes']);
+        add_action('rest_api_init', ['\\EmbedPress\\Includes\\Classes\\GoogleReviewsRestController', 'register']);
+        add_action('enqueue_block_editor_assets', ['\\EmbedPress\\Includes\\Classes\\GoogleReviewsRenderer', 'enqueue_editor_assets']);
+        add_action('elementor/preview/enqueue_styles', ['\\EmbedPress\\Includes\\Classes\\GoogleReviewsRenderer', 'enqueue_editor_assets']);
+        \EmbedPress\Includes\Classes\GoogleReviewsAdminPage::register();
+        // Apify-backed review fetching (the heavy "fetch all reviews" job + the
+        // sync ≤5 fallback) lives in free so the picker → refetch flow works
+        // without Pro. Pro extends this via filters (multi-place merge,
+        // advanced layouts, filtering, theme, schema) — see
+        // embedpress-pro/includes/Filters/Google_Reviews_Pro.php.
+        new \EmbedPress\Includes\Classes\GoogleReviewsApify();
+        // Hosted-proxy review fetch (api.embedpress.com/google-reviews/v1).
+        // Lowest-priority handler on the same filters — Apify (user token) wins
+        // when configured; managed runs as the zero-setup fallback.
+        new \EmbedPress\Includes\Classes\GoogleReviewsManaged();
 
         // just disabled rating and feedback
         // add_action('rest_api_init', [$this, 'register_feedback_email_endpoint']);
@@ -150,6 +165,11 @@ class Core
 
             // Initialize Feature Notices from separate file
             FeatureNotices::get_instance();
+
+            // Initialize the post-update "What's New" feature preview modal.
+            // Its dismiss AJAX + enqueue/render hooks self-register; release
+            // feature sets are registered from FeatureNotices::register_all_notices().
+            FeaturePreviewModal::get_instance();
 
             add_filter(
                 'plugin_action_links_embedpress/embedpress.php',
@@ -783,6 +803,30 @@ class Core
 
             // Clear any previous redirect done flag
             delete_option( 'embedpress_activation_redirect_done' );
+
+        }
+
+        // "What's New" modal: show ONLY after an update from an older version,
+        // never on a brand-new install (a first-time user has nothing "new").
+        // The install_type marker is written later (on admin_init), so at
+        // activation time we detect a fresh site directly by the absence of any
+        // prior EmbedPress data — mirroring EmbedpressSettings' own check. On a
+        // fresh site we stamp the current version as already seen so the modal
+        // stays suppressed; on an update there IS prior data, so we leave the
+        // seen-version alone and the modal fires once.
+        $seen_option = \EmbedPress\Includes\Classes\FeaturePreviewModal::SEEN_VERSION_OPTION;
+        if ( get_option( $seen_option, false ) === false ) {
+            $had_prior_data = (bool) get_option( 'embedpress_elements_updated', false )
+                || ! empty( get_option( EMBEDPRESS_PLG_NAME, [] ) )
+                || ! empty( get_option( EMBEDPRESS_PLG_NAME . ':elements', [] ) )
+                || $install_type === 'existing';
+
+            if ( ! $had_prior_data ) {
+                update_option(
+                    $seen_option,
+                    defined( 'EMBEDPRESS_VERSION' ) ? EMBEDPRESS_VERSION : '0.0.0'
+                );
+            }
         }
     }
 

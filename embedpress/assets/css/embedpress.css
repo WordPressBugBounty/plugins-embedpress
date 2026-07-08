@@ -4117,7 +4117,9 @@ figure .ep-youtube__content__block .thumb {
     display: none;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    /* Must sit above Elementor popups (default modal z-index 9999) so the
+       gallery lightbox is visible when the gallery is inside a popup. */
+    z-index: 999999;
     transition: 0.5s ease;
 
 }

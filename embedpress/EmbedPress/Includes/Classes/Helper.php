@@ -1196,7 +1196,18 @@ class Helper
 
 			if ($license_data_raw) {
 				$license_data = json_decode(json_encode($license_data_raw), true);
-				$license_key = isset($license_data['license_key']) ? $license_data['license_key'] : '';
+			}
+
+			// The license STATUS is a persistent option, but the license_data
+			// TRANSIENT (which carries the key) expires — so reading the key
+			// only from the transient leaves an "Active" license with an empty
+			// key field once it lapses. The Pro LicenseManager also persists the
+			// full key in the `embedpress_pro_software__license` option, so use
+			// that as the authoritative source; fall back to the transient's
+			// (already-masked) key only if the option is somehow empty.
+			$license_key = get_option('embedpress_pro_software__license', '');
+			if ($license_key === '' && isset($license_data['license_key'])) {
+				$license_key = $license_data['license_key'];
 			}
 
 			$is_features_enabled = ($license_status === 'valid');
@@ -1210,6 +1221,42 @@ class Helper
 			'is_features_enabled' => $is_features_enabled,
 			'status_message' => self::get_license_status_message($is_pro_active, $license_status)
 		];
+	}
+
+	/**
+	 * Mask a license key for display, keeping only the head and tail visible.
+	 *
+	 * The full key must never render into the DOM of the settings page (it sits
+	 * in a disabled input, readable via view-source / dev-tools). This keeps the
+	 * real key's first 4 and last 5 characters and replaces every character in
+	 * between with an asterisk — so the mask length matches the true key length
+	 * (e.g. a 29-char key → "2343********************32432"). Safe to echo into
+	 * the visible input's value.
+	 *
+	 * Short keys (<= head+tail chars) are fully masked so nothing meaningful
+	 * leaks. Empty input returns empty.
+	 *
+	 * @param string $key  The raw license key.
+	 * @param int    $head Visible leading chars. Default 4.
+	 * @param int    $tail Visible trailing chars. Default 5.
+	 * @return string Masked key, or '' when $key is empty.
+	 */
+	public static function mask_license_key($key, $head = 4, $tail = 5)
+	{
+		$key = (string) $key;
+		$len = strlen($key);
+
+		if ($len === 0) {
+			return '';
+		}
+
+		// Too short to reveal head+tail without overlap — mask entirely.
+		if ($len <= ($head + $tail)) {
+			return str_repeat('*', $len);
+		}
+
+		// Star out the real middle so the masked length equals the key length.
+		return substr($key, 0, $head) . str_repeat('*', $len - $head - $tail) . substr($key, -$tail);
 	}
 
 	/**

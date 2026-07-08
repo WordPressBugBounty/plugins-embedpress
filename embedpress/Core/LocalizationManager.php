@@ -201,6 +201,12 @@ class LocalizationManager
             'pdfRenderer' => Helper::get_pdf_renderer(),
             'flipbookRenderer' => Helper::get_flipbook_renderer(),
             'isProPluginActive' => defined('EMBEDPRESS_SL_ITEM_SLUG'),
+            // Google Reviews: when the hosted EmbedPress API (managed proxy) is
+            // connected, a place can hold far more than Google's 5-review API
+            // cap, so the "Reviews per page" ceiling lifts to 50. (Drives the
+            // block + settings count controls; must match the renderer's
+            // max_reviews gate in GoogleReviewsRenderer.)
+            'googleReviewsApifyConnected' => \EmbedPress\Includes\Classes\GoogleReviewsManaged::is_connected(),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'adminUrl' => admin_url(),
             'sourceNonce' => wp_create_nonce('source_nonce_embedpress'),

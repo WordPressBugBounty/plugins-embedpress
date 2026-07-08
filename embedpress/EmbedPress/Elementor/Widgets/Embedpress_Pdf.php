@@ -853,6 +853,35 @@ class Embedpress_Pdf extends Widget_Base
             ]
         );
 
+        $this->add_control(
+            'pdf_flipbook_highlight_links',
+            [
+                'label'        => __('Highlight Links', 'embedpress'),
+                'description'  => __('Show a colored background behind hyperlinks in the flipbook.', 'embedpress'),
+                'type'         => Controls_Manager::SWITCHER,
+                'label_on'     => __('On', 'embedpress'),
+                'label_off'    => __('Off', 'embedpress'),
+                'return_value' => 'yes',
+                'default'      => '',
+                'condition' => [
+                    'embedpress_pdf_viewer_style' => 'flip-book',
+                ],
+            ]
+        );
+
+        $this->add_control(
+            'pdf_flipbook_highlight_color',
+            [
+                'label'      => __('Highlight Color', 'embedpress'),
+                'type'       => Controls_Manager::COLOR,
+                'default'    => 'rgba(255, 255, 0, 0.1)',
+                'condition'  => [
+                    'embedpress_pdf_viewer_style'    => 'flip-book',
+                    'pdf_flipbook_highlight_links'   => 'yes',
+                ],
+            ]
+        );
+
 
         $this->add_control(
             'pdf_presentation_mode',
@@ -1249,6 +1278,8 @@ class Embedpress_Pdf extends Widget_Base
             'sound' => !empty($settings['pdf_sound'])  ? 'true' : 'false',
             'flipbook_toolbar_position' => !empty($settings['flipbook_toolbar_position'])  ? $settings['flipbook_toolbar_position'] : 'bottom',
             'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['pdf_flipbook_rtl']) && $settings['pdf_flipbook_rtl'] === 'yes' ? 'true' : 'false',
+            'flipbook_highlight_links' => !empty($settings['pdf_flipbook_highlight_links']) && $settings['pdf_flipbook_highlight_links'] === 'yes' ? 'true' : 'false',
+            'flipbook_highlight_color' => !empty($settings['pdf_flipbook_highlight_color']) ? esc_attr($settings['pdf_flipbook_highlight_color']) : '',
             'selection_tool' => isset($settings['selection_tool']) ? esc_attr($settings['selection_tool']) : '0',
             'scrolling' => isset($settings['scrolling']) ? esc_attr($settings['scrolling']) : '-1',
             'spreads' => isset($settings['spreads']) ? esc_attr($settings['spreads']) : '-1',
