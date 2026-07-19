@@ -158,6 +158,59 @@ class Helper
 	{
 		return strpos($url, "opensea.io") !== false;
 	}
+
+	/**
+	 * Reject the three internal IPv4 ranges that WordPress core's own SSRF guard
+	 * (wp_http_validate_url) leaves reachable: link-local (169.254/16, incl. the
+	 * 169.254.169.254 cloud-metadata endpoint), CGNAT (100.64/10) and benchmark
+	 * (198.18/15). Core already rejects loopback, RFC1918 and every IPv6 form, so
+	 * this only fills the IPv4 gap — using the same octet check core uses itself.
+	 *
+	 * Core's `http_request_host_is_external` filter only fires for IPs core
+	 * already suspects, so it can't cover these; `pre_http_request` fires for every
+	 * request, guarding every wp_remote / wp_safe_remote call (including redirect
+	 * hops). Resolving the host with gethostbyname mirrors core and normalises
+	 * hostnames + integer-encoded literals to a dotted quad.
+	 *
+	 * @param false|array|\WP_Error $preempt Short-circuit value (false to proceed).
+	 * @param array                 $args    Request args (unused).
+	 * @param string                $url     The request URL.
+	 * @return false|\WP_Error
+	 */
+	public static function block_internal_http_requests($preempt, $args, $url)
+	{
+		if (false !== $preempt) {
+			return $preempt; // a prior hook already decided
+		}
+
+		$host = wp_parse_url($url, PHP_URL_HOST);
+		if (empty($host)) {
+			return $preempt;
+		}
+		$host = rtrim(trim($host, '[]'), '.'); // drop IPv6 brackets + trailing FQDN dot
+
+		// Resolve to an IPv4 address, exactly as core's wp_http_validate_url does.
+		$ip = preg_match('/^(\d{1,3}\.){3}\d{1,3}$/', $host) ? $host : gethostbyname($host);
+		if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+			return $preempt; // not IPv4 (IPv6 is core's job) or unresolved
+		}
+
+		$p = array_map('intval', explode('.', $ip));
+		$internal =
+			(169 === $p[0] && 254 === $p[1])                      // link-local 169.254/16
+			|| (100 === $p[0] && 64 <= $p[1] && 127 >= $p[1])     // CGNAT 100.64/10
+			|| (198 === $p[0] && (18 === $p[1] || 19 === $p[1])); // benchmark 198.18/15
+
+		if ($internal) {
+			return new \WP_Error(
+				'http_request_blocked',
+				__('Requests to internal hosts are not allowed.', 'embedpress')
+			);
+		}
+
+		return $preempt;
+	}
+
 	public static function is_youtube_channel($url)
 	{
 		return (bool) (preg_match('~(?:https?:\/\/)?(?:www\.)?(?:youtube.com\/)(?:channel\/|c\/|user\/|@)(\w+)~i', (string) $url));

@@ -96,6 +96,7 @@ class LocalizationManager
                 'baseUrl'    => get_site_url() . '/',
                 'versionUID' => $version,
                 'debug'      => defined('WP_DEBUG') && WP_DEBUG,
+                'nonce'      => wp_create_nonce('embedpress_do_ajax_request'),
             ],
             'shortcode'  => $shortcode,
             'assetsUrl' => $assets_url,

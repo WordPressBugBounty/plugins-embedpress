@@ -433,7 +433,13 @@ class Core
             [
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => ['\\EmbedPress\\RestAPI', 'oembed'],
-                'permission_callback' => '__return_true',
+                // This endpoint fetches an arbitrary user-supplied URL server-side
+                // (oEmbed discovery). Its only legitimate caller is the block editor
+                // preview, which always runs as a logged-in editor. Requiring
+                // edit_posts prevents unauthenticated SSRF via this route.
+                'permission_callback' => function () {
+                    return current_user_can('edit_posts');
+                },
             ]
         );
         register_rest_route(
@@ -442,7 +448,9 @@ class Core
             [
                 'methods' => \WP_REST_Server::CREATABLE,
                 'callback' => ['\\EmbedPress\\RestAPI', 'oembed'],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function () {
+                    return current_user_can('edit_posts');
+                },
             ]
         );
 
