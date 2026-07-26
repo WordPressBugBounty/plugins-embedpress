@@ -816,23 +816,46 @@ class Core
 
         // "What's New" modal: show ONLY after an update from an older version,
         // never on a brand-new install (a first-time user has nothing "new").
-        // The install_type marker is written later (on admin_init), so at
-        // activation time we detect a fresh site directly by the absence of any
-        // prior EmbedPress data — mirroring EmbedpressSettings' own check. On a
-        // fresh site we stamp the current version as already seen so the modal
-        // stays suppressed; on an update there IS prior data, so we leave the
-        // seen-version alone and the modal fires once.
+        //
+        // Trust the 'embedpress_install_type' marker here — do NOT re-derive
+        // "prior data" from EMBEDPRESS_PLG_NAME. EmbedpressSettings::__construct
+        // runs during initialize() EARLIER in this same activation request and
+        // (a) computes install_type before writing anything, then (b) seeds
+        // default settings (turn_off_rating_help / turn_off_milestone / …) into
+        // EMBEDPRESS_PLG_NAME. So by the time this callback runs that option is
+        // ALWAYS non-empty — the old !empty() check made every fresh install look
+        // "existing" and wrongly fired the modal on top of the onboarding wizard.
+        //
+        // On a fresh install we stamp the current version as already seen so both
+        // the modal and the menu "New" badge stay suppressed; on an update we
+        // leave the markers unset and the modal fires once.
         $seen_option = \EmbedPress\Includes\Classes\FeaturePreviewModal::SEEN_VERSION_OPTION;
         if ( get_option( $seen_option, false ) === false ) {
-            $had_prior_data = (bool) get_option( 'embedpress_elements_updated', false )
-                || ! empty( get_option( EMBEDPRESS_PLG_NAME, [] ) )
-                || ! empty( get_option( EMBEDPRESS_PLG_NAME . ':elements', [] ) )
-                || $install_type === 'existing';
+            if ( $install_type === 'existing' ) {
+                // Known existing user (update / re-activate) → let the modal fire once.
+                $is_fresh_install = false;
+            } elseif ( $install_type === 'fresh' ) {
+                // Known fresh install → suppress.
+                $is_fresh_install = true;
+            } else {
+                // install_type not computed this request (e.g. WP-CLI activation,
+                // where EmbedpressSettings didn't run and so has NOT polluted
+                // EMBEDPRESS_PLG_NAME) → direct data detection is reliable here.
+                $is_fresh_install = ! (
+                    (bool) get_option( 'embedpress_elements_updated', false )
+                    || ! empty( get_option( EMBEDPRESS_PLG_NAME, [] ) )
+                    || ! empty( get_option( EMBEDPRESS_PLG_NAME . ':elements', [] ) )
+                );
+            }
 
-            if ( ! $had_prior_data ) {
+            if ( $is_fresh_install ) {
+                $current_version = defined( 'EMBEDPRESS_VERSION' ) ? EMBEDPRESS_VERSION : '0.0.0';
+                // Suppress the modal (seen) AND the menu "New" badge (opened) — a
+                // first-time user has nothing "new" to be announced.
+                update_option( $seen_option, $current_version );
                 update_option(
-                    $seen_option,
-                    defined( 'EMBEDPRESS_VERSION' ) ? EMBEDPRESS_VERSION : '0.0.0'
+                    \EmbedPress\Includes\Classes\FeaturePreviewModal::OPENED_VERSION_OPTION,
+                    $current_version
                 );
             }
         }

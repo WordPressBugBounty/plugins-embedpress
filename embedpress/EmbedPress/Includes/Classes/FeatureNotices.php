@@ -179,6 +179,26 @@ class FeatureNotices
         $version = defined('EMBEDPRESS_VERSION') ? EMBEDPRESS_VERSION : '0.0.0';
         $modal   = FeaturePreviewModal::get_instance();
 
+        // Which releases actually announce something. The modal is opt-IN per
+        // version: a release only shows it when its version is listed here AND
+        // the $features array below describes that release.
+        //
+        // Why an allowlist instead of a bare `'show_if' => true`: the feature
+        // slides are hand-written per release, so a patch that ships no new
+        // features (4.6.1, 4.6.2 — bug fixes and security hardening) would
+        // otherwise re-announce the PREVIOUS release's copy under a new version
+        // number. Defaulting to "off" makes the safe case automatic and the
+        // announcement deliberate.
+        //
+        // To announce a new release: rewrite $features for it, then add its
+        // version here. Patch releases with no user-facing features: add
+        // nothing — they stay silent, along with the menu "New" badge.
+        $announced_versions = [
+            '4.6.0', // Google Reviews + PDF flipbook Highlight Links
+        ];
+
+        $is_announced = in_array($version, $announced_versions, true);
+
         // Feature slides for this release. Two slides → the modal auto-switches
         // to a carousel (dots + Back/Next). Demos are inline HTML (no assets).
         $features = [
@@ -223,7 +243,12 @@ class FeatureNotices
             // release without the modal (e.g. a refactor-only version), or pass
             // a callable for conditional gating, e.g.:
             //   'show_if' => function () { return ! function_exists('embedpress_pro_load'); }, // non-Pro only
-            'show_if'       => true,
+            //
+            // Driven by the $announced_versions allowlist above — true only for
+            // releases that actually ship user-facing features. Bug-fix and
+            // security patches (4.6.1, 4.6.2) resolve to false, so both the
+            // modal and the menu "New" badge stay silent.
+            'show_if'       => $is_announced,
             'changelog_url' => 'https://embedpress.com/changelog/',
             // When usage tracking is NOT yet enabled, the bottom link becomes
             // "What we collect" → the privacy policy (replacing the changelog
