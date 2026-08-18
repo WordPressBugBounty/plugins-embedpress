@@ -212,6 +212,13 @@ class LocalizationManager
             'adminUrl' => admin_url(),
             'sourceNonce' => wp_create_nonce('source_nonce_embedpress'),
             'canUploadMedia' => current_user_can('upload_files'),
+            // Google Reviews: the saved-places library is a SINGLE SITE-WIDE
+            // store, so both verbs of /google-reviews/places are gated on
+            // manage_options (see GoogleReviewsRestController's authz notes).
+            // The picker needs to know that BEFORE it offers to add a place —
+            // without this flag a non-admin gets a working search, a dead
+            // "+ Select", and a 403 with nothing on screen to explain it.
+            'canManageGoogleReviewPlaces' => current_user_can('manage_options'),
             'pdfGalleryNonce' => wp_create_nonce('ep_pdf_gallery_nonce'),
             'assetsUrl' => $assets_url,
             'staticUrl' => $static_url,

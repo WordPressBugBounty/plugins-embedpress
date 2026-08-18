@@ -346,13 +346,22 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
                     // Channel is live - embed the live video directly
                     $embedUrl = 'https://www.youtube.com/embed/' . $live_video_id . '?feature=oembed';
                 } else {
-                    // Channel is not live - show the last completed stream or latest video
-                    $last_video_id = $this->get_last_stream_or_video($channelId, $api_key);
-                    if (!empty($last_video_id)) {
-                        $embedUrl = 'https://www.youtube.com/embed/' . $last_video_id . '?feature=oembed';
+                    // Channel is not live - prefer the next scheduled stream, so a
+                    // /live embed keeps pointing forward between broadcasts (and
+                    // switches itself over once that stream starts).
+                    $upcoming_video_id = $this->get_upcoming_video_id($channelId, $api_key);
+
+                    if (!empty($upcoming_video_id)) {
+                        $embedUrl = 'https://www.youtube.com/embed/' . $upcoming_video_id . '?feature=oembed';
                     } else {
-                        // No video found at all
-                        $embedUrl = 'https://www.youtube.com/embed/live_stream?channel=' . $channelId . '&feature=oembed';
+                        // Nothing scheduled either - show the last completed stream or latest video
+                        $last_video_id = $this->get_last_stream_or_video($channelId, $api_key);
+                        if (!empty($last_video_id)) {
+                            $embedUrl = 'https://www.youtube.com/embed/' . $last_video_id . '?feature=oembed';
+                        } else {
+                            // No video found at all
+                            $embedUrl = 'https://www.youtube.com/embed/live_stream?channel=' . $channelId . '&feature=oembed';
+                        }
                     }
                 }
             } else {
@@ -638,6 +647,144 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
         // Cache empty result briefly to avoid repeated API calls
         set_transient($transient_key, '', MINUTE_IN_SECONDS);
         return '';
+    }
+
+    /**
+     * Get the channel's next scheduled (upcoming) live stream.
+     *
+     * youtube.com/channel/<id>/live points at the upcoming broadcast while a
+     * channel is between streams, so a /live embed has to do the same instead
+     * of dropping straight to the last completed one.
+     *
+     * search() can only order upcoming events by publish date, which is not
+     * the same as start time, so the candidates get sorted by their real
+     * scheduledStartTime and the soonest future one wins.
+     */
+    public function get_upcoming_video_id($channel_id, $api_key) {
+        $transient_key = 'ep_yt_upcoming_' . md5($channel_id);
+        $cached = get_transient($transient_key);
+
+        if (false !== $cached) {
+            return $cached;
+        }
+
+        $api_url = self::$channel_endpoint . 'search?' . http_build_query([
+            'part'       => 'id',
+            'channelId'  => $channel_id,
+            'eventType'  => 'upcoming',
+            'type'       => 'video',
+            'order'      => 'date',
+            'maxResults' => 10,
+            'key'        => $api_key,
+        ]);
+
+        $response = wp_remote_get($api_url, ['timeout' => self::$curltimeout]);
+
+        if (is_wp_error($response)) {
+            return '';
+        }
+
+        $data = json_decode(wp_remote_retrieve_body($response));
+
+        $video_ids = [];
+        if (!empty($data->items) && is_array($data->items)) {
+            foreach ($data->items as $item) {
+                if (!empty($item->id->videoId)) {
+                    $video_ids[] = $item->id->videoId;
+                }
+            }
+        }
+
+        if (empty($video_ids)) {
+            set_transient($transient_key, '', MINUTE_IN_SECONDS);
+            return '';
+        }
+
+        $video_id = $this->get_soonest_scheduled_video($video_ids, $api_key);
+
+        if (false === $video_id) {
+            // Scheduling details unavailable (request failed / no usable
+            // response) — nothing was actually judged, so fall back to the
+            // newest upcoming item rather than losing the stream altogether.
+            $video_id = $video_ids[0];
+        } elseif ('' === $video_id) {
+            // Every candidate WAS judged and rejected: their scheduled start is
+            // already in the past, i.e. events YouTube still lists as upcoming
+            // that never went live. Falling back to $video_ids[0] here would
+            // re-select exactly what the filter just threw out (search orders by
+            // publish date, so the stale event is usually first) and pin the
+            // embed to a broadcast that will never start. Report "nothing
+            // upcoming" so the caller drops to the last completed stream.
+            set_transient($transient_key, '', MINUTE_IN_SECONDS);
+            return '';
+        }
+
+        set_transient($transient_key, $video_id, 2 * MINUTE_IN_SECONDS);
+        return $video_id;
+    }
+
+    /**
+     * Given a set of upcoming video IDs, return the one starting soonest.
+     *
+     * Only streams still scheduled in the future are considered. YouTube keeps
+     * an event in eventType=upcoming even when its scheduled start has already
+     * passed and it never went live, and such a stale entry would otherwise
+     * always hold the earliest timestamp and pin the embed to a broadcast that
+     * is never going to start.
+     *
+     * The two empty outcomes are NOT interchangeable, so they return distinct
+     * values — collapsing them is what let a rejected event get re-selected:
+     *
+     *   false → the lookup could not be performed (request failed, unusable
+     *           response). Nothing was judged; the caller may fall back.
+     *   ''    → candidates were judged and ALL rejected as past-dated. The
+     *           caller must NOT fall back to one of them.
+     *
+     * @return string|false Video ID, '' if all rejected, false if unavailable.
+     */
+    protected function get_soonest_scheduled_video($video_ids, $api_key) {
+        $api_url = self::$channel_endpoint . 'videos?' . http_build_query([
+            'part' => 'liveStreamingDetails',
+            'id'   => implode(',', $video_ids),
+            'key'  => $api_key,
+        ]);
+
+        $response = wp_remote_get($api_url, ['timeout' => self::$curltimeout]);
+
+        if (is_wp_error($response)) {
+            // Lookup unavailable — no candidate was judged.
+            return false;
+        }
+
+        $data = json_decode(wp_remote_retrieve_body($response));
+
+        if (empty($data->items) || !is_array($data->items)) {
+            // Same: nothing came back to judge.
+            return false;
+        }
+
+        $soonest    = '';
+        $soonest_ts = 0;
+        $now        = time();
+
+        foreach ($data->items as $item) {
+            if (empty($item->id) || empty($item->liveStreamingDetails->scheduledStartTime)) {
+                continue;
+            }
+
+            $timestamp = strtotime($item->liveStreamingDetails->scheduledStartTime);
+
+            if (!$timestamp || $timestamp < $now) {
+                continue;
+            }
+
+            if (empty($soonest) || $timestamp < $soonest_ts) {
+                $soonest    = $item->id;
+                $soonest_ts = $timestamp;
+            }
+        }
+
+        return $soonest;
     }
 
     /**

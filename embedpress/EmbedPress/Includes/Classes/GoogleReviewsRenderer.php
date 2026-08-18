@@ -590,6 +590,11 @@ class GoogleReviewsRenderer
         }
 
         $args   = (array) apply_filters('embedpress/google_reviews/render_args', $args);
+        // Public "load more" endpoint: render from the store only, never fetch.
+        // Prevents an unauthenticated caller from spraying arbitrary place_ids to
+        // create rows / queue paid scrapes (storage + cost DoS). The place was
+        // already fetched during the initial server-side render, so it's present.
+        $args['render_only'] = true;
         $result = self::get_reviews_for_render($args['place_id'], $args);
         if (is_wp_error($result)) {
             return ['html' => '', 'has_more' => false, 'next_offset' => $offset];
@@ -645,6 +650,24 @@ class GoogleReviewsRenderer
         }
 
         $row = GoogleReviewsStore::get($place_id);
+
+        // RENDER-ONLY guard (public, unauthenticated callers — e.g. the "load
+        // more" REST endpoint). Such callers must NEVER trigger a fetch: doing so
+        // would let anyone spray arbitrary place_ids to auto-create store rows and
+        // queue paid background scrapes (storage / cost DoS). A legitimate load-
+        // more is always for a place already rendered on the page, so it's already
+        // in the store — a plain read is all that's needed. If it's not there, we
+        // return empty rather than fetching.
+        if (!empty($args['render_only'])) {
+            if (!$row) {
+                return ['reviews' => [], 'meta' => [], 'fetch_status' => GoogleReviewsStore::STATUS_IDLE];
+            }
+            return [
+                'reviews'      => is_array($row['reviews']) ? $row['reviews'] : [],
+                'meta'         => is_array($row['meta']) ? $row['meta'] : [],
+                'fetch_status' => (string) ($row['fetch_status'] ?? GoogleReviewsStore::STATUS_IDLE),
+            ];
+        }
 
         // Never fetched (new place, or added but not yet populated) → auto-fetch
         // once to fill the store. Pro's "fetch all" mode is honoured here too.
@@ -1188,7 +1211,14 @@ class GoogleReviewsRenderer
             $data['review'] = $review_nodes;
         }
 
-        $json = wp_json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // SECURITY: review text is attacker-controlled (anyone can leave a Google
+        // review). Escape <, >, &, ', " so a body like `</script><script>…` can't
+        // break out of the <script type="application/ld+json"> block and execute.
+        // JSON_UNESCAPED_SLASHES is intentionally dropped for the same reason.
+        $json = wp_json_encode(
+            $data,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
         if (!$json) {
             return $html;
         }
@@ -1963,12 +1993,17 @@ class GoogleReviewsRenderer
         }
         $url = add_query_arg($params, $endpoint);
 
+        // The proxy now requires a valid connection token. Place search is free
+        // and setup-less, so provision a token on demand (open Connect handshake)
+        // the first time it's needed, then send the same Bearer/site/fingerprint
+        // headers as the instant-reviews path.
+        \EmbedPress\Includes\Classes\GoogleReviewsManaged::ensure_connected();
+        $headers = \EmbedPress\Includes\Classes\GoogleReviewsManaged::managed_headers();
+        $headers['Accept'] = 'application/json';
+
         $response = wp_remote_get($url, [
             'timeout' => (int) apply_filters('embedpress/google_reviews/managed_search_timeout', 8, $q),
-            'headers' => [
-                'Accept'             => 'application/json',
-                'X-EmbedPress-Site'  => home_url(),
-            ],
+            'headers' => $headers,
         ]);
 
         if (is_wp_error($response)) {

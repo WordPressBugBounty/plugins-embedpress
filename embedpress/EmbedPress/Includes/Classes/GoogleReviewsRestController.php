@@ -10,8 +10,26 @@ use WP_Error;
 
 /**
  * REST endpoints powering the Google Reviews searchable picker, live preview,
- * settings save, and cache flush. All endpoints require `edit_posts` so the
- * Places API key never leaves the server.
+ * settings save, and cache flush.
+ *
+ * AUTHORIZATION — two tiers, and the split is deliberate:
+ *
+ *   can_edit() / `edit_posts` — the block-editor surfaces only: search,
+ *   place-counts, preview, per-place status. These are read-only against the
+ *   author's own editing session, carry no site-wide side effects, and an
+ *   Editor placing a Google Reviews block legitimately needs them. Keeping the
+ *   API key server-side is what these gate.
+ *
+ *   can_manage() / `manage_options` — anything reading or mutating the global
+ *   saved-places library, plugin settings, the managed-proxy connection, or the
+ *   cache. `wp_embedpress_gr_places` is a SINGLE SITE-WIDE store — not scoped
+ *   per-post, per-author, or per-block-instance — so an add/remove there affects
+ *   every page on the site that renders a Google Reviews block. That is an
+ *   administrative action, not an authoring one.
+ *
+ * When adding a route, pick the tier by what the handler TOUCHES, not by who
+ * happens to call it from the editor. If it writes to the shared store or
+ * exposes configuration, it is can_manage().
  */
 class GoogleReviewsRestController
 {
@@ -22,7 +40,8 @@ class GoogleReviewsRestController
         register_rest_route(self::NS, '/google-reviews/search', [
             'methods'             => 'GET',
             'callback'            => [__CLASS__, 'search'],
-            'permission_callback' => [__CLASS__, 'can_edit'],
+            // Paid op (managed/Apify/Google search) — exclude Contributors.
+            'permission_callback' => [__CLASS__, 'can_use_paid'],
             'args'                => [
                 'q'             => ['type' => 'string', 'required' => true],
                 'session_token' => ['type' => 'string'],
@@ -46,7 +65,8 @@ class GoogleReviewsRestController
         register_rest_route(self::NS, '/google-reviews/preview', [
             'methods'             => 'GET',
             'callback'            => [__CLASS__, 'preview'],
-            'permission_callback' => [__CLASS__, 'can_edit'],
+            // Paid op (first-render auto-fetch) — exclude Contributors.
+            'permission_callback' => [__CLASS__, 'can_use_paid'],
             'args'                => [
                 'place_id'   => ['type' => 'string', 'required' => true],
                 'place_name' => ['type' => 'string'],
@@ -162,10 +182,13 @@ class GoogleReviewsRestController
             'callback'            => [__CLASS__, 'managed_disconnect'],
             'permission_callback' => [__CLASS__, 'can_manage'],
         ]);
+        // Admin-only alongside connect/disconnect: this reports the managed-proxy
+        // connection state and endpoint, which is configuration rather than
+        // authoring data.
         register_rest_route(self::NS, '/google-reviews/managed/status', [
             'methods'             => 'GET',
             'callback'            => [__CLASS__, 'managed_status'],
-            'permission_callback' => [__CLASS__, 'can_edit'],
+            'permission_callback' => [__CLASS__, 'can_manage'],
         ]);
 
         // Lightweight per-place fetch-status poll. The block editor uses this to
@@ -208,16 +231,31 @@ class GoogleReviewsRestController
             'permission_callback' => '__return_true',
         ]);
 
+        // ADMIN-ONLY. Both verbs touch the global saved-places library:
+        // GET returns it in full AND advances running fetch jobs inline (a side
+        // effect, not a plain read); POST adds/removes entries that render on
+        // every page embedding a Google Reviews block. `edit_posts` is far too
+        // low a bar for that — it is granted to Contributors, who cannot even
+        // publish their own posts, yet could delete another user's saved place
+        // site-wide. Gated on manage_options.
         register_rest_route(self::NS, '/google-reviews/places', [
             [
                 'methods'             => 'GET',
                 'callback'            => [__CLASS__, 'get_places'],
-                'permission_callback' => [__CLASS__, 'can_edit'],
+                'permission_callback' => [__CLASS__, 'can_manage'],
             ],
             [
                 'methods'             => 'POST',
                 'callback'            => [__CLASS__, 'post_places'],
-                'permission_callback' => [__CLASS__, 'can_edit'],
+                // Writes to the SITE-WIDE places library AND queues paid managed
+                // scrapes / Apify runs. Two separate findings land on this route:
+                // fbs-84284 (a Contributor could delete another user's entry from
+                // the shared store) and fbs-83822 (paid ops must exclude
+                // Contributors). can_manage satisfies both — can_use_paid alone
+                // would still admit Authors to a store they do not own, leaving
+                // the reported authorization issue partly open. GET is likewise
+                // can_manage; the editor-facing read surfaces are search/preview.
+                'permission_callback' => [__CLASS__, 'can_manage'],
                 'args'                => [
                     'action'        => ['type' => 'string', 'required' => true],
                     'place_id'      => ['type' => 'string', 'required' => true],
@@ -248,11 +286,39 @@ class GoogleReviewsRestController
         ]);
     }
 
+    /**
+     * Block-editor tier. Use ONLY for read-only, side-effect-free routes that an
+     * Editor placing a Google Reviews block genuinely needs (search, counts,
+     * preview, per-place status). Never for anything that writes to the shared
+     * places store or exposes settings — see can_manage().
+     */
     public static function can_edit()
     {
         return current_user_can('edit_posts');
     }
 
+    /**
+     * Gate for endpoints that trigger PAID backend operations (place search /
+     * preview → managed scrapes, Apify runs, Google API calls).
+     *
+     * `edit_posts` (used by can_edit) is held by Contributors, whose posts await
+     * review — letting them spend real API/scrape budget with no oversight. Paid
+     * ops require `edit_published_posts` instead, which Authors, Editors, and
+     * Admins have but Contributors do not. Filterable so a site can widen/narrow
+     * the bar (e.g. a custom role) without patching core.
+     */
+    public static function can_use_paid()
+    {
+        return (bool) apply_filters(
+            'embedpress/google_reviews/paid_capability',
+            current_user_can('edit_published_posts')
+        );
+    }
+
+    /**
+     * Administrative tier. Required for the global places library, settings,
+     * managed-proxy connection, and cache routes.
+     */
     public static function can_manage()
     {
         return current_user_can('manage_options');

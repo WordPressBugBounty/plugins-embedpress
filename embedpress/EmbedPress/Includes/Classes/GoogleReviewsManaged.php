@@ -201,6 +201,46 @@ class GoogleReviewsManaged
     }
 
     /**
+     * Lazily obtain a connection token. The managed proxy (place search + instant
+     * reviews) now REQUIRES a Bearer token, but place search is a free, no-setup
+     * feature — so the first search on a fresh install transparently runs the
+     * open Connect handshake to provision a token, then proceeds. Returns true
+     * when a usable token exists (already connected, or just connected).
+     *
+     * A failed connect is not fatal to the caller: it returns false and the
+     * caller can fall back / surface its own error. We throttle repeat attempts
+     * with a short transient so a persistently-unreachable proxy doesn't add a
+     * connect round-trip to every keystroke.
+     */
+    public static function ensure_connected(): bool
+    {
+        if (self::is_connected()) {
+            return true;
+        }
+        // Back off if we tried recently and failed — avoid hammering connect.php
+        // on every autocomplete keystroke when the proxy is down.
+        if (get_transient(self::OPT_AUTH . '_connect_backoff')) {
+            return false;
+        }
+        $result = self::connect();
+        if (empty($result['ok'])) {
+            set_transient(self::OPT_AUTH . '_connect_backoff', 1, MINUTE_IN_SECONDS);
+            return false;
+        }
+        return self::is_connected();
+    }
+
+    /**
+     * Public accessor for the proxy auth headers so sibling classes
+     * (GoogleReviewsRenderer::managed_search) send the same Bearer token /
+     * site / fingerprint binding as the instant-reviews path.
+     */
+    public static function managed_headers(): array
+    {
+        return self::auth_headers();
+    }
+
+    /**
      * Perform the Connect handshake with the proxy. Stores the returned
      * token + binding metadata in wp_options on success. Returns
      * ['ok' => true, ...] on success, ['ok' => false, 'message' => ...]

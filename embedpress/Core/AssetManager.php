@@ -380,6 +380,16 @@ class AssetManager
             'priority' => 15,
             'providers' => ['meetup'], // Only for Meetup embeds
         ],
+        'editor-popover-guard-js' => [
+            'file' => 'js/editor-popover-guard.js',
+            'deps' => [],
+            'contexts' => ['editor'],
+            'type' => 'script',
+            // Must run in the HEAD, before wp-components mounts any popover.
+            'footer' => false,
+            'handle' => 'embedpress-editor-popover-guard',
+            'priority' => 0,
+        ],
         'gutenberg-script-js' => [
             'file' => 'js/gutneberg-script.js',
             'deps' => ['wp-blocks', 'wp-element'],
