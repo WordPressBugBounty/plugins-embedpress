@@ -564,7 +564,17 @@ class LocalizationManager
      */
     private static function get_analytics_session_id()
     {
-        // Prefer cookie-based session IDs to avoid server PHP session configuration issues
+        // Read-only. The analytics tracker (assets/js/analytics-tracker.js)
+        // owns this cookie and mints it client-side via getOrCreateSessionId().
+        //
+        // Setting it here server-side put a Set-Cookie header on every anonymous
+        // HTML response, which Cloudflare and every other CDN treat as a signal
+        // that the response is personalised — they return cf-cache-status: BYPASS
+        // and the site loses its entire edge cache. See #286.
+        //
+        // Reading a cookie is cache-safe; only setting one is not. So we surface
+        // the id when the browser already has one and return '' otherwise, rather
+        // than minting a value that nothing consumes.
         if (isset($_COOKIE['ep_session_id'])) {
             $cookie = $_COOKIE['ep_session_id'];
             // Allow only safe characters and a minimum length
@@ -573,34 +583,7 @@ class LocalizationManager
             }
         }
 
-        // Generate a new ephemeral session ID
-        $id = 'ep-sess-' . time() . '-' . wp_generate_password(8, false);
-
-        // Set a session cookie (expires when the browser closes).
-        // Build the Set-Cookie header manually so we can add SameSite=Lax while
-        // staying compatible with PHP 5.6+ (the options-array form of setcookie()
-        // requires PHP 7.3). HttpOnly is intentionally omitted: the analytics
-        // tracker reads ep_session_id via document.cookie to deduplicate views
-        // within a session, so the cookie must be JS-readable.
-        if (!headers_sent()) {
-            $path = defined('COOKIEPATH') ? COOKIEPATH : '/';
-            $domain = (defined('COOKIE_DOMAIN') && COOKIE_DOMAIN) ? COOKIE_DOMAIN : '';
-            $secure = is_ssl();
-
-            $cookie = 'ep_session_id=' . rawurlencode($id)
-                . '; path=' . ($path ? $path : '/')
-                . '; SameSite=Lax';
-            if ($domain) {
-                $cookie .= '; domain=' . $domain;
-            }
-            if ($secure) {
-                $cookie .= '; Secure';
-            }
-
-            header('Set-Cookie: ' . $cookie, false);
-        }
-
-        return $id;
+        return '';
     }
 
     /**

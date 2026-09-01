@@ -475,33 +475,33 @@ class InstagramFeed extends Instagram
             ?>
 
             <?php if (empty($hashtag) || $hashtag === 'false') : ?>
-                <header class="profile-header">
+                <header class="profile-header ep-insta-profile-header">
 
                     <?php if (!empty($params['instafeedProfileImage']) && $params['instafeedProfileImage'] !== 'false') : ?>
-                        <div class="profile-image">
+                        <div class="profile-image ep-insta-profile-image">
                             <img src="<?php echo esc_url($avater_url); ?>" alt="<?php echo esc_attr($name); ?>">
                         </div>
                     <?php endif; ?>
-                    <section class="profile-details">
-                        <div class="username-section">
-                            <a class="profile-link" target="__blank" href="<?php echo esc_url('https://instagram.com/' . $username); ?>" role="link" tabindex="0">
-                                <h2 class="username" dir="auto"><?php echo esc_html($username); ?></h2>
+                    <section class="profile-details ep-insta-profile-details">
+                        <div class="username-section ep-insta-username-section">
+                            <a class="profile-link ep-insta-profile-link" target="__blank" href="<?php echo esc_url('https://instagram.com/' . $username); ?>" role="link" tabindex="0">
+                                <h2 class="username ep-insta-username" dir="auto"><?php echo esc_html($username); ?></h2>
                             </a>
 
                             <?php if (!empty($params['instafeedFollowBtn']) && $params['instafeedFollowBtn'] !== 'false' && !empty($params['instafeedFollowBtnLabel']) && $params['instafeedFollowBtnLabel'] !== 'false' && $params['instafeedFollowBtnLabel'] !== 'true') : ?>
-                                <div class="edit-profile-button">
-                                    <a class="edit-profile-link" target="__blank" href="<?php echo esc_url('https://instagram.com/' . $username); ?>" role="link" tabindex="0">
+                                <div class="edit-profile-button ep-insta-edit-profile-button">
+                                    <a class="edit-profile-link ep-insta-edit-profile-link" target="__blank" href="<?php echo esc_url('https://instagram.com/' . $username); ?>" role="link" tabindex="0">
                                         <?php echo esc_html($params['instafeedFollowBtnLabel']); ?>
                                     </a>
                                 </div>
                             <?php endif; ?>
 
                         </div>
-                        <div class="profile-stats">
+                        <div class="profile-stats ep-insta-profile-stats">
                             <?php if (!empty($params['instafeedPostsCount']) && $params['instafeedPostsCount'] !== 'false') : ?>
-                                <div class="posts-count">
+                                <div class="posts-count ep-insta-posts-count">
                                     <?php if (!empty($params['instafeedPostsCountText']) && $params['instafeedPostsCountText'] !== 'false' && $params['instafeedPostsCountText'] !== 'true') :
-                                        $posts_count_text = str_replace(['[count]', '{count}'], '<span class="count">' . $media_count . '</span>', $params['instafeedPostsCountText']);
+                                        $posts_count_text = str_replace(['[count]', '{count}'], '<span class="count ep-insta-count">' . $media_count . '</span>', $params['instafeedPostsCountText']);
                                         echo wp_kses_post($posts_count_text);
                                     endif;
                                     ?>
@@ -510,11 +510,11 @@ class InstagramFeed extends Instagram
                             <?php endif; ?>
 
                             <?php if (!empty($params['instafeedFollowersCount']) && $params['instafeedFollowersCount'] !== 'false' && (!isset($params['instafeedFollowersCountText']) || $params['instafeedFollowersCountText'] !== 'true')) : ?>
-                                <div class="followers-count">
+                                <div class="followers-count ep-insta-followers-count">
                                     <?php if (!empty($params['instafeedFollowersCountText']) && $params['instafeedFollowersCountText'] !== 'false' && $params['instafeedFollowersCountText'] !== 'true') : ?>
-                                        <a class="followers-link" target="_blank" href="<?php echo esc_url('https://instagram.com/' . $username . '/followers'); ?>" role="link" tabindex="0">
+                                        <a class="followers-link ep-insta-followers-link" target="_blank" href="<?php echo esc_url('https://instagram.com/' . $username . '/followers'); ?>" role="link" tabindex="0">
                                             <?php
-                                            $followers_count_text = str_replace(['[count]', '{count}'], '<span class="count">' . $followers_count . '</span>', $params['instafeedFollowersCountText']);
+                                            $followers_count_text = str_replace(['[count]', '{count}'], '<span class="count ep-insta-count">' . $followers_count . '</span>', $params['instafeedFollowersCountText']);
 
                                             echo wp_kses_post($followers_count_text);
                                             ?>
@@ -524,8 +524,8 @@ class InstagramFeed extends Instagram
                             <?php endif; ?>
                         </div>
                         <?php if (!empty($params['instafeedAccName']) && $params['instafeedAccName'] !== 'false') : ?>
-                            <div class="bio-section">
-                                <span class="bio" dir="auto"><?php echo esc_attr($name); ?></span>
+                            <div class="bio-section ep-insta-bio-section">
+                                <span class="bio ep-insta-bio" dir="auto"><?php echo esc_attr($name); ?></span>
                             </div>
                         <?php endif; ?>
                     </section>

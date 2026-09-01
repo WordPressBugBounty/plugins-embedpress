@@ -50,6 +50,7 @@ class EmbedpressSettings {
 		add_action( 'wp_ajax_embedpress_dismiss_element', [$this, 'dismiss_element']);
 		add_action( 'wp_ajax_embedpress_dismiss_feature_notice', [$this, 'dismiss_feature_notice']);
 		add_action( 'wp_ajax_embedpress_save_onboarding', [$this, 'save_onboarding_settings']);
+		add_action( 'wp_ajax_embedpress_install_site_performance', [$this, 'install_site_performance']);
 
 		// Hide all admin notices on onboarding page
 		add_action( 'in_admin_header', function() {
@@ -826,6 +827,7 @@ class EmbedpressSettings {
 			'elements'   => $elements,
 			'assetsUrl'  => EMBEDPRESS_URL_ASSETS,
 			'analyticsTracking' => get_option( 'embedpress_analytics_tracking_enabled', true ),
+			'sitePerformance' => \EmbedPress\Includes\Classes\SitePerformance::get_status(),
 		];
 
 		// Enqueue onboarding assets explicitly
@@ -836,6 +838,30 @@ class EmbedpressSettings {
 		echo '<div class="embedpress-onboarding-wrapper">';
 		echo '<div id="embedpress-onboarding-root"></div>';
 		echo '</div>';
+	}
+
+	/**
+	 * AJAX handler: install + activate xSpeed Cache from the onboarding wizard.
+	 *
+	 * Page caching is enabled only when nothing else already owns it — that
+	 * decision lives in SitePerformance, which asks the portable Detector.
+	 */
+	public function install_site_performance() {
+		if ( ! current_user_can( 'install_plugins' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'embedpress' ) ] );
+		}
+
+		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'embedpress_onboarding_nonce' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Security check failed.', 'embedpress' ) ] );
+		}
+
+		$result = \EmbedPress\Includes\Classes\SitePerformance::install();
+
+		if ( empty( $result['success'] ) ) {
+			wp_send_json_error( $result );
+		}
+
+		wp_send_json_success( $result );
 	}
 
 	/**
