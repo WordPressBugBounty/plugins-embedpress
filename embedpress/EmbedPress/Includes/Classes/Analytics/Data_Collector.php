@@ -1341,19 +1341,26 @@ class Data_Collector
     {
         global $wpdb;
 
-        // Use transient caching to avoid expensive database scans on every request
-        $cache_key = 'embedpress_total_content_count';
-        $cached_data = get_transient($cache_key);
-        if ($cached_data !== false) {
-            return $cached_data;
-        }
-
         $data = [
             'elementor' => 0,
             'gutenberg' => 0,
             'shortcode' => 0,
             'total' => 0,
         ];
+
+        // Allow the whole count (and its DB scans) to be disabled site-wide.
+        // Large sites can turn it off with:
+        //   add_filter('embedpress_enable_content_count', '__return_false');
+        if (!apply_filters('embedpress_enable_content_count', true)) {
+            return $data;
+        }
+
+        // Use transient caching to avoid expensive database scans on every request
+        $cache_key = 'embedpress_total_content_count';
+        $cached_data = get_transient($cache_key);
+        if ($cached_data !== false) {
+            return $cached_data;
+        }
 
         // 1) Try to use analytics content table (fast path)
         $content_table = $wpdb->prefix . 'embedpress_analytics_content';
@@ -1393,7 +1400,25 @@ class Data_Collector
             }
         }
 
-        // 2) Fallback: Efficient DB-side COUNTs (no PHP memory blowups)
+        // 2) Fallback: DB-side COUNTs with LIKE conditions.
+        //
+        // These LIKE '%...%' predicates cannot use an index, so each query is a
+        // full scan of wp_posts.post_content. On very large sites that scan can
+        // take tens of seconds and was reported to block a request for ~1 minute
+        // on 100k+ posts. Guard the synchronous scan behind a size threshold: past
+        // it, skip the scan and cache a zeroed, flagged result rather than stalling
+        // the request. The threshold (and the skip itself) are filterable so a site
+        // that wants exact counts can opt back in.
+        $posts_total = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts}");
+        $scan_threshold = (int) apply_filters('embedpress_content_count_scan_threshold', 50000);
+
+        if ($scan_threshold > 0 && $posts_total > $scan_threshold) {
+            $data['scan_skipped'] = true;
+            // Cache the skip for a day so we don't re-run COUNT(*) on every request.
+            set_transient($cache_key, $data, DAY_IN_SECONDS);
+            return $data;
+        }
+
         // Limit to common content-bearing post types; allow filtering
         $allowed_post_types = apply_filters('embedpress_content_count_post_types', [
             'post', 'page', 'product', 'event', 'portfolio'
@@ -1451,8 +1476,10 @@ class Data_Collector
         $data['shortcode'] = $shortcode_count;
         $data['total'] = $data['elementor'] + $data['gutenberg'] + $data['shortcode'];
 
-        // Cache for 1 hour to avoid expensive scans
-        set_transient($cache_key, $data, HOUR_IN_SECONDS);
+        // Cache for 12 hours to avoid re-running the full-table LIKE scan often.
+        // Cache is invalidated on post/Elementor save (Content_Cache_Manager), so a
+        // long TTL only affects sites where nothing changes for a while.
+        set_transient($cache_key, $data, 12 * HOUR_IN_SECONDS);
 
         return $data;
     }

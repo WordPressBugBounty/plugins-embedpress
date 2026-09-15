@@ -1734,7 +1734,7 @@ class Feature_Enhancer
 			}
 
 			$share_url = !empty($unique_hash) ? "$url?hash=$id_value&unique=$unique_hash" : "$url?hash=$id_value";
-			$tags .= "<meta property='og:url' content='". $share_url . "'/>\n";
+			$tags .= "<meta property='og:url' content='". esc_url($share_url) . "'/>\n";
 			$tags .= "<meta name='twitter:card' content='summary_large_image'/>\n";
 
 			// Add Open Graph type for better LinkedIn compatibility

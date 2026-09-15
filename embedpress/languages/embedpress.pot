@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the EmbedPress plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: EmbedPress 4.6.4\n"
+"Project-Id-Version: EmbedPress 4.6.6\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/embedpress\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-17T05:36:46+00:00\n"
+"POT-Creation-Date: 2026-09-14T04:34:42+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: embedpress\n"
@@ -18,10 +18,10 @@ msgstr ""
 #: embedpress.php
 #: dist/embedpress/EmbedPress/Elementor/Embedpress_Elementor_Integration.php:64
 #: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:31
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:225
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:226
 #: EmbedPress/Elementor/Embedpress_Elementor_Integration.php:64
 #: EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:31
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:225
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:226
 #: src/Blocks/index.js:16
 msgid "EmbedPress"
 msgstr ""
@@ -149,12 +149,12 @@ msgstr ""
 
 #: dist/embedpress/EmbedPress/Analytics/Analytics.php:28
 #: dist/embedpress/EmbedPress/Analytics/Analytics.php:29
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:969
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:995
 #: EmbedPress/Analytics/Analytics.php:28
 #: EmbedPress/Analytics/Analytics.php:29
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:969
-#: src/AdminUI/Onboarding.js:249
-#: src/AdminUI/Onboarding.js:435
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:995
+#: src/AdminUI/Onboarding.js:294
+#: src/AdminUI/Onboarding.js:529
 msgid "Analytics"
 msgstr ""
 
@@ -169,8 +169,8 @@ msgstr ""
 
 #: dist/embedpress/EmbedPress/Core.php:1002
 #: dist/embedpress/EmbedPress/CoreLegacy.php:338
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:246
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:980
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:247
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1006
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/custom-logo.php:170
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/general.php:80
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/hub.php:534
@@ -179,8 +179,8 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Plugins/Plugin.php:159
 #: EmbedPress/Core.php:1002
 #: EmbedPress/CoreLegacy.php:338
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:246
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:980
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:247
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1006
 #: EmbedPress/Ends/Back/Settings/templates/custom-logo.php:170
 #: EmbedPress/Ends/Back/Settings/templates/general.php:80
 #: EmbedPress/Ends/Back/Settings/templates/hub.php:534
@@ -1064,8 +1064,8 @@ msgstr ""
 #: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1951
 #: EmbedPress/Shortcode.php:1719
 #: EmbedPress/Shortcode.php:1757
-#: src/AdminUI/Onboarding.js:248
-#: src/AdminUI/Onboarding.js:429
+#: src/AdminUI/Onboarding.js:293
+#: src/AdminUI/Onboarding.js:523
 msgid "Powered By EmbedPress"
 msgstr ""
 
@@ -1733,9 +1733,9 @@ msgstr ""
 #: EmbedPress/Ends/Back/Settings/templates/go-premium.php:33
 #: EmbedPress/Ends/Back/Settings/templates/settings.php:166
 #: EmbedPress/Ends/Back/Settings/templates/shortcode.php:31
-#: src/AdminUI/Onboarding.js:250
-#: src/AdminUI/Onboarding.js:293
-#: src/AdminUI/Onboarding.js:441
+#: src/AdminUI/Onboarding.js:295
+#: src/AdminUI/Onboarding.js:338
+#: src/AdminUI/Onboarding.js:535
 #: src/Blocks/GlobalCoponents/social-share-control.js:33
 msgid "Social Share"
 msgstr ""
@@ -4686,8 +4686,8 @@ msgstr ""
 #: EmbedPress/Elementor/Widgets/Embedpress_Pdf.php:903
 #: EmbedPress/Ends/Back/Settings/templates/general.php:55
 #: EmbedPress/Ends/Back/Settings/templates/settings.php:57
-#: src/AdminUI/Onboarding.js:251
-#: src/AdminUI/Onboarding.js:447
+#: src/AdminUI/Onboarding.js:296
+#: src/AdminUI/Onboarding.js:541
 #: src/Blocks/embedpress-pdf/src/inspector.js:382
 msgid "Lazy Load"
 msgstr ""
@@ -5094,68 +5094,68 @@ msgstr ""
 msgid "Invalid nonce"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:225
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:246
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:225
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:246
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:226
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:247
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:226
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:247
 msgid "EmbedPress Settings"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:229
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:229
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:230
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:230
 msgid "EmbedPress Dashboard"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:229
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:968
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:229
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:968
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:230
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:994
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:230
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:994
 msgid "Dashboard"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:233
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:233
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:234
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:234
 msgid "EmbedPress Branding"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:233
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:975
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:234
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1001
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:93
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:233
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:975
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:234
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1001
 #: EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:93
 msgid "Branding"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:237
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:237
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:238
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:238
 msgid "EmbedPress Custom Ads"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:237
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:976
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:238
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1002
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:105
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:237
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:976
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:238
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1002
 #: EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:105
-#: src/AdminUI/Onboarding.js:253
-#: src/AdminUI/Onboarding.js:293
-#: src/AdminUI/Onboarding.js:463
+#: src/AdminUI/Onboarding.js:298
+#: src/AdminUI/Onboarding.js:338
+#: src/AdminUI/Onboarding.js:557
 msgid "Custom Ads"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:242
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:242
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:243
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:243
 msgid "EmbedPress Shortcode"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:242
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:979
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:243
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1005
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/main-template.php:67
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:45
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/shortcode.php:8
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:242
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:979
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:243
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1005
 #: EmbedPress/Ends/Back/Settings/templates/main-template.php:67
 #: EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:45
 #: EmbedPress/Ends/Back/Settings/templates/shortcode.php:8
@@ -5164,68 +5164,78 @@ msgstr ""
 msgid "Shortcode"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:252
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:252
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:253
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:253
 msgid "EmbedPress License"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:252
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:982
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:253
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1008
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:117
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:252
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:982
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:253
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1008
 #: EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:117
 msgid "License"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:263
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:263
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:264
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:264
 msgid "EmbedPress Player & Engagement"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:264
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:974
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:264
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:974
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:265
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1000
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:265
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1000
 #: src/AdminUI/CustomPlayer.js:42
 msgid "Player & Engagement"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:272
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:272
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:273
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:273
 msgid "EmbedPress Setup Wizard"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:272
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:981
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:272
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:981
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:273
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1007
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:273
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1007
 msgid "Setup Wizard"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:379
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:379
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:380
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:380
 msgid "(Coming soon)"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:380
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:381
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/toast-message.php:4
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:380
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:381
 #: EmbedPress/Ends/Back/Settings/templates/partials/toast-message.php:4
 msgid "Settings Updated"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:381
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:382
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/toast-message.php:8
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:381
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:382
 #: EmbedPress/Ends/Back/Settings/templates/partials/toast-message.php:8
 msgid "Ops! Something went wrong."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:977
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:851
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:851
+msgid "Insufficient permissions."
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:855
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:855
+msgid "Security check failed."
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1003
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/elements.php:184
 #: dist/embedpress/EmbedPress/Includes/Classes/GoogleReviewsAdminPage.php:42
-#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:977
+#: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1003
 #: EmbedPress/Ends/Back/Settings/templates/elements.php:184
 #: EmbedPress/Includes/Classes/GoogleReviewsAdminPage.php:42
 msgid "Google Reviews"
@@ -5741,7 +5751,7 @@ msgstr ""
 #: EmbedPress/Ends/Back/Settings/templates/go-premium.php:35
 #: EmbedPress/Ends/Back/Settings/templates/settings.php:167
 #: EmbedPress/Ends/Back/Settings/templates/shortcode.php:32
-#: src/AdminUI/Onboarding.js:295
+#: src/AdminUI/Onboarding.js:340
 #: src/Blocks/EmbedPress/src/components/inspector.js:258
 #: src/Blocks/google-docs/src/components/inspector.js:107
 #: src/Blocks/google-forms/src/components/inspector.js:105
@@ -5775,9 +5785,9 @@ msgstr ""
 #: EmbedPress/Ends/Back/Settings/templates/settings.php:169
 #: EmbedPress/Ends/Back/Settings/templates/shortcode.php:34
 #: EmbedPress/Includes/Traits/Branding.php:37
-#: src/AdminUI/Onboarding.js:252
-#: src/AdminUI/Onboarding.js:292
-#: src/AdminUI/Onboarding.js:455
+#: src/AdminUI/Onboarding.js:297
+#: src/AdminUI/Onboarding.js:337
+#: src/AdminUI/Onboarding.js:549
 #: src/Blocks/EmbedPress/src/components/InspectorControl/custombranding.js:54
 #: src/Blocks/GlobalCoponents/custombranding.js:59
 msgid "Custom Branding"
@@ -5791,9 +5801,9 @@ msgstr ""
 #: EmbedPress/Ends/Back/Settings/templates/go-premium.php:42
 #: EmbedPress/Ends/Back/Settings/templates/settings.php:170
 #: EmbedPress/Ends/Back/Settings/templates/shortcode.php:35
-#: src/AdminUI/Onboarding.js:254
-#: src/AdminUI/Onboarding.js:292
-#: src/AdminUI/Onboarding.js:471
+#: src/AdminUI/Onboarding.js:299
+#: src/AdminUI/Onboarding.js:337
+#: src/AdminUI/Onboarding.js:565
 #: src/Blocks/GlobalCoponents/lock-control.js:43
 msgid "Content Protection"
 msgstr ""
@@ -6236,7 +6246,7 @@ msgstr ""
 
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/hub.php:422
 #: EmbedPress/Ends/Back/Settings/templates/hub.php:422
-#: src/AdminUI/Onboarding.js:521
+#: src/AdminUI/Onboarding.js:624
 msgid "Unlock Premium Features"
 msgstr ""
 
@@ -8801,6 +8811,31 @@ msgstr ""
 msgid "EmbedPress: "
 msgstr ""
 
+#: dist/embedpress/EmbedPress/Includes/Classes/SitePerformance.php:120
+#: EmbedPress/Includes/Classes/SitePerformance.php:120
+msgid "You do not have permission to install plugins."
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Includes/Classes/SitePerformance.php:124
+#: EmbedPress/Includes/Classes/SitePerformance.php:124
+msgid "This site does not meet the minimum requirements for xSpeed Cache."
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Includes/Classes/SitePerformance.php:181
+#: EmbedPress/Includes/Classes/SitePerformance.php:181
+msgid "xSpeed Cache installed and page caching enabled."
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Includes/Classes/SitePerformance.php:182
+#: EmbedPress/Includes/Classes/SitePerformance.php:182
+msgid "xSpeed Cache installed. Page caching was left off because another plugin already handles it on this site."
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Includes/Classes/SitePerformance.php:220
+#: EmbedPress/Includes/Classes/SitePerformance.php:220
+msgid "Could not install xSpeed Cache."
+msgstr ""
+
 #: dist/embedpress/EmbedPress/Includes/Classes/View_Count_Display.php:349
 #: EmbedPress/Includes/Classes/View_Count_Display.php:349
 msgid "Download"
@@ -9043,7 +9078,7 @@ msgstr ""
 
 #: dist/embedpress/EmbedPress/ThirdParty/Googlecalendar/Embedpress_Google_Helper.php:502
 #: EmbedPress/ThirdParty/Googlecalendar/Embedpress_Google_Helper.php:502
-#: src/AdminUI/Onboarding.js:609
+#: src/AdminUI/Onboarding.js:714
 msgid "Back"
 msgstr ""
 
@@ -9414,166 +9449,186 @@ msgstr ""
 msgid "Upgrade to PRO"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:159
+#: src/AdminUI/Onboarding.js:171
+msgid "Enable Site Performance"
+msgstr ""
+
+#: src/AdminUI/Onboarding.js:172
+msgid "EXPT"
+msgstr ""
+
+#: src/AdminUI/Onboarding.js:175
+msgid "Improve your site's performance by optimizing EmbedPress assets. This helps reduce load on your site and boosts overall speed."
+msgstr ""
+
+#: src/AdminUI/Onboarding.js:184
+msgid "Auto-enabled"
+msgstr ""
+
+#: src/AdminUI/Onboarding.js:204
 msgid "What Do We Collect?"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:161
+#: src/AdminUI/Onboarding.js:206
 msgid "We collect non-sensitive diagnostic data and plugin usage information. Your site URL, WordPress & PHP version, plugins & themes, and email address to send you the discount coupon. This data lets us make sure this plugin always stays compatible with the most popular plugins and themes. No spam, we promise."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:171
+#: src/AdminUI/Onboarding.js:216
 msgid "Close video"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:178
+#: src/AdminUI/Onboarding.js:223
 msgid "EmbedPress Overview"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:236
+#: src/AdminUI/Onboarding.js:281
 msgid "Finished!"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:236
+#: src/AdminUI/Onboarding.js:281
 msgid "Finishing Up"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:238
+#: src/AdminUI/Onboarding.js:283
 msgid "Congratulations! You are all set to start embedding multimedia content on your website with EmbedPress. Best wishes."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:246
-#: src/AdminUI/Onboarding.js:417
+#: src/AdminUI/Onboarding.js:291
+#: src/AdminUI/Onboarding.js:511
 msgid "Gutenberg Embed Block"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:247
-#: src/AdminUI/Onboarding.js:423
+#: src/AdminUI/Onboarding.js:292
+#: src/AdminUI/Onboarding.js:517
 msgid "Elementor Embed Widget"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:265
+#: src/AdminUI/Onboarding.js:310
 msgid "Your Configuration"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:294
+#: src/AdminUI/Onboarding.js:339
 msgid "Analytics & Tracking"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:294
+#: src/AdminUI/Onboarding.js:339
 msgid "Video & Audio Custom Player"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:295
+#: src/AdminUI/Onboarding.js:340
 msgid "YouTube Exclusive Controls"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:296
+#: src/AdminUI/Onboarding.js:341
 msgid "Download/Print PDFs"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:296
+#: src/AdminUI/Onboarding.js:341
 msgid "24/7 Customer Support"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:380
+#: src/AdminUI/Onboarding.js:424
+msgid "Could not install xSpeed Cache. You can install it later from Plugins."
+msgstr ""
+
+#: src/AdminUI/Onboarding.js:474
 msgid "Welcome to EmbedPress — Let's Get You Set Up"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:382
+#: src/AdminUI/Onboarding.js:476
 msgid "We'll walk you through a quick personalized setup so you can embed content from 250+ sources exactly the way you want — all in under a minute."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:386
+#: src/AdminUI/Onboarding.js:480
 msgid "Personalize My Setup"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:395
+#: src/AdminUI/Onboarding.js:489
 msgid "I'll set it up manually later"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:399
+#: src/AdminUI/Onboarding.js:493
 msgid "By proceeding, you grant permission for this plugin to collect your information. Find out what we"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:406
+#: src/AdminUI/Onboarding.js:500
 msgid "collect?"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:418
+#: src/AdminUI/Onboarding.js:512
 msgid "Embed content in default Gutenberg editor using the EmbedPress block. Just copy the source link and embed it in one click."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:424
+#: src/AdminUI/Onboarding.js:518
 msgid "For Elementor website builder, get an embed widget to embed multimedia sources in editor in one click, no custom coding is needed."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:430
+#: src/AdminUI/Onboarding.js:524
 msgid "Display 'Powered by EmbedPress' branding on embedded documents."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:436
+#: src/AdminUI/Onboarding.js:530
 msgid "Track views and engagement on your embedded content with built-in analytics."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:442
+#: src/AdminUI/Onboarding.js:536
 msgid "Allow visitors to share your embedded content on social media platforms."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:448
+#: src/AdminUI/Onboarding.js:542
 msgid "Improve page speed by loading embedded content only when it becomes visible in the viewport."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:456
+#: src/AdminUI/Onboarding.js:550
 msgid "Showcase your own brand or business logo on your embedded content."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:464
+#: src/AdminUI/Onboarding.js:558
 msgid "Display custom ads in the form of video or image on your embedded content seamlessly."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:472
+#: src/AdminUI/Onboarding.js:566
 msgid "Restrict access to embedded content based on user roles and permissions."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:490
+#: src/AdminUI/Onboarding.js:593
 msgid "You Have Premium Features Unlocked!"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:491
+#: src/AdminUI/Onboarding.js:594
 msgid "Ready to Unlock the Full Power of EmbedPress ?"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:495
+#: src/AdminUI/Onboarding.js:598
 msgid "Thank you for being a Pro user! All premium features are available and ready to use."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:496
+#: src/AdminUI/Onboarding.js:599
 msgid "Unlock premium features, deeper customization, and expert support to elevate your workflows, designed for growing websites."
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:533
+#: src/AdminUI/Onboarding.js:636
 msgid "Read the Docs"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:550
+#: src/AdminUI/Onboarding.js:653
 msgid "EmbedPress Premium Features"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:618
-#: src/AdminUI/Onboarding.js:627
+#: src/AdminUI/Onboarding.js:723
+#: src/AdminUI/Onboarding.js:732
 msgid "Saving…"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:618
+#: src/AdminUI/Onboarding.js:723
 msgid "Finish"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:618
+#: src/AdminUI/Onboarding.js:723
 msgid "Continue with Free Features"
 msgstr ""
 
-#: src/AdminUI/Onboarding.js:627
+#: src/AdminUI/Onboarding.js:732
 msgid "Save & Continue"
 msgstr ""
 
