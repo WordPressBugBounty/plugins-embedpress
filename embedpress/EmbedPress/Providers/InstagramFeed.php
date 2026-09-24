@@ -384,22 +384,23 @@ class InstagramFeed extends Instagram
 
                 if (isset($params['instafeedColumns']) && is_numeric($params['instafeedColumns']) && $params['instafeedColumns'] > 0) {
                     $column = (100 / intval($params['instafeedColumns']));
-                    $gap = isset($params['instafeedColumnsGap']) ? $params['instafeedColumnsGap'] : 0;
+                    $gap = isset($params['instafeedColumnsGap']) ? absint($params['instafeedColumnsGap']) : 0;
 
-                    $styleAttribute = 'style="grid-template-columns: repeat(' . esc_attr($params['instafeedColumns']) . ', minmax(0, 1fr)); gap: ' . esc_attr($gap) . 'px;"';
+                    $styleAttribute = 'style="grid-template-columns: repeat(' . absint($params['instafeedColumns']) . ', minmax(0, 1fr)); gap: ' . $gap . 'px;"';
                 } else {
                     $styleAttribute = 'style="grid-template-columns: repeat(1, minmax(0, 1fr));"';
                 }
             } else if ($params['instaLayout'] === 'insta-masonry') {
                 // $classes = ' insta-masonry';
-                $styleAttribute = 'style="column-count: ' . esc_attr($params['instafeedColumns']) . '; gap: ' . esc_attr(isset($params['instafeedColumnsGap']) ? $params['instafeedColumnsGap'] : 0) . 'px;"';
+                $styleAttribute = 'style="column-count: ' . absint($params['instafeedColumns']) . '; gap: ' . absint(isset($params['instafeedColumnsGap']) ? $params['instafeedColumnsGap'] : 0) . 'px;"';
             } else if ($params['instaLayout'] === 'insta-carousel') {
                 $classes = 'cg-carousel__track js-carousel__track';
                 $styleAttribute = '';
-                if (isset($params['slidesShow'])) {
-                    $column = (100 / intval($params['slidesShow']));
-                    $space = isset($params['carouselSpacing']) ? $params['carouselSpacing'] : 0;
-                    $styleAttribute = $styleAttribute = 'style="grid-auto-columns: calc(' . esc_attr($column) . '% - ' . esc_attr($space) . 'px); gap: ' . esc_attr($space) . 'px"'; // Or some default style
+                $slides_show = isset($params['slidesShow']) ? absint($params['slidesShow']) : 0;
+                if ($slides_show > 0) {
+                    $column = (100 / $slides_show);
+                    $space = isset($params['carouselSpacing']) ? absint($params['carouselSpacing']) : 0;
+                    $styleAttribute = 'style="grid-auto-columns: calc(' . esc_attr($column) . '% - ' . $space . 'px); gap: ' . $space . 'px"';
                 }
             } else {
                 $styleAttribute = ''; // Or some default style
@@ -630,6 +631,13 @@ class InstagramFeed extends Instagram
             $feed_template = ob_get_clean();
             return $feed_template;
         }
+
+        // No posts to render (empty feed, cold cache, or a bot/sitemap request
+        // that never warmed it). Return a string rather than falling off the
+        // end of the function: an implicit null here leaves the caller's
+        // $insta_feed['html'] unset, which surfaced downstream as
+        // "PHP Warning: Undefined array key 'html'" in EmbedPressBlockRenderer.
+        return '';
     }
 
     public function getInstagramUnserName($url)

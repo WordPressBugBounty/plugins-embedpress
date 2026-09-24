@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the EmbedPress plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: EmbedPress 4.6.6\n"
+"Project-Id-Version: EmbedPress 4.6.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/embedpress\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-14T04:34:42+00:00\n"
+"POT-Creation-Date: 2026-09-24T11:38:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: embedpress\n"
@@ -1048,8 +1048,8 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/ads.php:354
 #: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:460
 #: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:890
-#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1922
-#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1951
+#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1952
+#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1981
 #: dist/embedpress/EmbedPress/Shortcode.php:1719
 #: dist/embedpress/EmbedPress/Shortcode.php:1757
 #: EmbedPress/Elementor/Widgets/Embedpress_Calendar.php:335
@@ -1060,8 +1060,8 @@ msgstr ""
 #: EmbedPress/Ends/Back/Settings/templates/ads.php:354
 #: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:460
 #: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:890
-#: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1922
-#: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1951
+#: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1952
+#: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1981
 #: EmbedPress/Shortcode.php:1719
 #: EmbedPress/Shortcode.php:1757
 #: src/AdminUI/Onboarding.js:293
@@ -3925,8 +3925,8 @@ msgstr ""
 msgid "Padding"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:5481
-#: EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:5481
+#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:5482
+#: EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:5482
 msgid "You need EmbedPress Pro to Embed Apple Podcast. Note. This message is only visible to you."
 msgstr ""
 
@@ -7328,8 +7328,8 @@ msgstr ""
 msgid "Show Subscriber Count"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1934
-#: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1934
+#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1964
+#: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1964
 msgid "Invalid Calendar Link"
 msgstr ""
 
@@ -8954,16 +8954,16 @@ msgstr ""
 msgid "Unlock %s support by upgrading to our %s! Upgrade today to unlock a whole new level of functionality and make the most out of your experience with Hashtag."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Providers/InstagramFeed.php:594
+#: dist/embedpress/EmbedPress/Providers/InstagramFeed.php:595
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:720
-#: EmbedPress/Providers/InstagramFeed.php:594
+#: EmbedPress/Providers/InstagramFeed.php:595
 #: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:720
 msgid "Previous"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Providers/InstagramFeed.php:598
+#: dist/embedpress/EmbedPress/Providers/InstagramFeed.php:599
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:721
-#: EmbedPress/Providers/InstagramFeed.php:598
+#: EmbedPress/Providers/InstagramFeed.php:599
 #: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:721
 msgid "Next"
 msgstr ""

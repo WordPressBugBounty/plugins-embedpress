@@ -5139,16 +5139,17 @@ class Embedpress_Elementor extends Widget_Base
 		$_carousel_options = '';
 
 		if (!empty($settings['instaLayout']) && $settings['instaLayout'] === 'insta-carousel') {
-			$_carousel_id = 'data-carouselid=' . esc_attr($this->get_id()) . '';
+			$_carousel_id = 'data-carouselid="' . esc_attr($this->get_id()) . '"';
 
-			$layout = $settings['instaLayout'];
-			$embedpress_instafeed_slide_show = !empty($settings['embedpress_instafeed_slide_show']) ? $settings['embedpress_instafeed_slide_show'] : 5;
-			$embedpress_carousel_autoplay = !empty($settings['embedpress_carousel_autoplay']) ? $settings['embedpress_carousel_autoplay'] : 0;
-			$embedpress_carousel_autoplay_speed = !empty($settings['embedpress_carousel_autoplay_speed']) ? $settings['embedpress_carousel_autoplay_speed'] : 3000;
-			$embedpress_carousel_transition_speed = !empty($settings['embedpress_carousel_transition_speed']) ? $settings['embedpress_carousel_transition_speed'] : 1000;
-			$embedpress_carousel_loop = !empty($settings['embedpress_carousel_loop']) ? $settings['embedpress_carousel_loop'] : 0;
-			$embedpress_carousel_arrows = !empty($settings['embedpress_carousel_arrows']) ? $settings['embedpress_carousel_arrows'] : 0;
-			$spacing = !empty($settings['embedpress_carousel_spacing']) ? $settings['embedpress_carousel_spacing'] : 0;
+			// Numeric / boolean settings - cast rather than pass through.
+			$layout = 'insta-carousel';
+			$embedpress_instafeed_slide_show = !empty($settings['embedpress_instafeed_slide_show']) ? absint($settings['embedpress_instafeed_slide_show']) : 5;
+			$embedpress_carousel_autoplay = !empty($settings['embedpress_carousel_autoplay']) ? 1 : 0;
+			$embedpress_carousel_autoplay_speed = !empty($settings['embedpress_carousel_autoplay_speed']) ? absint($settings['embedpress_carousel_autoplay_speed']) : 3000;
+			$embedpress_carousel_transition_speed = !empty($settings['embedpress_carousel_transition_speed']) ? absint($settings['embedpress_carousel_transition_speed']) : 1000;
+			$embedpress_carousel_loop = !empty($settings['embedpress_carousel_loop']) ? 1 : 0;
+			$embedpress_carousel_arrows = !empty($settings['embedpress_carousel_arrows']) ? 1 : 0;
+			$spacing = !empty($settings['embedpress_carousel_spacing']) ? absint($settings['embedpress_carousel_spacing']) : 0;
 
 			// print_r($settings);
 
@@ -5163,8 +5164,8 @@ class Embedpress_Elementor extends Widget_Base
 				'spacing' => $spacing
 			];
 
-			$carousel_options_string = json_encode($carousel_options);
-			$_carousel_options = 'data-carousel-options=' . htmlentities($carousel_options_string, ENT_QUOTES) . '';
+			$carousel_options_string = wp_json_encode($carousel_options);
+			$_carousel_options = 'data-carousel-options="' . esc_attr($carousel_options_string) . '"';
 		}
 		return $_carousel_options;
 	}
@@ -5496,7 +5497,7 @@ class Embedpress_Elementor extends Widget_Base
 						<?php echo isset($settings['custom_player_preset']) ? esc_attr($settings['custom_player_preset']) : ''; ?>
 						<?php echo esc_attr($this->get_instafeed_layout($settings)); ?>
 						<?php echo esc_attr('ep-google-photos-' . $settings['mode']); ?>
-						<?php echo 'data-show-title="' . (isset($settings['showTitle']) ? $settings['showTitle'] : 'yes') . '"'; ?>
+						<?php echo 'data-show-title="' . esc_attr(isset($settings['showTitle']) ? $settings['showTitle'] : 'yes') . '"'; ?>
 						<?php echo esc_attr($hosted_format); ?>"
 						<?php echo $data_playerid; ?>
 						<?php echo $data_carouselid; ?>

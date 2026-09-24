@@ -368,7 +368,7 @@ class EmbedPressBlockRenderer
 ?>
         <div id="ep-gutenberg-content-<?php echo esc_attr($client_id) ?>" class="ep-gutenberg-content <?php echo esc_attr($wrapper_classes); ?>" data-embed-type="PDF" data-embed-url="<?php echo esc_url($href); ?>">
             <div class="embedpress-inner-iframe <?php echo esc_attr($legacy_config['unit_class']); ?> ep-doc-<?php echo esc_attr($client_id); ?>" style="<?php echo esc_attr($legacy_config['style_attr']); ?>" id="<?php echo esc_attr($id); ?>">
-                <div <?php echo esc_attr($styling['ads_attrs']); ?>>
+                <div <?php echo $styling['ads_attrs']; // complete escaped attribute pair(s); esc_attr would double-encode the quotes ?>>
                     <?php
                     do_action('embedpress_pdf_gutenberg_after_embed', $client_id, 'pdf', $attributes, $href);
 
@@ -1098,20 +1098,24 @@ class EmbedPressBlockRenderer
         $carousel_id = '';
 
         if (!empty($attributes['instaLayout']) && $attributes['instaLayout'] === 'insta-carousel') {
-            $carousel_id = 'data-carouselid=' . esc_attr($client_id);
+            $carousel_id = 'data-carouselid="' . esc_attr($client_id) . '"';
 
+            // Every option below is numeric or boolean. Cast rather than pass
+            // through: these values are author-supplied block attributes and are
+            // not constrained by the editor UI when the block markup is posted
+            // directly (REST / code editor).
             $options = [
-                'layout'          => $attributes['instaLayout'],
-                'slideshow'       => !empty($attributes['slidesShow']) ? $attributes['slidesShow'] : 5,
-                'autoplay'        => !empty($attributes['carouselAutoplay']) ? $attributes['carouselAutoplay'] : 0,
-                'autoplayspeed'   => !empty($attributes['autoplaySpeed']) ? $attributes['autoplaySpeed'] : 3000,
-                'transitionspeed' => !empty($attributes['transitionSpeed']) ? $attributes['transitionSpeed'] : 1000,
-                'loop'            => !empty($attributes['carouselLoop']) ? $attributes['carouselLoop'] : 0,
-                'arrows'          => !empty($attributes['carouselArrows']) ? $attributes['carouselArrows'] : 0,
-                'spacing'         => !empty($attributes['carouselSpacing']) ? $attributes['carouselSpacing'] : 0
+                'layout'          => 'insta-carousel',
+                'slideshow'       => !empty($attributes['slidesShow']) ? absint($attributes['slidesShow']) : 5,
+                'autoplay'        => !empty($attributes['carouselAutoplay']) ? 1 : 0,
+                'autoplayspeed'   => !empty($attributes['autoplaySpeed']) ? absint($attributes['autoplaySpeed']) : 3000,
+                'transitionspeed' => !empty($attributes['transitionSpeed']) ? absint($attributes['transitionSpeed']) : 1000,
+                'loop'            => !empty($attributes['carouselLoop']) ? 1 : 0,
+                'arrows'          => !empty($attributes['carouselArrows']) ? 1 : 0,
+                'spacing'         => !empty($attributes['carouselSpacing']) ? absint($attributes['carouselSpacing']) : 0
             ];
 
-            $carousel_options = 'data-carousel-options=' . htmlentities(json_encode($options), ENT_QUOTES);
+            $carousel_options = 'data-carousel-options="' . esc_attr(wp_json_encode($options)) . '"';
         }
 
         return [
@@ -1135,7 +1139,7 @@ class EmbedPressBlockRenderer
 
         if (!empty($custom_player_enabled)) {
             $is_self_hosted = Helper::check_media_format($attributes['url']);
-            $custom_player = 'data-playerid=' . esc_attr($client_id);
+            $custom_player = 'data-playerid="' . esc_attr($client_id) . '"';
 
             $options = self::build_player_options($attributes, $is_self_hosted);
             // Wrap in quotes — htmlentities(..., ENT_QUOTES) already encoded `"` as
@@ -1382,8 +1386,12 @@ class EmbedPressBlockRenderer
             return '';
         }
 
-        $ad = base64_encode(json_encode($attributes));
-        return "data-sponsored-id=$client_id data-sponsored-attrs=$ad class=sponsored-mask";
+        $ad = base64_encode(wp_json_encode($attributes));
+        return sprintf(
+            'data-sponsored-id="%s" data-sponsored-attrs="%s" class="sponsored-mask"',
+            esc_attr($client_id),
+            esc_attr($ad)
+        );
     }
 
     /**
@@ -1540,13 +1548,13 @@ class EmbedPressBlockRenderer
         <div class="embedpress-gutenberg-wrapper source-provider-<?php echo esc_attr( Helper::get_provider_name($url) ); ?> <?php echo esc_attr($wrapper_classes); ?>" id="<?php echo esc_attr($block_id); ?>" data-embed-type="<?php echo esc_attr( Helper::get_provider_name($url) ); ?> ">
             <div class="wp-block-embed__wrapper <?php echo esc_attr($embed_wrapper_classes); ?>">
                 <div id="ep-gutenberg-content-<?php echo esc_attr($client_id) ?>" class="ep-gutenberg-content<?php echo esc_attr($styling['auto_pause']); ?>">
-                    <div <?php echo esc_attr($styling['ads_attrs']); ?>>
+                    <div <?php echo $styling['ads_attrs']; // complete escaped attribute pair(s); esc_attr would double-encode the quotes ?>>
                         <div class="ep-embed-content-wraper <?php echo esc_attr($content_wrapper_classes); ?>"
                             <?php if (!empty($content_wrapper_style)): ?>style="<?php echo esc_attr($content_wrapper_style); ?>"<?php endif; ?>
-                            <?php echo esc_attr($player_config['custom_player']); ?>
+                            <?php echo $player_config['custom_player']; // complete escaped attribute pair(s); esc_attr would double-encode the quotes ?>
                             <?php echo $player_config['player_options']; // already a complete escaped attribute (data-options="..."); esc_attr would double-encode the outer quotes ?>
-                            <?php echo esc_attr($carousel_config['carousel_id']); ?>
-                            <?php echo esc_attr($carousel_config['carousel_options']); ?>>
+                            <?php echo $carousel_config['carousel_id']; // complete escaped attribute pair(s); esc_attr would double-encode the quotes ?>
+                            <?php echo $carousel_config['carousel_options']; // complete escaped attribute pair(s); esc_attr would double-encode the quotes ?>>
 
                             <?php
                             self::render_embed_content($embed, $content_share, $content_id, $attributes, $should_display_content, $protection_data, $styling);
@@ -1645,6 +1653,36 @@ class EmbedPressBlockRenderer
     }
 
     /**
+     * Normalize embed content to a string.
+     *
+     * $embed originates from the public `embedpress_render_dynamic_content`
+     * filter, so providers and third-party code may return either a string or
+     * an oEmbed-style array. That array is not guaranteed to carry an 'html'
+     * key — e.g. InstagramFeed only assigns it when a feed template was built,
+     * so an empty feed or cold cache (typical for sitemap/bot requests) yields
+     * ['provider_name' => ...] with no 'html'.
+     *
+     * Reading it unguarded raised "Undefined array key \"html\"", and appending
+     * to the array is a TypeError on PHP 8. Normalizing once at entry keeps
+     * both render paths working on a plain string.
+     *
+     * @param mixed $embed Embed content (string, array, or neither)
+     * @return string Embed HTML, or '' when unavailable
+     */
+    private static function normalize_embed_html($embed)
+    {
+        if (is_array($embed)) {
+            return isset($embed['html']) ? (string) $embed['html'] : '';
+        }
+
+        if (is_scalar($embed)) {
+            return (string) $embed;
+        }
+
+        return '';
+    }
+
+    /**
      * Render displayable content
      *
      * @param string $embed        Embed content
@@ -1655,24 +1693,18 @@ class EmbedPressBlockRenderer
      */
     private static function render_displayable_content($embed, $content_share, $content_id, $attributes, $styling = [])
     {
+        $embed = self::normalize_embed_html($embed);
+
         // Add custom branding if available
         if (!empty($styling['custom_branding']['html'])) {
-            if (is_array($embed)) {
-                $embed['html'] .= $styling['custom_branding']['html'];
-            } else {
-                $embed .= $styling['custom_branding']['html'];
-            }
+            $embed .= $styling['custom_branding']['html'];
         }
 
         if (!empty($content_share)) {
             $embed .= Helper::embed_content_share($content_id, $attributes);
         }
 
-        if (is_array($embed)) {
-            echo $embed['html'];
-        } else {
-            echo $embed;
-        }
+        echo $embed;
     }
 
     /**
@@ -1687,13 +1719,11 @@ class EmbedPressBlockRenderer
      */
     private static function render_protected_content($embed, $content_share, $content_id, $attributes, $protection_data, $styling)
     {
+        $embed = self::normalize_embed_html($embed);
+
         // Add custom branding if available
         if (!empty($styling['custom_branding']['html'])) {
-            if (is_array($embed)) {
-                $embed['html'] .= $styling['custom_branding']['html'];
-            } else {
-                $embed .= $styling['custom_branding']['html'];
-            }
+            $embed .= $styling['custom_branding']['html'];
         }
 
         if (!empty($content_share)) {
