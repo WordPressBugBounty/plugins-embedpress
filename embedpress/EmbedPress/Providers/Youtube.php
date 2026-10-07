@@ -1194,12 +1194,16 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
             return $gallobj;
         }
 
-        $apiEndpoint = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status,contentDetails&playlistId=' . $options['playlistId']
-            . '&maxResults=' . $options['pagesize']
-            . '&key=' . $options['apiKey'];
+        $query = [
+            'part'       => 'snippet,status,contentDetails',
+            'playlistId' => $options['playlistId'],
+            'maxResults' => (int) $options['pagesize'],
+            'key'        => $options['apiKey'],
+        ];
         if ($options['pageToken'] != null) {
-            $apiEndpoint .= '&pageToken=' . $options['pageToken'];
+            $query['pageToken'] = $options['pageToken'];
         }
+        $apiEndpoint = 'https://www.googleapis.com/youtube/v3/playlistItems?' . http_build_query($query);
 
 
 
@@ -1355,6 +1359,7 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
                                 data-playlistid="<?php echo esc_attr($options['playlistId']) ?>"
                                 data-pagetoken="<?php echo esc_attr($prevPageToken) ?>"
                                 data-pagesize="<?php echo intval($options['pagesize']) ?>"
+                                data-ep-sig="<?php echo esc_attr(Helper::yt_page_sig($options['playlistId'], $prevPageToken, $options['pagesize'])) ?>"
                             >
                                 <span><?php _e("Prev", "embedpress"); ?></span>
                             </div>
@@ -1438,6 +1443,7 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
                                 data-playlistid="<?php echo esc_attr($options['playlistId']) ?>"
                                 data-pagetoken="<?php echo esc_attr($nextPageToken) ?>"
                                 data-pagesize="<?php echo intval($options['pagesize']) ?>"
+                                data-ep-sig="<?php echo esc_attr(Helper::yt_page_sig($options['playlistId'], $nextPageToken, $options['pagesize'])) ?>"
                             >
                                 <span><?php _e("Next ", "embedpress"); ?> </span>
                             </div>

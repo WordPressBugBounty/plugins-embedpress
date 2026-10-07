@@ -11267,6 +11267,28 @@ const LINE_CAP_STYLES = ["butt", "round", "square"];
 const LINE_JOIN_STYLES = ["miter", "round", "bevel"];
 const NORMAL_CLIP = {};
 const EO_CLIP = {};
+// EmbedPress patch (fbs-84722): WebKit/Safari has no CanvasRenderingContext2D
+// `filter` support, so assigning an SVG filter URL to it is silently ignored.
+// Detect it functionally (the property may exist as a no-op expando).
+let epCanvasFilterSupported = null;
+function epIsCanvasFilterSupported() {
+  if (epCanvasFilterSupported !== null) {
+    return epCanvasFilterSupported;
+  }
+  epCanvasFilterSupported = false;
+  try {
+    const canvas = typeof document !== "undefined" ? document.createElement("canvas") : new OffscreenCanvas(1, 1);
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d", {
+      willReadFrequently: true
+    });
+    ctx.filter = "invert(1)";
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, 1, 1);
+    epCanvasFilterSupported = ctx.getImageData(0, 0, 1, 1).data[0] === 0;
+  } catch {}
+  return epCanvasFilterSupported;
+}
 class CanvasGraphics {
   constructor(canvasCtx, commonObjs, objs, canvasFactory, filterFactory, {
     optionalContentConfig,
@@ -11704,6 +11726,30 @@ class CanvasGraphics {
         maskCtx.fillRect(maskX, maskY, width, height);
         maskCtx.restore();
       }
+    }
+    // EmbedPress patch (fbs-84722): without canvas filters the SVG
+    // luminosity/alpha filters below are no-ops and soft masks render as
+    // opaque boxes (e.g. drop shadows in Safari). Convert the mask to alpha
+    // in JS instead, matching the SVG filter math.
+    if ((subtype === "Luminosity" || subtype === "Alpha" && transferMap) && !epIsCanvasFilterSupported()) {
+      const canvas = this.cachedCanvases.getCanvas("smaskAlphaFallback", width, height);
+      const ctx = canvas.context;
+      ctx.drawImage(maskCanvas, -maskX, -maskY);
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+      const isLuminosity = subtype === "Luminosity";
+      for (let i = 0, ii = data.length; i < ii; i += 4) {
+        let alpha = isLuminosity ? Math.round(0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2]) : data[i + 3];
+        if (transferMap) {
+          alpha = transferMap[alpha];
+        }
+        data[i] = data[i + 1] = data[i + 2] = 0;
+        data[i + 3] = alpha;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      maskCanvas = canvas.canvas;
+      maskX = maskY = 0;
+      subtype = null;
     }
     layerCtx.save();
     layerCtx.globalAlpha = 1;

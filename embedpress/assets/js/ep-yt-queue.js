@@ -373,7 +373,8 @@
             page_token:  state.nextPageToken,
             page_size:   String(state.pageSize),
             offset:      String($$(root, sel.item).length),
-            layout:      state.layout
+            layout:      state.layout,
+            sig:         state.sig
         });
 
         var headers = { 'Accept': 'application/json' };
@@ -388,6 +389,8 @@
                 }
                 state.nextPageToken = payload && payload.next_page_token ? payload.next_page_token : '';
                 root.setAttribute('data-next-page-token', state.nextPageToken);
+                state.sig = payload && payload.next_sig ? payload.next_sig : '';
+                root.setAttribute('data-ep-sig', state.sig);
                 if (state.shuffle) {
                     shuffleOrder(root, sel, state);
                 } else {
@@ -468,6 +471,7 @@
             playlistId:     root.getAttribute('data-playlist-id') || '',
             pageSize:       parseInt(root.getAttribute('data-pagesize'), 10) || 6,
             nextPageToken:  root.getAttribute('data-next-page-token') || '',
+            sig:            root.getAttribute('data-ep-sig') || '',
             cursor:         active ? visualIndex(root, sel, active) : 0,
             loop:           false,
             shuffle:        false,

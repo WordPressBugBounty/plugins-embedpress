@@ -455,7 +455,8 @@ class Core
         );
 
         // Queue infinite-scroll: returns a batch of rendered <li.ep-yt-queue__item>
-        // for the next page of a YouTube playlist.
+        // for the next page of a YouTube playlist. Public by design; the
+        // callback rejects requests without a valid server-issued `sig`.
         register_rest_route(
             'embedpress/v1',
             '/youtube-playlist-items',
@@ -469,6 +470,7 @@ class Core
                     'page_size'   => ['required' => false, 'type' => 'integer', 'sanitize_callback' => 'absint'],
                     'offset'      => ['required' => false, 'type' => 'integer', 'sanitize_callback' => 'absint'],
                     'layout'      => ['required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+                    'sig'         => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
                 ],
             ]
         );

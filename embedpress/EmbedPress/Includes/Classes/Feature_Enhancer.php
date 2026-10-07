@@ -200,18 +200,26 @@ class Feature_Enhancer
 
 	public function youtube_rest_api()
 	{
-		// Instantiate the class
+		// Public pagination endpoint (logged-out visitors page galleries too),
+		// so it is gated by a server-issued signature instead of a capability:
+		// only playlist pages this site rendered may trigger an outbound
+		// YouTube API request or a cache write.
+		$playlist_id = isset($_POST['playlistid']) ? sanitize_text_field(wp_unslash($_POST['playlistid'])) : '';
+		$page_token  = isset($_POST['pagetoken']) ? sanitize_text_field(wp_unslash($_POST['pagetoken'])) : '';
+		$page_size   = isset($_POST['pagesize']) ? absint($_POST['pagesize']) : 0;
+		$sig         = isset($_POST['sig']) ? sanitize_text_field(wp_unslash($_POST['sig'])) : '';
+
+		if (!Helper::verify_yt_page_sig($sig, $playlist_id, $page_token, $page_size)) {
+			wp_send_json_error(['message' => __('Invalid request.', 'embedpress')], 403);
+		}
+
 		$youtube = new Youtube($config = '');
 
-		// echo '<pre>';
-
-		// print_r($_POST);
-
 		$result = $youtube->get_gallery_page([
-			'playlistId'        => isset($_POST['playlistid']) ? sanitize_text_field($_POST['playlistid']) : null,
-			'pageToken'         => isset($_POST['pagetoken']) ? sanitize_text_field($_POST['pagetoken']) : null,
-			'pagesize'          => isset($_POST['pagesize']) ? sanitize_text_field($_POST['pagesize']) : null,
-			'currentpage'       => isset($_POST['currentpage']) ? sanitize_text_field($_POST['currentpage']) : null,
+			'playlistId'        => $playlist_id,
+			'pageToken'         => $page_token,
+			'pagesize'          => $page_size,
+			'currentpage'       => isset($_POST['currentpage']) ? absint($_POST['currentpage']) : null,
 			'columns'           => isset($_POST['epcolumns']) ? sanitize_text_field($_POST['epcolumns']) : null,
 			'showTitle'         => isset($_POST['showtitle']) ? sanitize_text_field($_POST['showtitle']) : null,
 			'showPaging'        => isset($_POST['showpaging']) ? sanitize_text_field($_POST['showpaging']) : null,

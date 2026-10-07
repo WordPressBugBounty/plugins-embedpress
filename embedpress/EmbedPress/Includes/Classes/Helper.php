@@ -2081,5 +2081,45 @@ class Helper
 		return !empty(array_intersect($user_roles, $allowed_roles));
 	}
 
+	/**
+	 * Sign the YouTube pagination params the server itself rendered.
+	 *
+	 * The public pagination endpoints (AJAX `youtube_rest_api` and REST
+	 * `embedpress/v1/youtube-playlist-items`) serve logged-out visitors, so a
+	 * capability check is not an option. Instead every prev/next button and
+	 * playlist root carries this HMAC, and the endpoints refuse any
+	 * playlist/page-token/page-size combination the site did not emit —
+	 * visitors can page through galleries the site embeds, but nobody can
+	 * spend the site's YouTube API quota or create cache rows for arbitrary
+	 * input. Not time-bound, so page-cached markup keeps working.
+	 */
+	public static function yt_page_sig($playlist_id, $page_token, $page_size)
+	{
+		$data = 'ep-yt-page|' . (string) $playlist_id . '|' . (string) $page_token . '|' . (int) $page_size;
+		return hash_hmac('sha256', $data, wp_salt('nonce'));
+	}
+
+	/**
+	 * Verify a signature from yt_page_sig() and the shape of its params.
+	 * Must pass before any outbound API request or transient write.
+	 */
+	public static function verify_yt_page_sig($sig, $playlist_id, $page_token, $page_size)
+	{
+		if (!is_string($sig) || !preg_match('/^[a-f0-9]{64}$/', $sig)) {
+			return false;
+		}
+		if (!is_string($playlist_id) || !preg_match('/^[A-Za-z0-9_-]{2,64}$/', $playlist_id)) {
+			return false;
+		}
+		if (!is_string($page_token) || ($page_token !== '' && !preg_match('/^[A-Za-z0-9_-]{1,128}$/', $page_token))) {
+			return false;
+		}
+		$page_size = (int) $page_size;
+		if ($page_size < 1 || $page_size > 50) {
+			return false;
+		}
+		return hash_equals(self::yt_page_sig($playlist_id, $page_token, $page_size), $sig);
+	}
+
 
 }

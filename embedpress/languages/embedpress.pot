@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the EmbedPress plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: EmbedPress 4.6.7\n"
+"Project-Id-Version: EmbedPress 4.6.8\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/embedpress\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-24T11:38:07+00:00\n"
+"POT-Creation-Date: 2026-10-07T07:52:17+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: embedpress\n"
@@ -119,9 +119,9 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:434
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:1008
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:1409
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:434
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1008
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1409
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:442
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1016
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1417
 msgid "Watch from the beginning"
 msgstr ""
 
@@ -130,9 +130,9 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:435
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:1009
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:1410
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:435
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1009
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1410
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:443
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1017
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1418
 msgid "Skip to where you left off"
 msgstr ""
 
@@ -141,9 +141,9 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:436
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:1010
 #: dist/embedpress/EmbedPress/Includes/Classes/Feature_Enhancer.php:1411
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:436
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1010
-#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1411
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:444
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1018
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:1419
 msgid "It looks like you've watched<br />part of this video before!"
 msgstr ""
 
@@ -161,7 +161,7 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Core.php:999
 #: dist/embedpress/EmbedPress/CoreLegacy.php:337
 #: dist/embedpress/EmbedPress/Plugins/Plugin.php:158
-#: EmbedPress/Core.php:999
+#: EmbedPress/Core.php:1001
 #: EmbedPress/CoreLegacy.php:337
 #: EmbedPress/Plugins/Plugin.php:158
 msgid "Open settings page"
@@ -177,7 +177,7 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/partials/sidebar.php:35
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/settings.php:82
 #: dist/embedpress/EmbedPress/Plugins/Plugin.php:159
-#: EmbedPress/Core.php:1002
+#: EmbedPress/Core.php:1004
 #: EmbedPress/CoreLegacy.php:338
 #: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:247
 #: EmbedPress/Ends/Back/Settings/EmbedpressSettings.php:1006
@@ -194,7 +194,7 @@ msgstr ""
 #: dist/embedpress/EmbedPress/CoreLegacy.php:342
 #: dist/embedpress/EmbedPress/Elementor/Embedpress_Elementor_Integration.php:215
 #: dist/embedpress/EmbedPress/Plugins/Plugin.php:163
-#: EmbedPress/Core.php:1006
+#: EmbedPress/Core.php:1008
 #: EmbedPress/CoreLegacy.php:342
 #: EmbedPress/Elementor/Embedpress_Elementor_Integration.php:215
 #: EmbedPress/Plugins/Plugin.php:163
@@ -1043,15 +1043,15 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Calendar.php:335
 #: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Document.php:745
 #: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Document.php:868
-#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Pdf.php:1501
-#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Pdf.php:1509
+#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Pdf.php:1502
+#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Pdf.php:1510
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/ads.php:354
 #: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:460
 #: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:890
-#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1952
-#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1981
-#: dist/embedpress/EmbedPress/Shortcode.php:1719
-#: dist/embedpress/EmbedPress/Shortcode.php:1757
+#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1954
+#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1983
+#: dist/embedpress/EmbedPress/Shortcode.php:1720
+#: dist/embedpress/EmbedPress/Shortcode.php:1758
 #: EmbedPress/Elementor/Widgets/Embedpress_Calendar.php:335
 #: EmbedPress/Elementor/Widgets/Embedpress_Document.php:745
 #: EmbedPress/Elementor/Widgets/Embedpress_Document.php:868
@@ -1618,7 +1618,6 @@ msgstr ""
 
 #: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:275
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/instagram.php:83
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:252
 #: EmbedPress/Elementor/Widgets/Embedpress_Elementor.php:275
 #: EmbedPress/Ends/Back/Settings/templates/instagram.php:83
 #: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:252
@@ -5084,7 +5083,7 @@ msgstr ""
 msgid "Presentation Mode"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Pdf_Gallery.php:844
+#: dist/embedpress/EmbedPress/Elementor/Widgets/Embedpress_Pdf_Gallery.php:845
 #: EmbedPress/Elementor/Widgets/Embedpress_Pdf_Gallery.php:844
 msgid "Click \"Select PDF Files\" to add PDFs to the gallery."
 msgstr ""
@@ -6108,9 +6107,9 @@ msgid "License Key Icon"
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Ends/Back/Settings/templates/hub.php:192
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1499
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1502
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1546
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1525
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1528
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1572
 #: EmbedPress/Ends/Back/Settings/templates/hub.php:192
 #: EmbedPress/Includes/Classes/Helper.php:1499
 #: EmbedPress/Includes/Classes/Helper.php:1502
@@ -7328,7 +7327,7 @@ msgstr ""
 msgid "Show Subscriber Count"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1964
+#: dist/embedpress/EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1966
 #: EmbedPress/Gutenberg/EmbedPressBlockRenderer.php:1964
 msgid "Invalid Calendar Link"
 msgstr ""
@@ -7349,168 +7348,19 @@ msgstr ""
 msgid "View Original Content"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:355
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:365
 #: EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:355
 msgid "EmbedPress Analytics:"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:356
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:366
 #: EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:356
 msgid "Your analytics database may contain redundant data. Consider running a cleanup to improve performance."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:358
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:368
 #: EmbedPress/Includes/Classes/Analytics/Analytics_Manager.php:358
 msgid "Go to Analytics Cleanup"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:158
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:158
-#, php-format
-msgid "EmbedPress %s Analytics Report - %s"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:191
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:191
-msgid "last 7 days"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:191
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:191
-msgid "last 30 days"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:199
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:217
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:199
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:217
-#, php-format
-msgid "EmbedPress %s Analytics Report"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:218
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:218
-#, php-format
-msgid "Analytics summary for %s"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:223
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:223
-#: src/Analytics/components/AnalyticsDashboard.js:302
-msgid "Overview"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:226
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:226
-#: src/Analytics/components/EmbedDetailsModal.js:349
-msgid "Total Embeds"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:236
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:236
-msgid "Total Views"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:241
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:241
-msgid "Unique Viewers"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:247
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:247
-#: src/Analytics/components/AnalyticsDashboard.js:465
-msgid "Top Performing Content"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:251
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:251
-#: src/Analytics/components/EmbedDetailsModal.js:427
-#: src/Analytics/components/EmbedDetailsModal.js:481
-#: src/Blocks/EmbedPress/src/components/InspectorControl/opensea.js:436
-msgid "Content"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:253
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:253
-#: src/Analytics/components/AnalyticsDashboard.js:303
-#: src/Analytics/components/AnalyticsDashboard.js:424
-#: src/Analytics/components/AnalyticsDashboard.js:485
-#: src/Analytics/components/AnalyticsDashboard.js:521
-msgid "Views"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:254
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:254
-#: src/Analytics/components/AnalyticsDashboard.js:304
-#: src/Analytics/components/AnalyticsDashboard.js:425
-#: src/Analytics/components/AnalyticsDashboard.js:486
-#: src/Analytics/components/AnalyticsDashboard.js:522
-msgid "Clicks"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:255
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:255
-#: src/Analytics/components/AnalyticsDashboard.js:305
-#: src/Analytics/components/AnalyticsDashboard.js:487
-msgid "Impressions"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:274
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:274
-msgid "Top Countries"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:278
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:278
-msgid "Country"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:279
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:300
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:279
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:300
-msgid "Visitors"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:295
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:295
-msgid "Device Types"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:299
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:299
-#: src/Analytics/components/AnalyticsDashboard.js:356
-msgid "Device"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:316
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:316
-msgid "This report was generated automatically by EmbedPress Pro."
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Email_Reports.php:317
-#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:317
-msgid "View Full Analytics Dashboard"
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Export_Manager.php:33
-#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:33
-msgid "Unsupported export format."
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Export_Manager.php:64
-#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:64
-msgid "Failed to create CSV file."
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Export_Manager.php:96
-#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:96
-msgid "Failed to create Excel file."
-msgstr ""
-
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Export_Manager.php:134
-#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:134
-msgid "Failed to generate PDF HTML. Please try again."
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Includes/Classes/Analytics/Milestone_Manager.php:362
@@ -7542,11 +7392,13 @@ msgstr ""
 msgid "Milestone achieved!"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:598
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:640
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:826
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:853
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:605
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:647
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:833
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:845
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:872
 #: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:882
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:911
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:598
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:640
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:826
@@ -7555,49 +7407,55 @@ msgstr ""
 msgid "This feature is only available in the Pro version."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1326
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1355
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1413
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1326
 msgid "Export feature requires EmbedPress Pro license."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1389
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1429
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1389
 msgid "Export HTML prepared successfully."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1397
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1437
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1397
 msgid "Export completed successfully."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1403
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1443
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1403
 msgid "Export failed."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1409
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1449
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1409
 msgid "Export failed: "
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1447
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1487
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1447
 msgid "Missing enabled parameter"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1458
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1498
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1458
 msgid "Analytics tracking enabled"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1459
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1499
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1459
 msgid "Analytics tracking disabled"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1465
+#: dist/embedpress/EmbedPress/Includes/Classes/Analytics/REST_API.php:1505
 #: EmbedPress/Includes/Classes/Analytics/REST_API.php:1465
 msgid "Method not allowed"
+msgstr ""
+
+#: dist/embedpress/EmbedPress/Includes/Classes/DynamicFieldResolver.php:115
+#: dist/embedpress/EmbedPress/Includes/Classes/DynamicFieldResolver.php:136
+msgid "Dynamic Source requires EmbedPress Pro."
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Includes/Classes/EmbedPress_Notice.php:427
@@ -8732,82 +8590,82 @@ msgstr ""
 msgid "Unknown action."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:361
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:387
 #: EmbedPress/Includes/Classes/Helper.php:361
 msgid "Requests to internal hosts are not allowed."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1481
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1507
 #: EmbedPress/Includes/Classes/Helper.php:1481
 msgid "EmbedPress Pro Required"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1482
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1508
 #: EmbedPress/Includes/Classes/Helper.php:1482
 msgid "This feature requires EmbedPress Pro. Please install and activate EmbedPress Pro to access this feature."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1493
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1546
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1519
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1572
 #: EmbedPress/Includes/Classes/Helper.php:1493
 #: EmbedPress/Includes/Classes/Helper.php:1546
 msgid "Renew License"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1507
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1533
 #: EmbedPress/Includes/Classes/Helper.php:1507
 msgid "Pro Features Disabled"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1549
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1575
 #: EmbedPress/Includes/Classes/Helper.php:1549
 msgid "EmbedPress Pro Features Disabled"
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1600
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1626
 #: EmbedPress/Includes/Classes/Helper.php:1600
 msgid "EmbedPress Pro is not installed or activated."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1605
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1631
 #: EmbedPress/Includes/Classes/Helper.php:1605
 msgid "Your license is active and valid."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1607
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1633
 #: EmbedPress/Includes/Classes/Helper.php:1607
 msgid "Your license has expired. Please renew to continue receiving updates and support."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1610
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1636
 #: EmbedPress/Includes/Classes/Helper.php:1610
 msgid "Your license is not active for this URL. Please activate your license."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1613
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1639
 #: EmbedPress/Includes/Classes/Helper.php:1613
 msgid "Your license key has been disabled or revoked."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1615
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1641
 #: EmbedPress/Includes/Classes/Helper.php:1615
 msgid "License key is missing. Please enter your license key."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1617
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1643
 #: EmbedPress/Includes/Classes/Helper.php:1617
 msgid "Unable to verify license due to connection issues. Please try again later."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1621
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1647
 #: EmbedPress/Includes/Classes/Helper.php:1621
 msgid "Please activate your license key to enable EmbedPress Pro features."
 msgstr ""
 
-#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1833
+#: dist/embedpress/EmbedPress/Includes/Classes/Helper.php:1859
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1505
 #: EmbedPress/Includes/Classes/Helper.php:1833
-#: EmbedPress/Providers/Youtube.php:1505
+#: EmbedPress/Providers/Youtube.php:1511
 msgid "EmbedPress: "
 msgstr ""
 
@@ -8957,14 +8815,14 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Providers/InstagramFeed.php:595
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:720
 #: EmbedPress/Providers/InstagramFeed.php:595
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:720
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:737
 msgid "Previous"
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Providers/InstagramFeed.php:599
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:721
 #: EmbedPress/Providers/InstagramFeed.php:599
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:721
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:738
 msgid "Next"
 msgstr ""
 
@@ -9030,33 +8888,33 @@ msgstr ""
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:729
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1231
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1457
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:481
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:729
-#: EmbedPress/Providers/Youtube.php:1231
-#: EmbedPress/Providers/Youtube.php:1457
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:485
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:746
+#: EmbedPress/Providers/Youtube.php:1235
+#: EmbedPress/Providers/Youtube.php:1463
 msgid "There is nothing on the playlist."
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:488
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:501
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1238
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:488
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:492
 #: EmbedPress/Providers/Youtube.php:501
-#: EmbedPress/Providers/Youtube.php:1238
+#: EmbedPress/Providers/Youtube.php:1242
 msgid "Sorry, there may be an issue with your YouTube API key."
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:627
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1359
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:627
-#: EmbedPress/Providers/Youtube.php:1359
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:643
+#: EmbedPress/Providers/Youtube.php:1364
 msgid "Prev"
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:710
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1442
-#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:710
-#: EmbedPress/Providers/Youtube.php:1442
+#: EmbedPress/Providers/TemplateLayouts/YoutubeLayout.php:727
+#: EmbedPress/Providers/Youtube.php:1448
 msgid "Next "
 msgstr ""
 
@@ -9066,7 +8924,7 @@ msgid "Please enter your YouTube API key to embed YouTube Channel."
 msgstr ""
 
 #: dist/embedpress/EmbedPress/Providers/Youtube.php:1464
-#: EmbedPress/Providers/Youtube.php:1464
+#: EmbedPress/Providers/Youtube.php:1470
 #, php-format
 msgid "EmbedPress: Please enter your YouTube API key at <a class='ep-link' href='%s' target='_blank' style='color: #5b4e96; text-decoration: none'>EmbedPress > Platforms > YouTube</a> to embed YouTube Channel."
 msgstr ""
@@ -9095,6 +8953,132 @@ msgstr ""
 #: dist/embedpress/EmbedPress/ThirdParty/Googlecalendar/Embedpress_Google_Helper.php:715
 #: EmbedPress/ThirdParty/Googlecalendar/Embedpress_Google_Helper.php:715
 msgid "Forbidden"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:158
+#, php-format
+msgid "EmbedPress %s Analytics Report - %s"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:191
+msgid "last 7 days"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:191
+msgid "last 30 days"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:199
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:217
+#, php-format
+msgid "EmbedPress %s Analytics Report"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:218
+#, php-format
+msgid "Analytics summary for %s"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:223
+#: src/Analytics/components/AnalyticsDashboard.js:302
+msgid "Overview"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:226
+#: src/Analytics/components/EmbedDetailsModal.js:349
+msgid "Total Embeds"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:236
+msgid "Total Views"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:241
+msgid "Unique Viewers"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:247
+#: src/Analytics/components/AnalyticsDashboard.js:465
+msgid "Top Performing Content"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:251
+#: src/Analytics/components/EmbedDetailsModal.js:427
+#: src/Analytics/components/EmbedDetailsModal.js:481
+#: src/Blocks/EmbedPress/src/components/InspectorControl/opensea.js:436
+msgid "Content"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:253
+#: src/Analytics/components/AnalyticsDashboard.js:303
+#: src/Analytics/components/AnalyticsDashboard.js:424
+#: src/Analytics/components/AnalyticsDashboard.js:485
+#: src/Analytics/components/AnalyticsDashboard.js:521
+msgid "Views"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:254
+#: src/Analytics/components/AnalyticsDashboard.js:304
+#: src/Analytics/components/AnalyticsDashboard.js:425
+#: src/Analytics/components/AnalyticsDashboard.js:486
+#: src/Analytics/components/AnalyticsDashboard.js:522
+msgid "Clicks"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:255
+#: src/Analytics/components/AnalyticsDashboard.js:305
+#: src/Analytics/components/AnalyticsDashboard.js:487
+msgid "Impressions"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:274
+msgid "Top Countries"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:278
+msgid "Country"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:279
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:300
+msgid "Visitors"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:295
+msgid "Device Types"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:299
+#: src/Analytics/components/AnalyticsDashboard.js:356
+msgid "Device"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:316
+msgid "This report was generated automatically by EmbedPress Pro."
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Email_Reports.php:317
+msgid "View Full Analytics Dashboard"
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:33
+msgid "Unsupported export format."
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:64
+msgid "Failed to create CSV file."
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:96
+msgid "Failed to create Excel file."
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Analytics/Export_Manager.php:134
+msgid "Failed to generate PDF HTML. Please try again."
+msgstr ""
+
+#: EmbedPress/Includes/Classes/Feature_Enhancer.php:213
+msgid "Invalid request."
 msgstr ""
 
 #: assets/js/license.js:28

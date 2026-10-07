@@ -116,7 +116,15 @@ class RestAPI
         if (empty($playlist_id) || empty($page_token)) {
             return new WP_REST_Response(['html' => '', 'next_page_token' => ''], 200);
         }
-        $page_size = $page_size > 0 && $page_size <= 50 ? $page_size : 6;
+
+        // Public route (visitors infinite-scroll playlists while logged out),
+        // so it is gated by the signature the server put on the rendered
+        // playlist root: only pages this site emitted may trigger an outbound
+        // YouTube API request or a cache write.
+        $sig = (string) $request->get_param('sig');
+        if (!Helper::verify_yt_page_sig($sig, $playlist_id, $page_token, $page_size)) {
+            return new WP_REST_Response(['html' => '', 'next_page_token' => ''], 403);
+        }
 
         $settings = (array) get_option(EMBEDPRESS_PLG_NAME . ':youtube', []);
         $api_key  = !empty($settings['api_key']) ? $settings['api_key'] : '';
@@ -187,9 +195,12 @@ class RestAPI
             );
         }
 
+        $next_page_token = isset($json->nextPageToken) ? (string) $json->nextPageToken : '';
+
         return new WP_REST_Response([
             'html'            => $html,
-            'next_page_token' => isset($json->nextPageToken) ? $json->nextPageToken : '',
+            'next_page_token' => $next_page_token,
+            'next_sig'        => $next_page_token !== '' ? Helper::yt_page_sig($playlist_id, $next_page_token, $page_size) : '',
         ], 200);
     }
 }
