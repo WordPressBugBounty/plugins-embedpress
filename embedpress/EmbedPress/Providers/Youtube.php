@@ -38,6 +38,63 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
     /** @var array Array with allowed params for the current Provider */
     protected $allowedParams = [ 'maxwidth', 'maxheight', 'pagesize', 'thumbnail', 'gallery', 'hideprivate', 'columns', 'ispagination', 'gapbetweenvideos', 'ytChannelLayout', 'ytPlaylistLayout', 'ytPlaylistMode' ];
 
+    /** Layouts free renders for playlist URLs (`ytPlaylistLayout`). The first one is the default. */
+    const FREE_PLAYLIST_LAYOUTS = ['queue', 'theatre'];
+
+    /** Layouts free renders for channel URLs (`ytChannelLayout`). The first one is the default. */
+    const FREE_CHANNEL_LAYOUTS = ['gallery', 'list'];
+
+    /**
+     * Playlist layouts that have a renderer.
+     *
+     * Free renders FREE_PLAYLIST_LAYOUTS. An extension (EmbedPress Pro) adds
+     * its layouts through `embedpress/youtube/playlist_layouts` and renders
+     * them on the `embedpress/youtube_{layout}_layout` action; a saved layout
+     * with no renderer falls back to the first free layout.
+     *
+     * @return string[]
+     */
+    public static function playlist_layouts() {
+        /**
+         * Filters the YouTube playlist layouts that can be rendered.
+         *
+         * @param string[] $layouts Layout slugs. Default FREE_PLAYLIST_LAYOUTS.
+         */
+        return (array) apply_filters('embedpress/youtube/playlist_layouts', self::FREE_PLAYLIST_LAYOUTS);
+    }
+
+    /**
+     * Channel layouts that have a renderer.
+     *
+     * Free renders FREE_CHANNEL_LAYOUTS. An extension adds its layouts through
+     * `embedpress/youtube/channel_layouts` and prints their items on the
+     * `embedpress/youtube_{layout}_layout` action; a saved layout with no
+     * renderer falls back to the first free layout.
+     *
+     * @return string[]
+     */
+    public static function channel_layouts() {
+        /**
+         * Filters the YouTube channel layouts that can be rendered.
+         *
+         * @param string[] $layouts Layout slugs. Default FREE_CHANNEL_LAYOUTS.
+         */
+        return (array) apply_filters('embedpress/youtube/channel_layouts', self::FREE_CHANNEL_LAYOUTS);
+    }
+
+    /**
+     * Resolve a requested layout to one that has a renderer.
+     *
+     * @param string $layout      Requested layout slug.
+     * @param bool   $is_playlist True for playlist URLs, false for channels.
+     * @return string
+     */
+    public static function resolve_layout($layout, $is_playlist) {
+        $layouts = $is_playlist ? self::playlist_layouts() : self::channel_layouts();
+        $default = $is_playlist ? self::FREE_PLAYLIST_LAYOUTS[0] : self::FREE_CHANNEL_LAYOUTS[0];
+        return in_array($layout, $layouts, true) ? $layout : $default;
+    }
+
     /** inline {@inheritdoc} */
     protected static $hosts = [
         'm.youtube.com', 'youtube.com', 'youtu.be',
@@ -1039,26 +1096,14 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
         //   Playlist URLs → ytPlaylistLayout (queue/theatre, more to come)
         // Each surface has its own attribute so a saved channel pick can't
         // leak into a playlist render and vice versa.
+        // A layout without a renderer (see playlist_layouts() /
+        // channel_layouts()) falls back to the free default.
         if ($is_playlist) {
-            // Free layouts always render. Pro layouts (library/spotlight/
-            // cinema/magazine) only render when Pro is active; otherwise we
-            // fall back to queue and the inspector shows the upsell.
-            $playlist_layouts = ['queue', 'theatre', 'library', 'spotlight', 'cinema', 'magazine'];
-            $pro_playlist_layouts = ['library', 'spotlight', 'cinema', 'magazine'];
             $picked = isset($params['ytPlaylistLayout']) ? $params['ytPlaylistLayout'] : '';
-            if (!in_array($picked, $playlist_layouts, true)) {
-                $picked = 'queue';
-            }
-            if (in_array($picked, $pro_playlist_layouts, true) && !apply_filters('embedpress/is_allow_rander', false)) {
-                $picked = 'queue';
-            }
-            $layout = $picked;
         } else {
-            $default_layout = 'gallery';
-            $layout = isset($params['ytChannelLayout']) && $params['ytChannelLayout'] !== ''
-                ? $params['ytChannelLayout']
-                : $default_layout;
+            $picked = isset($params['ytChannelLayout']) ? $params['ytChannelLayout'] : '';
         }
+        $layout = self::resolve_layout($picked, $is_playlist);
 
         $layout_data                  = $this->layout_data();
         $layout_data['is_playlist']   = $is_playlist;
@@ -1092,10 +1137,6 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
             $iframe_height = esc_attr($params['maxheight']);
             $iframe_title  = esc_attr($title);
             $main_iframe   = "<div class='ep-first-video'><iframe width='{$iframe_width}' height='{$iframe_height}' src='{$rel}' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen title='{$iframe_title}'></iframe></div>";
-        }
-
-        if (!apply_filters('embedpress/is_allow_rander', false) && ($layout === 'grid' || $layout === 'carousel')) {
-            return [];
         }
 
         if (!empty($gallery->html)) {
@@ -1298,25 +1339,9 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
 
                                 $channelTitle = isset($channel_info['snippet']['title']) ? $channel_info['snippet']['title'] : null;
                                 $channelThumb = isset($channel_info['snippet']['thumbnails']['high']['url']) ? $channel_info['snippet']['thumbnails']['high']['url'] : null;
-                                $layout = $this->get_layout();
+                                $layout = self::resolve_layout($this->get_layout(), false);
 
-                                
-                                if($layout === 'gallery'){
-                                    echo YoutubeLayout::create_gallery_layout($jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb); 
-                                }
-                                else if($layout === 'grid'){
-                                    do_action('embedpress/youtube_grid_layout', $jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb);
-                                }
-                                else if($layout === 'list'){
-                                    echo YoutubeLayout::create_list_layout($jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb); 
-                                }
-                                else if($layout === 'carousel'){
-                                    do_action('embedpress/youtube_carousel_layout', $jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb);
-                                }
-                                else{
-                                    echo YoutubeLayout::create_gallery_layout($jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb); 
-
-                                }
+                                echo YoutubeLayout::render_channel_items($layout, $jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb);
 
                         ?>
 <!--                         
@@ -1350,9 +1375,9 @@ class Youtube extends ProviderAdapter implements ProviderInterface {
 
 
                     <?php 
-                    $layout = $this->get_layout();
-                    
-                    if ($totalPages > 1 && $layout !== 'carousel') : ?>
+                    $layout_args = YoutubeLayout::channel_layout_args(self::resolve_layout($this->get_layout(), false), '', $options, $data);
+
+                    if ($totalPages > 1 && $layout_args['show_pagination']) : ?>
                         <div class="ep-youtube__content__pagination <?php echo (empty($prevPageToken) && empty($nextPageToken)) ? ' hide ' : ''; ?>">
                             <div
                                 class="ep-prev" <?php echo empty($prevPageToken) ? ' style="display:none" ' : ''; ?>

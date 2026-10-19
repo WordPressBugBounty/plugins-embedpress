@@ -198,11 +198,7 @@ class Embedpress_Elementor_Integration
         wp_localize_script('embedpress-gr-elementor-picker', 'epGoogleReviewsElementor', [
             'restUrl'    => esc_url_raw(rest_url('embedpress/v1/google-reviews')),
             'nonce'      => wp_create_nonce('wp_rest'),
-            // Drives the search dropdown's free/Pro flow (results-first + "+ Select"
-            // / "Upgrade to add" / upsell note), matching the settings + block pickers.
-            'proActive'  => defined('EMBEDPRESS_SL_ITEM_SLUG'),
             'connected'  => $gr_connected,
-            'upgradeUrl' => 'https://wpdeveloper.com/in/upgrade-embedpress',
             'i18n'    => [
                 'noResults' => __('No matches. Try a different spelling or include the city.', 'embedpress'),
                 'failed'    => __('Search failed.', 'embedpress'),
@@ -210,11 +206,6 @@ class Embedpress_Elementor_Integration
                 'notConnected' => __('Connect to the EmbedPress API to search. Open EmbedPress → Google Reviews settings to connect.', 'embedpress'),
                 'select'    => __('Select', 'embedpress'),
                 'added'     => __('already added', 'embedpress'),
-                'upgrade'   => __('Upgrade to add', 'embedpress'),
-                'limitLead' => __('You’ve added your 1 free place.', 'embedpress'),
-                'goPro'     => __('Go Pro', 'embedpress'),
-                'limitTail' => __('to show reviews from multiple businesses at once.', 'embedpress'),
-                'limitTitle' => __('Showing more than one place needs EmbedPress Pro — click to upgrade.', 'embedpress'),
                 'review'     => __('review', 'embedpress'),
                 'reviews'    => __('reviews', 'embedpress'),
             ],
@@ -240,6 +231,15 @@ class Embedpress_Elementor_Integration
 
     public function elementor_upsale()
     {
+        // Chart.js (MIT) ships with the plugin; it draws the mini analytics
+        // donut in the upsell panel below. Never load chart code from a CDN.
+        wp_enqueue_script(
+            'embedpress-chartjs',
+            EMBEDPRESS_URL_ASSETS . 'js/vendor/chart.umd.min.js',
+            [],
+            '4.5.1',
+            true
+        );
 ?>
         <style>
             :root {
@@ -1018,29 +1018,12 @@ class Embedpress_Elementor_Integration
                     }
 
                     function initMiniPieChart() {
-                        const chartContainer = document.getElementById('mini-pie-chart-elementor');
-                        if (!chartContainer || typeof am5 === 'undefined') {
-
-                            // Load amCharts library
-                            const script1 = document.createElement('script');
-                            script1.src = 'https://cdn.amcharts.com/lib/5/index.js';
-                            script1.onload = function() {
-                                const script2 = document.createElement('script');
-                                script2.src = 'https://cdn.amcharts.com/lib/5/percent.js';
-                                script2.onload = function() {
-                                    const script3 = document.createElement('script');
-                                    script3.src = 'https://cdn.amcharts.com/lib/5/themes/Animated.js';
-                                    script3.onload = function() {
-                                        renderMiniPieChart();
-                                    };
-                                    document.head.appendChild(script3);
-                                };
-                                document.head.appendChild(script2);
-                            };
-                            document.head.appendChild(script1);
-                        } else {
-                            renderMiniPieChart();
+                        // Chart.js is bundled with the plugin (assets/js/vendor/chart.umd.min.js),
+                        // enqueued for the Elementor editor in elementor_upsale().
+                        if (typeof window.Chart === 'undefined') {
+                            return;
                         }
+                        renderMiniPieChart();
                     }
 
                     function renderMiniPieChart() {
@@ -1055,150 +1038,117 @@ class Embedpress_Elementor_Integration
                             const chartContainer = document.getElementById('mini-pie-chart-elementor');
                             if (!chartContainer) return;
 
-                                // Get raw values
-                                const totalEmbeds = parseInt(overview.total_embeds) || 0;
-                                const totalViews = parseInt(overview.total_views) || 0;
-                                const totalClicks = parseInt(overview.total_clicks) || 0;
-                                const totalImpressions = parseInt(overview.total_impressions) || 0;
+                            // Get raw values
+                            const totalEmbeds = parseInt(overview.total_embeds) || 0;
+                            const totalViews = parseInt(overview.total_views) || 0;
+                            const totalClicks = parseInt(overview.total_clicks) || 0;
+                            const totalImpressions = parseInt(overview.total_impressions) || 0;
 
-                                // Check if there's any real data
-                                const hasRealData = totalEmbeds > 0 || totalViews > 0 || totalClicks > 0 || totalImpressions > 0;
+                            // Check if there's any real data
+                            const hasRealData = totalEmbeds > 0 || totalViews > 0 || totalClicks > 0 || totalImpressions > 0;
 
-                                // Always show at least 1 for each metric to avoid blank chart
-                                const chartData = [{
-                                        category: 'Views',
-                                        value: hasRealData ? (totalViews || 1) : 1
-                                    },
-                                    {
-                                        category: 'Clicks',
-                                        value: hasRealData ? (totalClicks || 1) : 1
-                                    },
-                                    {
-                                        category: 'Impr',
-                                        value: hasRealData ? (totalImpressions || 1) : 1
+                            // Always show at least 1 for each metric to avoid blank chart
+                            const chartData = [{
+                                    category: 'Views',
+                                    value: hasRealData ? (totalViews || 1) : 1
+                                },
+                                {
+                                    category: 'Clicks',
+                                    value: hasRealData ? (totalClicks || 1) : 1
+                                },
+                                {
+                                    category: 'Impr',
+                                    value: hasRealData ? (totalImpressions || 1) : 1
+                                }
+                            ];
+
+                            // Theme colors
+                            const tooltipBg = isDarkMode ? "#1F2124" : "#fff";
+                            const tooltipText = isDarkMode ? "#CBCBD0" : "#333";
+                            const tooltipBorder = isDarkMode ? "#272A2F" : "#e0e0e0";
+                            const sliceStroke = isDarkMode ? "#1A1C1F" : "#fff";
+                            const centerNumberColor = isDarkMode ? "#ffffff" : "#092161";
+                            const centerLabelColor = isDarkMode ? "#CBCBD0" : "#666";
+
+                            // Show 1 instead of 0 to avoid blank display
+                            const displayEmbeds = hasRealData ? totalEmbeds : 1;
+
+                            if (chartContainer._epChart) {
+                                chartContainer._epChart.destroy();
+                            }
+                            chartContainer.innerHTML = '';
+
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 70;
+                            canvas.height = 70;
+                            canvas.style.cssText = 'width:70px;height:70px;display:block;';
+                            chartContainer.appendChild(canvas);
+
+                            // Total embeds in the center
+                            const center = document.createElement('div');
+                            center.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;line-height:1.2;';
+                            const centerNumber = document.createElement('span');
+                            centerNumber.style.cssText = 'font-size:14px;font-weight:700;color:' + centerNumberColor + ';';
+                            centerNumber.textContent = displayEmbeds.toLocaleString();
+                            const centerLabel = document.createElement('span');
+                            centerLabel.style.cssText = 'font-size:7px;font-weight:400;color:' + centerLabelColor + ';';
+                            centerLabel.textContent = 'Total Embeds';
+                            center.appendChild(centerNumber);
+                            center.appendChild(centerLabel);
+                            chartContainer.appendChild(center);
+
+                            // HTML tooltip so it can overflow the 70px canvas
+                            const tip = document.createElement('div');
+                            tip.style.cssText = 'position:absolute;pointer-events:none;white-space:nowrap;opacity:0;z-index:20;transform:translate(-50%,-50%);padding:6px 8px;border-radius:4px;font-size:10px;font-weight:400;line-height:1.2;' +
+                                'background:' + tooltipBg + ';color:' + tooltipText + ';border:1px solid ' + tooltipBorder + ';box-shadow:0 2px 4px rgba(0,0,0,' + (isDarkMode ? 0.3 : 0.1) + ');';
+                            chartContainer.appendChild(tip);
+
+                            chartContainer._epChart = new window.Chart(canvas, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: chartData.map(item => item.category),
+                                    datasets: [{
+                                        data: chartData.map(item => item.value),
+                                        backgroundColor: ["#5B4E96", "#8C73FA", "#C4B5E8"],
+                                        hoverBackgroundColor: ["#5B4E96", "#8C73FA", "#C4B5E8"],
+                                        borderColor: sliceStroke,
+                                        hoverBorderColor: sliceStroke,
+                                        borderWidth: 1,
+                                        borderRadius: 4,
+                                        hoverOffset: 0,
+                                    }]
+                                },
+                                options: {
+                                    responsive: false,
+                                    maintainAspectRatio: false,
+                                    animation: false,
+                                    cutout: '75%',
+                                    radius: '100%',
+                                    plugins: {
+                                        legend: {
+                                            display: false
+                                        },
+                                        tooltip: {
+                                            enabled: false,
+                                            callbacks: {
+                                                title: () => '',
+                                                label: (ctx) => ctx.label + ': ' + ctx.parsed
+                                            },
+                                            external: function(context) {
+                                                const tooltip = context.tooltip;
+                                                if (tooltip.opacity === 0) {
+                                                    tip.style.opacity = '0';
+                                                    return;
+                                                }
+                                                tip.textContent = (tooltip.body || []).map(b => b.lines.join(' ')).join(' ');
+                                                tip.style.left = tooltip.caretX + 'px';
+                                                tip.style.top = tooltip.caretY + 'px';
+                                                tip.style.opacity = '1';
+                                            }
+                                        }
                                     }
-                                ];
-
-                                // Create chart
-                                const root = am5.Root.new(chartContainer);
-                                root._logo.dispose();
-                                root.setThemes([am5themes_Animated.new(root)]);
-                                root.animationThemesEnabled = false;
-
-                                const chart = root.container.children.push(
-                                    am5percent.PieChart.new(root, {
-                                        layout: root.verticalLayout,
-                                        innerRadius: am5.percent(75),
-                                        radius: am5.percent(100),
-                                    })
-                                );
-
-                                const series = chart.series.push(
-                                    am5percent.PieSeries.new(root, {
-                                        valueField: 'value',
-                                        categoryField: 'category',
-                                        alignLabels: false,
-                                        sequencedInterpolation: false,
-                                    })
-                                );
-
-                                series.slices.template.set("toggleKey", "none");
-                                series.labels.template.set("visible", false);
-                                series.ticks.template.set("visible", false);
-
-                                // Tooltip colors based on theme
-                                const tooltipBg = isDarkMode ? "#1F2124" : "#fff";
-                                const tooltipText = isDarkMode ? "#CBCBD0" : "#333";
-                                const tooltipBorder = isDarkMode ? "#272A2F" : "#e0e0e0";
-
-                                const tooltip = am5.Tooltip.new(root, {
-                                    getFillFromSprite: false,
-                                    labelText: `[${tooltipText}]{category}:\{value}[/]`,
-                                    paddingTop: 6,
-                                    paddingBottom: 6,
-                                    paddingLeft: 8,
-                                    paddingRight: 8,
-                                    autoTextColor: false,
-                                    pointerOrientation: "horizontal",
-                                    centerX: am5.p50,
-                                    centerY: am5.p50,
-                                    background: am5.RoundedRectangle.new(root, {
-                                        fill: am5.color(tooltipBg),
-                                        cornerRadius: 4,
-                                        strokeOpacity: 1,
-                                        stroke: am5.color(tooltipBorder),
-                                        strokeWidth: 1,
-                                        shadowColor: am5.color("#000"),
-                                        shadowBlur: 4,
-                                        shadowOpacity: isDarkMode ? 0.3 : 0.1,
-                                        shadowOffsetX: 0,
-                                        shadowOffsetY: 2,
-                                    }),
-                                });
-
-                                tooltip.label.setAll({
-                                    fill: am5.color(tooltipText),
-                                    fontSize: 10,
-                                    fontWeight: "400",
-                                    textAlign: "center",
-                                    oversizedBehavior: "wrap",
-                                    maxWidth: 100,
-                                });
-
-                                // Slice stroke color based on theme
-                                const sliceStroke = isDarkMode ? "#1A1C1F" : "#fff";
-
-                                series.slices.template.setAll({
-                                    tooltip: tooltip,
-                                    stroke: am5.color(sliceStroke),
-                                    strokeWidth: 1,
-                                    cornerRadius: 4,
-                                    interactive: true,
-                                    hoverable: true,
-                                });
-
-                                series.slices.template.states.create("hover", {
-                                    scale: 1,
-                                });
-
-                                const colors = ["#5B4E96", "#8C73FA", "#C4B5E8"];
-                                series.get('colors').set('colors', colors.map(c => am5.color(c)));
-
-                                series.data.setAll(chartData);
-
-                                // Center text colors based on theme
-                                const centerNumberColor = isDarkMode ? "#ffffff" : "#092161";
-                                const centerLabelColor = isDarkMode ? "#CBCBD0" : "#666";
-
-                                // Add total embeds number
-                                // Show 1 instead of 0 to avoid blank display
-                                const displayEmbeds = hasRealData ? totalEmbeds : 1;
-                                chart.seriesContainer.children.push(
-                                    am5.Label.new(root, {
-                                        text: displayEmbeds.toLocaleString(),
-                                        centerX: am5.p50,
-                                        centerY: am5.p50,
-                                        textAlign: "center",
-                                        fontSize: 14,
-                                        fontWeight: "700",
-                                        fill: am5.color(centerNumberColor),
-                                        dy: -8,
-                                    })
-                                );
-
-                                // Add "Total Embeds" label
-                                chart.seriesContainer.children.push(
-                                    am5.Label.new(root, {
-                                        text: "Total Embeds",
-                                        centerX: am5.p50,
-                                        centerY: am5.p50,
-                                        textAlign: "center",
-                                        fontSize: 7,
-                                        fontWeight: "400",
-                                        fill: am5.color(centerLabelColor),
-                                        dy: 6,
-                                    })
-                                );
+                                }
+                            });
                         }
 
                         // Fetch analytics data

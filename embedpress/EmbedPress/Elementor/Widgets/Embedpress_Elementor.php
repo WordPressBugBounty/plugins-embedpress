@@ -86,10 +86,6 @@ class Embedpress_Elementor extends Widget_Base
 		}
 		$handles[] = 'embedpress-front';
 
-		if (isset($handler_keys['enabled_ads']) && $handler_keys['enabled_ads'] === 'yes') {
-			$handles[] = 'embedpress-ads';
-		}
-
 		if (isset($handler_keys['enabled_instafeed']) && $handler_keys['enabled_instafeed'] === 'yes') {
 			$handles[] = 'embedpress-carousel-vendor';
 			$handles[] = 'embedpress-glider';
@@ -5134,47 +5130,28 @@ class Embedpress_Elementor extends Widget_Base
 
 
 
+	/**
+	 * Extra wrapper attributes for an Instagram feed (e.g. the carousel data
+	 * attributes EmbedPress Pro needs). Free adds none itself.
+	 *
+	 * @see \EmbedPress\Providers\InstagramFeed::wrapper_attributes()
+	 */
 	public function get_instafeed_carousel_options($settings)
 	{
-		$_carousel_options = '';
-
-		if (!empty($settings['instaLayout']) && $settings['instaLayout'] === 'insta-carousel') {
-			$_carousel_id = 'data-carouselid="' . esc_attr($this->get_id()) . '"';
-
-			// Numeric / boolean settings - cast rather than pass through.
-			$layout = 'insta-carousel';
-			$embedpress_instafeed_slide_show = !empty($settings['embedpress_instafeed_slide_show']) ? absint($settings['embedpress_instafeed_slide_show']) : 5;
-			$embedpress_carousel_autoplay = !empty($settings['embedpress_carousel_autoplay']) ? 1 : 0;
-			$embedpress_carousel_autoplay_speed = !empty($settings['embedpress_carousel_autoplay_speed']) ? absint($settings['embedpress_carousel_autoplay_speed']) : 3000;
-			$embedpress_carousel_transition_speed = !empty($settings['embedpress_carousel_transition_speed']) ? absint($settings['embedpress_carousel_transition_speed']) : 1000;
-			$embedpress_carousel_loop = !empty($settings['embedpress_carousel_loop']) ? 1 : 0;
-			$embedpress_carousel_arrows = !empty($settings['embedpress_carousel_arrows']) ? 1 : 0;
-			$spacing = !empty($settings['embedpress_carousel_spacing']) ? absint($settings['embedpress_carousel_spacing']) : 0;
-
-			// print_r($settings);
-
-			$carousel_options = [
-				'layout' => $layout,
-				'slideshow' => $embedpress_instafeed_slide_show,
-				'autoplay' => $embedpress_carousel_autoplay,
-				'autoplayspeed' => $embedpress_carousel_autoplay_speed,
-				'transitionspeed' => $embedpress_carousel_transition_speed,
-				'loop' => $embedpress_carousel_loop,
-				'arrows' => $embedpress_carousel_arrows,
-				'spacing' => $spacing
-			];
-
-			$carousel_options_string = wp_json_encode($carousel_options);
-			$_carousel_options = 'data-carousel-options="' . esc_attr($carousel_options_string) . '"';
+		if (empty($settings['embedpress_pro_embeded_source']) || $settings['embedpress_pro_embeded_source'] !== 'instafeed') {
+			return '';
 		}
-		return $_carousel_options;
+
+		$layout = \EmbedPress\Providers\InstagramFeed::resolve_layout(isset($settings['instaLayout']) ? $settings['instaLayout'] : '');
+
+		return \EmbedPress\Providers\InstagramFeed::wrapper_attributes($layout, $settings, 'elementor', $this->get_id());
 	}
 
 	public function get_instafeed_layout($settings)
 	{
 		$insta_layout = '';
 		if ($settings['embedpress_pro_embeded_source'] == 'instafeed') {
-			$insta_layout = ' ' . $settings['instaLayout'];
+			$insta_layout = ' ' . \EmbedPress\Providers\InstagramFeed::resolve_layout(isset($settings['instaLayout']) ? $settings['instaLayout'] : '');
 		}
 
 		return $insta_layout;
@@ -5218,15 +5195,9 @@ class Embedpress_Elementor extends Widget_Base
 		add_filter('embedpress_should_modify_spotify', '__return_false');
 		$embed_link = isset($settings['embedpress_embeded_link']) ? $settings['embedpress_embeded_link'] : '';
 
-		if (!apply_filters('embedpress/is_allow_rander', false) && ($settings['mode'] === 'gallery-grid' || $settings['mode'] === 'gallery-masonary' || $settings['mode'] === 'gallery-justify')) {
-			echo '<div class="pro__alert__wrap" style="display: block;">
-					<div class="pro__alert__card">
-							<h2>Opps...</h2>
-							<p>You need to upgrade to the <a style="font-weight: bold; color: #5B4E96; text-decoration: underline" href="https://wpdeveloper.com/in/upgrade-embedpress" target="_blank">Premium</a> Version to use this feature</p>
-					</div>
-				</div>';
-			return '';
-		}
+		// Google Photos Grid / Masonry / Justify are rendered by EmbedPress Pro;
+		// without it the provider falls back to the default album mode
+		// (GooglePhotos::resolve_mode()), so no gate is needed here.
 
 		if ($settings['instafeedFeedType'] === 'mixed_type' || $settings['instafeedFeedType'] === 'tagged_type') {
 			echo 'Comming Soon.';
@@ -5243,25 +5214,15 @@ class Embedpress_Elementor extends Widget_Base
 			return '';
 		}
 
-		if (!apply_filters('embedpress/is_allow_rander', false) && ($settings['instaLayout'] === 'insta-masonry' || $settings['instaLayout'] === 'insta-carousel' || $settings['instafeedFeedType'] === 'hashtag_type')) {
-			echo '<div class="pro__alert__wrap" style="display: block;">
-					<div class="pro__alert__card">
-							<h2>Opps...</h2>
-							<p>You need to upgrade to the <a style="font-weight: bold; color: #5B4E96; text-decoration: underline" href="https://wpdeveloper.com/in/upgrade-embedpress" target="_blank">Premium</a> Version to use this feature</p>
-					</div>
-				</div>';
-			return '';
-		}
+		// Instagram Masonry / Carousel layouts and the hashtag feed are rendered
+		// by EmbedPress Pro. Without it the layout falls back to Grid
+		// (InstagramFeed::resolve_layout()) and a hashtag URL shows the
+		// provider's upgrade notice, so no gate is needed here.
 
-		if (!apply_filters('embedpress/is_allow_rander', false) && ($settings['ytChannelLayout'] === 'carousel' || $settings['ytChannelLayout'] === 'grid')) {
-			echo '<div class="pro__alert__wrap" style="display: block; position: static; background: none;">
-					<div class="pro__alert__card" style="position: static; transform: none; margin: 0 auto;text-align: left; align-items: flex-start;">
-							<h2>Opps...</h2>
-							<p>You need to upgrade to the <a style="font-weight: bold; color: #5B4E96; text-decoration: underline" href="https://wpdeveloper.com/in/upgrade-embedpress" target="_blank">Premium</a> Version to use this feature</p>
-					</div>
-				</div>';
-			return '';
-		}
+		// YouTube Grid / Carousel channel layouts (and the Library / Spotlight /
+		// Cinema / Magazine playlist layouts) are rendered by EmbedPress Pro.
+		// Without it the provider falls back to Gallery / Queue
+		// (Youtube::resolve_layout()), so no gate is needed here.
 
 		if ($settings['instafeedFeedType'] === 'mixed_type' || $settings['instafeedFeedType'] === 'tagged_type') {
 			echo 'Comming Soon.';
@@ -5439,10 +5400,9 @@ class Embedpress_Elementor extends Widget_Base
 			// $data_playerid = 'data-playerid='.esc_attr($this->get_id());
 		}
 
+		// Carousel attributes (data-carouselid / data-carousel-options) come
+		// from get_instafeed_carousel_options() when Pro supplies them.
 		$data_carouselid = '';
-		if (!empty($settings['instaLayout']) && $settings['instaLayout'] === 'insta-carousel') {
-			$data_carouselid = 'data-carouselid="' . esc_attr($this->get_id()) . '"';
-		}
 
 		$cEmbedType = !empty($settings['cEmbedType']) ? sanitize_text_field($settings['cEmbedType']) : '';
 
@@ -5524,44 +5484,24 @@ class Embedpress_Elementor extends Widget_Base
 
 									<?php
 									$content_id = $client_id;
-									if (
-										(empty($settings['embedpress_lock_content']) || ($settings['embedpress_protection_type'] == 'password' && empty($settings['embedpress_lock_content_password'])) || $settings['embedpress_lock_content'] == 'no') ||
-										($settings['embedpress_protection_type'] == 'password' && !empty(Helper::is_password_correct($client_id)) && ($hash_pass === $password_correct)) ||
-										!apply_filters('embedpress/is_allow_rander', false) ||
-										($settings['embedpress_protection_type'] == 'user-role' && Helper::has_allowed_roles($embed_settings['userRole']))
-									) {
+									// Content protection: see `embedpress/content_protection/is_locked`
+									// in EmbedPressBlockRenderer::should_display_content(). Free
+									// never locks; the lock UI comes from the actions below.
+									$is_content_locked = Helper::is_content_locked([
+										'lock_content'       => $settings['embedpress_lock_content'] ?? '',
+										'protection_type'    => $settings['embedpress_protection_type'] ?? '',
+										'content_password'   => !empty($settings['embedpress_lock_content_password']) ? sanitize_text_field($settings['embedpress_lock_content_password']) : '',
+										'user_role'          => $embed_settings['userRole'],
+										'protection_message' => $embed_settings['protectionMessage'],
+										'client_id'          => $client_id,
+									], 'elementor');
+									if (!$is_content_locked) {
 										if (!empty($settings['embedpress_content_share'])) {
 											$content .= Helper::embed_content_share($content_id, $embed_settings);
 										}
 
-										// Apply lazy loading if enabled (but not when custom player is active or in editor mode)
-										$custom_player_enabled = !empty($settings['emberpress_custom_player']) && $settings['emberpress_custom_player'] === 'yes';
-										if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !$custom_player_enabled && !$is_editor_view) {
-											$content = preg_replace_callback(
-												'/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
-												function ($matches) {
-													$before = $matches[1];
-													$src = $matches[2];
-													$after = $matches[3];
-
-													// Extract style attribute if exists
-													$style = '';
-													if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
-														$style = $style_match[1];
-													}
-
-													return sprintf(
-														'<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
-														esc_attr($src),
-														esc_attr($style),
-														$before,
-														$after,
-														esc_attr($style)
-													);
-												},
-												$content
-											);
-										}
+										/** This filter is documented in EmbedPress/Elementor/Widgets/Embedpress_Pdf.php */
+										$content = apply_filters('embedpress/lazy_load/html', $content, $settings, ['surface' => 'elementor', 'is_editor' => (bool) $is_editor_view]);
 
 										echo $content;
 									} else {
@@ -5569,36 +5509,13 @@ class Embedpress_Elementor extends Widget_Base
 											$content .= Helper::embed_content_share($content_id, $embed_settings);
 										}
 
-										// Apply lazy loading if enabled (but not when custom player is active or in editor mode)
-										$custom_player_enabled = !empty($settings['emberpress_custom_player']) && $settings['emberpress_custom_player'] === 'yes';
-										if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !$custom_player_enabled && !$is_editor_view) {
-											$content = preg_replace_callback(
-												'/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
-												function ($matches) {
-													$before = $matches[1];
-													$src = $matches[2];
-													$after = $matches[3];
+										/** This filter is documented in EmbedPress/Elementor/Widgets/Embedpress_Pdf.php */
+										$content = apply_filters('embedpress/lazy_load/html', $content, $settings, ['surface' => 'elementor', 'is_editor' => (bool) $is_editor_view]);
 
-													// Extract style attribute if exists
-													$style = '';
-													if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
-														$style = $style_match[1];
-													}
-
-													return sprintf(
-														'<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
-														esc_attr($src),
-														esc_attr($style),
-														$before,
-														$after,
-														esc_attr($style)
-													);
-												},
-												$content
-											);
-										}
-
-										if ($settings['embedpress_protection_type'] == 'password') {
+										if (Helper::pro_is_outdated()) {
+											// Outdated Pro cannot render the lock UI — fail closed.
+											echo Helper::protection_paused_notice();
+										} elseif ($settings['embedpress_protection_type'] == 'password') {
 											do_action('embedpress/display_password_form', $client_id, $content, $pass_hash_key, $embed_settings);
 										} else {
 											do_action('embedpress/content_protection_content', $client_id, $embed_settings['protectionMessage'],  $embed_settings['userRole']);
@@ -5610,7 +5527,7 @@ class Embedpress_Elementor extends Widget_Base
 								<?php
 								$isAdEnabled = !empty($settings['adManager']);
 								$isContentUnlocked = empty($settings['embedpress_lock_content']);
-								$isPasswordCorrect = Helper::is_password_correct($client_id) && ($hash_pass === $password_correct);
+								$isPasswordCorrect = ($hash_pass === $password_correct);
 
 								if ($isAdEnabled && ($isContentUnlocked || $isPasswordCorrect)) {
 									$content = apply_filters('embedpress/generate_ad_template', $content, $client_id, $settings, 'elementor');

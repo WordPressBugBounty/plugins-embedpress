@@ -12,11 +12,23 @@ use Embera\Url;
 class GooglePhotos extends ProviderAdapter implements ProviderInterface
 {
     protected static $hosts = ["photos.app.goo.gl", "photos.google.com"];
-    private $player_js = "https://cdn.jsdelivr.net/npm/publicalbum@1.3.4/embed-ui.min.js"; //EMBEDPRESS_URL_ASSETS . "js/embed-ui.min.js";
+    // Bundled publicalbum@1.3.4 gallery player (assets/js/vendor/embed-ui.min.js).
+    // Set in the constructor because the URL depends on a runtime constant.
+    private $player_js = '';
     private $min_expiration = 0;
     private $allowed_url_patttern = "/^https:\/\/photos\.app\.goo\.gl\/|^https:\/\/photos\.google\.com(?:\/u\/\d+)?\/share\//";
 
     static public $name = "google-photos-album";
+
+    /**
+     * Album modes rendered by the free plugin. Any other mode (Grid, Masonry,
+     * Justify) is rendered by EmbedPress Pro through the
+     * `embedpress/google_photos/modes` + `embedpress/google_photos/gallery_html`
+     * filters; without a renderer the embed falls back to the default mode.
+     */
+    const FREE_MODES = ['carousel', 'gallery-player'];
+
+    const DEFAULT_MODE = 'carousel';
 
     /** @var array Array with allowed params for the current Provider */
     protected $allowedParams = [
@@ -52,6 +64,7 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
     public function __construct($url, array $config = [])
     {
         parent::__construct($url, $config);
+        $this->player_js = esc_url(add_query_arg('ver', EMBEDPRESS_VERSION, EMBEDPRESS_URL_ASSETS . 'js/vendor/embed-ui.min.js'));
         add_filter('embedpress_render_dynamic_content', [$this, 'fakeDynamicResponse'], 10, 2);
     }
 
@@ -66,6 +79,8 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
             return $this->get_html($link, $expiration);
         }
 
+
+        $mode = self::resolve_mode($mode);
 
         $props = $this->create_default_attr();
         $props->link = $link;
@@ -97,38 +112,25 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
 
         $items_code = '';
 
-        if (in_array($props->mode, ['gallery-justify', 'gallery-masonary', 'gallery-grid'], true)) {
-            $items_code .= sprintf('<div class="photos-%s">', esc_attr($props->mode));
-            $counter = 0;
+        if (!in_array($props->mode, self::FREE_MODES, true)) {
+            /**
+             * Filters the markup of a Google Photos album rendered in a mode the
+             * free plugin does not implement (EmbedPress Pro: Grid, Masonry,
+             * Justify). Only reached for modes registered through
+             * `embedpress/google_photos/modes`.
+             *
+             * @param string    $html   Markup to output. Default ''.
+             * @param \stdClass $props  Album properties (link, mode, width, height,
+             *                          imageWidth, imageHeight, showTitle, ...).
+             * @param string[]  $photos Photo base URLs (no size suffix).
+             * @param string    $title  Album title (og:title), may be empty.
+             */
+            return (string) apply_filters('embedpress/google_photos/gallery_html', '', $props, $photos, $title);
+        }
 
-            foreach ($photos as $photo) {
-                $preview_src = sprintf('%s=w%d-h%d', $photo, $props->imageWidth, $props->imageHeight);
-                $full_src = $photo . '=w2500';
-
-                $items_code .= sprintf(
-                    '<div class="photo-item" data-item-number="%d" id="photo-%s">
-                    <img data-photo-src="%s" src="%s" loading="lazy" alt="Photo"/>
-                </div>',
-                    esc_attr($counter++),
-                    md5($preview_src),
-                    esc_url($full_src),
-                    esc_url($preview_src)
-                );
-            }
-
-            $items_code .= '</div>';
-
-            return sprintf(
-                "<div class=\"google-photos-%s-widget\">%s%s</div>\n",
-                esc_attr($props->mode),
-                !empty($title) && (!isset($props->showTitle) || $props->showTitle) ? "<h3 style='text-align:left; margin: 22px 10px;'>" . esc_html($title) . "</h3>" : '',
-                $items_code
-            );
-        } else {
-            foreach ($photos as $photo) {
-                $preview_src = sprintf('%s=w%d-h%d', $photo, $props->imageWidth, $props->imageHeight);
-                $items_code .= sprintf('<object data="%s"></object>', esc_url($preview_src));
-            }
+        foreach ($photos as $photo) {
+            $preview_src = sprintf('%s=w%d-h%d', $photo, $props->imageWidth, $props->imageHeight);
+            $items_code .= sprintf('<object data="%s"></object>', esc_url($preview_src));
         }
 
         // Metadata for embedding
@@ -262,100 +264,26 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
     }
 
 
-    private function get_embed_google_photos_html($props)
+    /**
+     * Resolve the album mode to one that has a renderer.
+     *
+     * Free renders FREE_MODES. EmbedPress Pro adds its modes through
+     * `embedpress/google_photos/modes`; a saved mode with no renderer falls
+     * back to DEFAULT_MODE.
+     *
+     * @param string $mode Requested mode.
+     * @return string
+     */
+    public static function resolve_mode($mode)
     {
-        if ($contents = $this->get_remote_contents($props->link)) {
-            $og = $this->parse_ogtags($contents);
-            $title = $og['og:title'] ?? null;
-            $photos = $this->parse_photos($contents);
+        /**
+         * Filters the Google Photos album modes that can be rendered.
+         *
+         * @param string[] $modes Modes with a renderer. Default FREE_MODES.
+         */
+        $modes = (array) apply_filters('embedpress/google_photos/modes', self::FREE_MODES);
 
-
-            $style = sprintf(
-                'display: none; width: %s; height: %s; max-width: 100%%;',
-                $props->width === 0 ? '100%' : ($props->width . 'px'),
-                $props->height === 0 ? '100%' : ('100%')
-            );
-
-            $items_code = '';
-
-            if ($props->mode == 'gallery-justify' || $props->mode == 'gallery-masonary' || $props->mode == 'gallery-grid') {
-                $items_code .= sprintf('<div class="photos-%s">', esc_attr($props->mode));
-                $counter = 0;
-
-                foreach ($photos as $photo) {
-                    // Preview image URL (small version for fast loading)
-                    $preview_src = sprintf('%s=w%d-h%d', $photo, $props->imageWidth, $props->imageHeight);
-
-                    // Full image URL (original size or any desired size)
-                    $full_src = $photo . '=w2500';
-
-                    // Add image items with preview and full image source
-                    $items_code .= sprintf(
-                        '<div class="photo-item" data-item-number="%d" id="photo-%s">
-                            <img data-photo-src="%s" src="%s" loading="lazy" alt="Photo"/>
-                        </div>',
-                        esc_attr($counter++),
-                        md5($preview_src),
-                        esc_url($full_src), // Full image source for later use
-                        esc_url($preview_src) // Preview image source for fast loading
-                    );
-                }
-
-                $items_code .= '</div>';
-
-                return sprintf(
-                    "<div class=\"google-photos-%s-widget\">%s%s</div>\n",
-                    esc_attr($props->mode),
-                    !empty($title) && (!isset($props->showTitle) || $props->showTitle) ? "<h3 style='text-align:left; margin: 22px 10px;'>" . esc_html($title) . "</h3>" : '',
-                    $items_code
-                );
-            } else {
-                foreach ($photos as $photo) {
-                    // Preview image URL (small version for fast loading)
-                    $preview_src = sprintf('%s=w%d-h%d', $photo, $props->imageWidth, $props->imageHeight);
-
-                    // Full image URL (original size or any desired size)
-                    $full_src = $photo;
-
-                    // Add image items with preview and full image source
-                    $items_code .= sprintf(
-                        '<object data="%s"></object>',
-                        esc_url($preview_src) // Using preview image for non-gallery mode
-                    );
-                }
-            }
-
-
-            $attributes = [
-                'data-link' => $props->link,
-                'data-found' => count($photos),
-                'data-title' => $title,
-                'data-mediaitems-aspect-ratio' => true,
-                'data-mediaitems-enlarge' => '',
-                'data-mediaitems-stretch' => '',
-                'data-mediaitems-cover' => '',
-                'data-background-color' => $props->backgroundColor,
-            ];
-
-            // Apply filter to allow modification of attributes
-            $attributes = apply_filters('embedpress_google_photos_attributes', $attributes, $props);
-
-            $attributes_string = '';
-            foreach ($attributes as $key => $value) {
-                if ($value !== null) {
-                    $attributes_string .= sprintf(' %s="%s"', $key, $value);
-                }
-            }
-
-            return sprintf(
-                "<div class=\"pa-%s-widget\" style=\"%s\"%s>%s</div>\n",
-                esc_attr($props->mode),
-                $style,
-                $attributes_string,
-                $items_code
-            );
-        }
-        return null;
+        return in_array($mode, $modes, true) ? $mode : self::DEFAULT_MODE;
     }
 
     private function create_default_attr()
@@ -389,7 +317,7 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
         $height = $params['height'] ?? 450;
 
         $expiration = $params['expiration'] ?? 60;
-        $mode = $params['mode'] ?? 'carousel';
+        $mode = self::resolve_mode($params['mode'] ?? self::DEFAULT_MODE);
         $playerAutoplay = isset($params['playerAutoplay']) ? Helper::getBooleanParam($params['playerAutoplay'], false) : false;
         $showTitle = isset($params['showTitle']) ? Helper::getBooleanParam($params['showTitle'], true) : true;
         $delay = $params['delay'] ?? 5;
@@ -425,9 +353,6 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
         if ($mode === 'carousel' || $mode === 'gallery-player') {
             $html .= '<script src="' . $this->player_js . '"></script>';
         }
-        if ($mode === 'gallery-justify') {
-            wp_enqueue_script('embedpress-gallery-justify');
-        }
         return $html;
     }
 
@@ -443,7 +368,7 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
 
 
         $expiration = $params['expiration'] ?? 60;
-        $mode = $params['mode'] ?? 'carousel';
+        $mode = self::resolve_mode($params['mode'] ?? self::DEFAULT_MODE);
         $playerAutoplay = isset($params['playerAutoplay']) ? Helper::getBooleanParam($params['playerAutoplay']) : false;
         $delay = $params['delay'] ?? 5;
         $repeat = isset($params['repeat']) ? Helper::getBooleanParam($params['repeat']) : false;
@@ -478,9 +403,6 @@ class GooglePhotos extends ProviderAdapter implements ProviderInterface
         // Conditionally load player JS only if mode is 'carousel' or autoplay is enabled
         if ($mode === 'carousel' || $mode === 'gallery-player') {
             $html .= '<script src="' . $this->player_js . '"></script>';
-        }
-        if ($mode === 'gallery-justify') {
-            wp_enqueue_script('embedpress-gallery-justify');
         }
 
         return [

@@ -2,7 +2,6 @@
 
 namespace EmbedPress\Includes\Classes\Analytics;
 
-use EmbedPress\Includes\Classes\Analytics\License_Manager;
 use EmbedPress\Includes\Classes\Analytics\Browser_Detector;
 
 defined('ABSPATH') or die("No direct script access allowed.");
@@ -20,17 +19,38 @@ defined('ABSPATH') or die("No direct script access allowed.");
  */
 class REST_API
 {
-    private $license_manager;
     private $data_collector;
     private $pro_collector;
 
     public function __construct()
     {
-        $this->license_manager = new License_Manager();
         $this->data_collector = new Data_Collector();
-        if ($this->license_manager->has_pro_license()) {
-            $this->pro_collector = new Pro_Data_Collector();
-        }
+
+        // Pro supplies the collector by hooking this filter; free ships none,
+        // so every Pro-only handler below degrades to its non-Pro response.
+        // Free never checks the licence itself: the presence of the
+        // Pro-supplied object is the only switch. REST_API is built on
+        // `rest_api_init`, by which point Pro's Bootstrap has run — so
+        // resolving here (rather than lazily, as Data_Collector must) is safe.
+        $collector = apply_filters('embedpress/analytics/pro_collector', null);
+        $this->pro_collector = is_object($collector) ? $collector : null;
+    }
+
+    /**
+     * Standard "Pro feature" response used when no Pro collector is present.
+     *
+     * Kept identical to the historical unlicensed responses so the dashboard
+     * (which renders an upsell overlay for these panels) behaves as before.
+     *
+     * @return \WP_REST_Response
+     */
+    private function pro_feature_response()
+    {
+        return new \WP_REST_Response([
+            'success' => false,
+            'data' => [],
+            'message' => __('This feature is only available in the Pro version.', 'embedpress')
+        ], 403);
     }
 
     /**
@@ -197,8 +217,9 @@ class REST_API
             'permission_callback' => [$this, 'check_admin_permissions']
         ]);
 
-        // Pro endpoints
-        if ($this->license_manager->has_pro_license()) {
+        // Pro endpoints — registered only when Pro has supplied the collector
+        // that serves them. Free has no implementation behind these routes.
+        if ($this->pro_collector) {
             // Get unique viewers per embed (Pro)
             register_rest_route('embedpress/v1', '/analytics/unique-viewers-per-embed', [
                 'methods' => 'GET',
@@ -365,14 +386,6 @@ class REST_API
             ]
         ]);
 
-        // Get feature status
-        register_rest_route('embedpress/v1', '/analytics/features', [
-            'methods' => 'GET',
-            'callback' => [$this, 'get_feature_status'],
-            'permission_callback' => [$this, 'check_admin_permissions']
-        ]);
-
-
         // Email settings endpoints (Pro)
         register_rest_route('embedpress/v1', '/analytics/email-settings', [
             'methods' => 'GET',
@@ -537,7 +550,7 @@ class REST_API
             'limit' => 50 // full list limit
         ];
 
-        if ($this->license_manager->has_pro_license() && $this->pro_collector) {
+        if ($this->pro_collector) {
             $content_analytics = $this->pro_collector->get_detailed_content_analytics($args);
 
             $top_args = $args;
@@ -590,13 +603,9 @@ class REST_API
      */
     public function get_spline_chart_data($request)
     {
-        // Check if pro license is active for advanced analytics
-        if (!$this->license_manager->has_pro_license()) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'data' => [],
-                'message' => __('This feature is only available in the Pro version.', 'embedpress')
-            ], 403);
+        // Advanced (monthly combined) chart data is served by Pro's collector.
+        if (!$this->pro_collector) {
+            return $this->pro_feature_response();
         }
 
         $args = [
@@ -605,12 +614,7 @@ class REST_API
             'end_date' => $request->get_param('end_date')
         ];
 
-        // Use Pro collector for licensed users
-        if ($this->pro_collector) {
-            $chart_data = $this->pro_collector->get_daily_combined_analytics($args);
-        } else {
-            $chart_data = [];
-        }
+        $chart_data = $this->pro_collector->get_daily_combined_analytics($args);
 
         return new \WP_REST_Response([
             'success' => true,
@@ -632,13 +636,9 @@ class REST_API
      */
     public function get_browser_analytics($request)
     {
-        // Check if pro license is active for browser analytics
-        if (!$this->license_manager->has_pro_license()) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'data' => [],
-                'message' => __('This feature is only available in the Pro version.', 'embedpress')
-            ], 403);
+        // Browser breakdown is served by Pro's collector.
+        if (!$this->pro_collector) {
+            return $this->pro_feature_response();
         }
 
         $args = [
@@ -647,12 +647,7 @@ class REST_API
             'end_date' => $request->get_param('end_date')
         ];
 
-        // Use Pro collector for licensed users
-        if ($this->pro_collector) {
-            $data = $this->pro_collector->get_browser_analytics($args);
-        } else {
-            $data = [];
-        }
+        $data = $this->pro_collector->get_browser_analytics($args);
 
         return new \WP_REST_Response($data, 200);
     }
@@ -699,6 +694,11 @@ class REST_API
         $browser_detector = new Browser_Detector($request->get_param('user_agent'));
         $browser_info = $browser_detector->detect();
 
+        // Country/city are resolved server-side (trusted CDN headers, or an
+        // HTTPS lookup only when the site owner opted in to geolocation).
+        // Client-supplied location is ignored.
+        $geo_data = $this->data_collector->get_geo_data_from_ip();
+
         // Prepare browser data
         $browser_data = [
             'user_id' => $user_identifier,
@@ -711,8 +711,8 @@ class REST_API
             'screen_resolution' => $request->get_param('screen_resolution'),
             'language' => $request->get_param('language'),
             'timezone' => $request->get_param('timezone'),
-            'country' => $request->get_param('country'),
-            'city' => $request->get_param('city'),
+            'country' => $geo_data['country'],
+            'city' => $geo_data['city'],
             'user_agent' => $request->get_param('user_agent'),
             'created_at' => current_time('mysql')
         ];
@@ -764,12 +764,17 @@ class REST_API
      */
     public function get_features_status($request)
     {
+        // Flags tell the dashboard which panels have a backing implementation
+        // (and which to show as an upsell). They reflect only whether Pro has
+        // supplied its collector — free does not check the licence.
+        $has_pro_collector = (bool) $this->pro_collector;
+
         $features = [
-            'device_analytics' => false, // Free feature
-            'geo_tracking' => defined('EMBEDPRESS_SL_ITEM_SLUG'), // Pro feature
-            'referral_tracking' => defined('EMBEDPRESS_SL_ITEM_SLUG'), // Pro feature
-            'unique_viewers_per_embed' => defined('EMBEDPRESS_SL_ITEM_SLUG'), // Pro feature
-            'export_data' => defined('EMBEDPRESS_SL_ITEM_SLUG'), // Pro feature
+            'device_analytics' => false,
+            'geo_tracking' => $has_pro_collector,
+            'referral_tracking' => $has_pro_collector,
+            'unique_viewers_per_embed' => $has_pro_collector,
+            'export_data' => $has_pro_collector,
         ];
 
         return new \WP_REST_Response(['features' => $features], 200);
@@ -820,7 +825,8 @@ class REST_API
      */
     public function get_unique_viewers_per_embed($request)
     {
-        if (!$this->license_manager->has_pro_license()) {
+        // Served by Pro's collector; without it, report a Pro feature.
+        if (!$this->pro_collector) {
             return new \WP_Error(
                 'pro_feature',
                 __('This feature is only available in the Pro version.', 'embedpress'),
@@ -847,7 +853,8 @@ class REST_API
      */
     public function get_geo_analytics($request)
     {
-        if (!$this->license_manager->has_pro_license()) {
+        // Served by Pro's collector; without it, report a Pro feature.
+        if (!$this->pro_collector) {
             return new \WP_Error(
                 'pro_feature',
                 __('This feature is only available in the Pro version.', 'embedpress'),
@@ -874,13 +881,9 @@ class REST_API
      */
     public function get_device_analytics($request)
     {
-        // Check if pro license is active for device analytics
-        if (!$this->license_manager->has_pro_license()) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'data' => [],
-                'message' => __('This feature is only available in the Pro version.', 'embedpress')
-            ], 403);
+        // Device breakdown is served by Pro's collector.
+        if (!$this->pro_collector) {
+            return $this->pro_feature_response();
         }
 
         $args = [
@@ -889,12 +892,7 @@ class REST_API
             'end_date' => $request->get_param('end_date')
         ];
 
-        // Use Pro collector for licensed users
-        if ($this->pro_collector) {
-            $data = $this->pro_collector->get_device_analytics($args);
-        } else {
-            $data = [];
-        }
+        $data = $this->pro_collector->get_device_analytics($args);
 
         return new \WP_REST_Response($data, 200);
     }
@@ -915,46 +913,33 @@ class REST_API
             'order_by' => $request->get_param('order_by') ?: 'total_views'
         ];
 
-        // Use new optimized referrer analytics for all users
-        $data = $this->data_collector->get_referrer_analytics($args);
+        // Referrer / UTM reporting is served by Pro's collector. The route is
+        // only registered when the collector exists; guard anyway.
+        if (!$this->pro_collector) {
+            return $this->pro_feature_response();
+        }
 
-        // For pro users, enhance with additional data from the old system if available
-        if ($this->license_manager->has_pro_license() && $this->pro_collector) {
-            try {
-                $legacy_data = $this->pro_collector->get_referral_analytics($args);
+        $data = $this->pro_collector->get_referrer_analytics($args);
 
-                // Merge or enhance data if needed
-                if (isset($legacy_data['referrers']) && !empty($legacy_data['referrers'])) {
-                    $data['legacy_data'] = $legacy_data;
-                }
-            } catch (\Exception $e) {
-                // If legacy data fails, continue with new data
-                // Silently continue without logging sensitive error details
+        // Enhance with the per-session referral breakdown when available
+        try {
+            $legacy_data = $this->pro_collector->get_referral_analytics($args);
+
+            // Merge or enhance data if needed
+            if (isset($legacy_data['referrers']) && !empty($legacy_data['referrers'])) {
+                $data['legacy_data'] = $legacy_data;
             }
+        } catch (\Exception $e) {
+            // If legacy data fails, continue with new data
+            // Silently continue without logging sensitive error details
         }
 
         return new \WP_REST_Response([
             'success' => true,
             'data' => $data,
-            'is_pro' => $this->license_manager->has_pro_license()
+            'is_pro' => true
         ], 200);
     }
-
-    /**
-     * Get feature status endpoint
-     *
-     * @param \WP_REST_Request $request
-     * @return \WP_REST_Response
-     */
-    public function get_feature_status($request)
-    {
-        $data = License_Manager::get_feature_status();
-
-
-
-        return new \WP_REST_Response($data, 200);
-    }
-
 
 
     /**
@@ -1056,260 +1041,24 @@ class REST_API
      */
     public function get_embed_details($request)
     {
-        // Check if pro features are available
-        if (!$this->license_manager->has_pro_license()) {
+        // The per-post embed breakdown is a Pro feature implemented by Pro's
+        // collector. Without it, answer with the historical upsell response
+        // (the modal shows blurred demo data in that case).
+        if (!$this->pro_collector || !method_exists($this->pro_collector, 'get_embed_details')) {
             return new \WP_REST_Response([
                 'error' => 'This is a Pro feature. Please upgrade to access detailed embed data.',
                 'data' => []
             ], 403);
         }
 
-        global $wpdb;
+        $data = $this->pro_collector->get_embed_details([
+            'type' => $request->get_param('type'),
+            'limit' => $request->get_param('limit') ?: 20,
+            'offset' => $request->get_param('offset') ?: 0,
+        ]);
 
-        $type = $request->get_param('type');
-        $limit = $request->get_param('limit') ?: 20;
-        $offset = $request->get_param('offset') ?: 0;
-
-        // Clear cache and get fresh counts
-        $this->data_collector->clear_content_count_cache();
-        $content_by_type = $this->data_collector->get_total_content_by_type();
-
-        // Get detailed embed data from WordPress posts
-        $where_clause = '';
-        if ($type && $type !== 'all') {
-            $where_clause = $wpdb->prepare(' AND post_content LIKE %s', '%' . $type . '%');
-        }
-
-        $posts = $wpdb->get_results($wpdb->prepare(
-            "SELECT ID, post_title, post_type, post_content, post_modified, post_status
-             FROM {$wpdb->posts}
-             WHERE post_status IN ('publish', 'draft', 'private')
-             AND post_type NOT IN ('revision', 'attachment', 'nav_menu_item')
-             AND (post_content LIKE %s OR post_content LIKE %s OR post_content LIKE %s)
-             {$where_clause}
-             ORDER BY post_modified DESC
-             LIMIT %d OFFSET %d",
-            '%embedpress%',
-            '%elementor%embedpress%',
-            '%[embedpress%',
-            $limit,
-            $offset
-        ));
-
-        $detailed_data = [];
-
-        foreach ($posts as $post) {
-            $embed_info = $this->analyze_post_embeds($post);
-            if (!empty($embed_info)) {
-                // Group embeds by type for this post
-                $embed_counts = [];
-                foreach ($embed_info as $embed) {
-                    $key = $embed['type'] . '_' . $embed['source'];
-                    if (!isset($embed_counts[$key])) {
-                        $embed_counts[$key] = [
-                            'post_id' => $post->ID,
-                            'post_title' => $post->post_title,
-                            'post_type' => $post->post_type,
-                            'embed_type' => $embed['type'],
-                            'source' => $embed['source'],
-                            'embed_count' => 0,
-                            'modified_date' => $post->post_modified,
-                            'view_url' => get_permalink($post->ID),
-                            'edit_url' => get_edit_post_link($post->ID, 'raw')
-                        ];
-                    }
-                    $embed_counts[$key]['embed_count']++;
-                }
-
-                $detailed_data = array_merge($detailed_data, array_values($embed_counts));
-            }
-        }
-
-        // Check if there are more posts available by trying to fetch one more
-        $check_more_posts = $wpdb->get_results($wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts}
-             WHERE post_status IN ('publish', 'draft', 'private')
-             AND post_type NOT IN ('revision', 'attachment', 'nav_menu_item')
-             AND (post_content LIKE %s OR post_content LIKE %s OR post_content LIKE %s)
-             {$where_clause}
-             ORDER BY post_modified DESC
-             LIMIT 1 OFFSET %d",
-            '%embedpress%',
-            '%elementor%embedpress%',
-            '%[embedpress%',
-            $offset + $limit
-        ));
-
-        $has_more = count($check_more_posts) > 0;
-
-        $response_data = [
-            'summary' => $content_by_type,
-            'data' => $detailed_data,
-            'has_more' => $has_more
-        ];
-
-        return new \WP_REST_Response($response_data, 200);
+        return new \WP_REST_Response($data, 200);
     }
-
-    /**
-     * Analyze a post to find embed information
-     *
-     * @param object $post
-     * @return array
-     */
-    private function analyze_post_embeds($post)
-    {
-        $embeds = [];
-        $content = $post->post_content;
-
-        // Check for Gutenberg blocks
-        if (function_exists('has_blocks') && has_blocks($content)) {
-            $blocks = parse_blocks($content);
-            $gutenberg_embeds = $this->find_embedpress_blocks($blocks);
-            foreach ($gutenberg_embeds as $embed_type) {
-                $embeds[] = [
-                    'type' => $embed_type,
-                    'source' => 'gutenberg'
-                ];
-            }
-        }
-
-        // Check for shortcodes with better detection
-        $shortcode_patterns = [
-            '/\[embedpress[^_\]]*\]/' => 'general',
-            '/\[embedpress_pdf[^\]]*\]/' => 'pdf',
-            '/\[embedpress_document[^\]]*\]/' => 'document',
-            '/\[embedpress_calendar[^\]]*\]/' => 'calendar'
-        ];
-
-        foreach ($shortcode_patterns as $pattern => $type) {
-            if (preg_match_all($pattern, $content, $matches)) {
-                foreach ($matches[0] as $match) {
-                    $embeds[] = [
-                        'type' => $type,
-                        'source' => 'shortcode'
-                    ];
-                }
-            }
-        }
-
-        // Check for Elementor widgets
-        if (class_exists('\Elementor\Plugin')) {
-            $elementor_data = get_post_meta($post->ID, '_elementor_data', true);
-            if (!empty($elementor_data)) {
-                $elementor_embeds = $this->find_elementor_embedpress_widgets($elementor_data);
-                foreach ($elementor_embeds as $embed_type) {
-                    $embeds[] = [
-                        'type' => $embed_type,
-                        'source' => 'elementor'
-                    ];
-                }
-            }
-        }
-
-        return $embeds;
-    }
-
-    /**
-     * Find EmbedPress blocks in parsed blocks
-     *
-     * @param array $blocks
-     * @return array
-     */
-    private function find_embedpress_blocks($blocks)
-    {
-        $embed_types = [];
-        $embedpress_blocks = [
-            'embedpress/embedpress' => 'general',
-            'embedpress/pdf' => 'pdf',
-            'embedpress/document' => 'document',
-            'embedpress/embedpress-pdf' => 'pdf',
-            'embedpress/embedpress-calendar' => 'calendar',
-            'embedpress/google-docs-block' => 'google-docs',
-            'embedpress/google-slides-block' => 'google-slides',
-            'embedpress/google-sheets-block' => 'google-sheets',
-            'embedpress/google-forms-block' => 'google-forms',
-            'embedpress/google-drawings-block' => 'google-drawings',
-            'embedpress/google-maps-block' => 'google-maps',
-            'embedpress/youtube-block' => 'youtube',
-            'embedpress/vimeo-block' => 'vimeo',
-            'embedpress/twitch-block' => 'twitch',
-            'embedpress/wistia-block' => 'wistia'
-        ];
-
-        foreach ($blocks as $block) {
-            if (isset($embedpress_blocks[$block['blockName']])) {
-                $embed_types[] = $embedpress_blocks[$block['blockName']];
-            }
-
-            // Check inner blocks recursively
-            if (!empty($block['innerBlocks'])) {
-                $inner_embeds = $this->find_embedpress_blocks($block['innerBlocks']);
-                $embed_types = array_merge($embed_types, $inner_embeds);
-            }
-        }
-
-        return $embed_types;
-    }
-
-    /**
-     * Find EmbedPress widgets in Elementor data
-     *
-     * @param string $elementor_data
-     * @return array
-     */
-    private function find_elementor_embedpress_widgets($elementor_data)
-    {
-        $embed_types = [];
-
-        // Handle both string and array cases for elementor data
-        if (is_string($elementor_data)) {
-            $data = json_decode($elementor_data, true);
-        } else {
-            // Data might already be an array in older versions
-            $data = $elementor_data;
-        }
-
-        if (is_array($data)) {
-            $embed_types = $this->search_elementor_widgets_recursive($data);
-        }
-
-        return $embed_types;
-    }
-
-    /**
-     * Recursively search for EmbedPress widgets in Elementor data
-     *
-     * @param array $elements
-     * @return array
-     */
-    private function search_elementor_widgets_recursive($elements)
-    {
-        $embed_types = [];
-        $embedpress_widgets = [
-            'embedpres_elementor' => 'embedpress',      // Main EmbedPress widget
-            'embedpress_pdf' => 'pdf',                  // PDF widget
-            'embedpres_document' => 'document',         // Document widget
-            'embedpress-calendar' => 'calendar'         // Calendar widget (if exists)
-        ];
-
-        foreach ($elements as $element) {
-            if (isset($element['widgetType']) && isset($embedpress_widgets[$element['widgetType']])) {
-                $embed_types[] = $embedpress_widgets[$element['widgetType']];
-            }
-
-            if (!empty($element['elements'])) {
-                $child_embeds = $this->search_elementor_widgets_recursive($element['elements']);
-                $embed_types = array_merge($embed_types, $child_embeds);
-            }
-        }
-
-        return $embed_types;
-    }
-
-
-
-
 
     /**
      * Export analytics data endpoint (Pro feature)
@@ -1319,8 +1068,9 @@ class REST_API
      */
     public function export_analytics_data($request)
     {
-        // Check if pro license is active
-        if (!$this->license_manager->has_pro_license()) {
+        // Export is implemented by Pro (collector + exporter). The route is
+        // only registered when Pro supplied its collector; guard anyway.
+        if (!$this->pro_collector) {
             return new \WP_REST_Response([
                 'success' => false,
                 'message' => __('Export feature requires EmbedPress Pro license.', 'embedpress')
@@ -1373,8 +1123,19 @@ class REST_API
                 }
             }
 
-            // Create export file
-            $exporter = new \EmbedPress\Includes\Classes\Analytics\Export_Manager();
+            // Create export file. Pro supplies the exporter by hooking this
+            // filter; with no exporter available the request fails the same
+            // way an unlicensed one does rather than fatalling.
+            $exporter = apply_filters('embedpress/analytics/exporter', null);
+
+            if (!is_object($exporter)) {
+                return new \WP_Error(
+                    'pro_feature',
+                    __('Export feature requires EmbedPress Pro license.', 'embedpress'),
+                    ['status' => 403]
+                );
+            }
+
             $export_result = $exporter->export_data($format, $analytics_data, $content_analytics, $args);
 
             if ($export_result['success']) {
@@ -1433,11 +1194,28 @@ class REST_API
 
             return new \WP_REST_Response([
                 'success' => true,
-                'enabled' => (bool) $enabled
+                'enabled' => (bool) $enabled,
+                'geolocation_enabled' => Geolocation::is_lookup_enabled(),
             ], 200);
         }
 
         if ($method === 'POST') {
+            // Visitor geolocation opt-in (sends visitor IPs to a third-party
+            // lookup service, so it is an explicit, separate choice).
+            $geolocation = $request->get_param('geolocation_enabled');
+            if ($geolocation !== null) {
+                $geolocation = rest_sanitize_boolean($geolocation);
+                update_option(Geolocation::OPT_ENABLED, $geolocation);
+
+                return new \WP_REST_Response([
+                    'success' => true,
+                    'geolocation_enabled' => $geolocation,
+                    'message' => $geolocation
+                        ? __('Visitor geolocation enabled', 'embedpress')
+                        : __('Visitor geolocation disabled', 'embedpress')
+                ], 200);
+            }
+
             // Update tracking setting
             $enabled = $request->get_param('enabled');
 

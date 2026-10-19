@@ -21,17 +21,10 @@ class GoogleReviewsAdminPage
         // Analytics in its canonical priority map. Don't add a second reorder
         // here; it would just be overwritten by that later-running one.
 
-        // Keep this dedicated settings screen clean — third-party plugins hook
-        // admin_notices globally, so suppress them here (mirrors what the main
-        // EmbedPress settings/onboarding pages already do). Runs late so it
-        // wins over notices registered earlier.
-        add_action('in_admin_header', function () {
-            if (isset($_GET['page']) && sanitize_key(wp_unslash($_GET['page'])) === self::PAGE_SLUG) {
-                remove_all_actions('user_admin_notices');
-                remove_all_actions('admin_notices');
-                remove_all_actions('all_admin_notices');
-            }
-        }, 999);
+        // Admin notices from WordPress core and other plugins are deliberately
+        // left in place on this screen (WP.org guideline 11) — they render
+        // above the app. EmbedPress's own promo notices are kept off EmbedPress
+        // screens via Shared::is_embedpress_admin_page().
     }
 
     public static function add_menu()

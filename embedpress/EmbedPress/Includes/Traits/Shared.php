@@ -24,6 +24,15 @@ trait Shared
      */
     private static $cache_bank;
 
+    /**
+     * Schedule revision for the review / opt-in notices (wp-notice `refresh`).
+     * Bump ONLY to deliberately reset their schedule; never tie it to the
+     * plugin version (that re-showed them on every release).
+     *
+     * @var string
+     */
+    private static $notice_schedule_revision = 'no-recurrence-1';
+
 
     /**
      * Optional usage tracker
@@ -124,9 +133,18 @@ trait Shared
             $_review_notice,
             [
                 'start'       => $notices->strtotime('+15 day'),
-                'recurrence'  => 30,
+                // No automatic recurrence: "Never show again" / "I already did" /
+                // the close button dismiss permanently (per-user meta), and
+                // "Maybe Later" snoozes once (the library re-shows it for a short
+                // window, then it stays expired).
+                'recurrence'  => false,
                 'dismissible' => true,
-                'refresh'     => EMBEDPRESS_VERSION,
+                // Static marker, NOT EMBEDPRESS_VERSION: a version-tied refresh
+                // re-armed this notice on every release. Changing this value
+                // resets the schedule once (migrating stored queues off the old
+                // 30-day recurrence); it never resets a permanent dismissal.
+                'refresh'     => self::$notice_schedule_revision,
+                'display_if'  => !$this->is_embedpress_admin_page(),
             ]
         );
 
@@ -135,34 +153,34 @@ trait Shared
             [$this->insights, 'notice'],
             [
                 'start'       => $notices->strtotime('+10 day'),
-                'recurrence'  => 30,
+                'recurrence'  => false,
                 'dismissible' => true,
-                'refresh'     => EMBEDPRESS_VERSION,
+                'refresh'     => self::$notice_schedule_revision,
                 'do_action'   => 'wpdeveloper_notice_clicked_for_embedpress',
-                'display_if'  => !is_array($notices->is_installed('embedpress-pro/embedpress-pro.php'))
+                'display_if'  => !is_array($notices->is_installed('embedpress-pro/embedpress-pro.php')) && !$this->is_embedpress_admin_page()
             ]
         );
 
-        $summer_message = '<div class="summer_2026_notice"><p class="notice-message"><span class="notice-emoji">🏖️</span> <strong>Summer Savings:</strong> Custom branding, ads, content protection, analytics and more with 250+ embed sources – now <strong>up to $150 OFF!</strong></p>
+        $halloween_message = '<div class="halloween_2026_notice"><p class="notice-message"><span class="notice-emoji">👻</span> <strong>Halloween Sale:</strong> Custom branding, ads, content protection, analytics and more with 250+ embed sources – now <strong>up to 35% OFF!</strong></p>
         <div class="notice-links">
-            <a class="button button-primary" href="https://embedpress.com/summer2026-admin-notice" target="_blank">Upgrade To Pro Now</a>
+            <a class="button button-primary" href="https://embedpress.com/halloween2026/admin-notice" target="_blank">Upgrade To Pro Now</a>
             <a class="embedpress-notice-dismiss-button dismiss-btn" data-dismiss="true" href="#" target="_blank">I Don&rsquo;t Want Any Discount</a>
         </div>
         </div>';
-        $_summer_2026_notice = [
+        $_halloween_2026_notice = [
             'thumbnail' => $_assets_url . 'images/full-logo.svg',
-            'html'      => $summer_message,
+            'html'      => $halloween_message,
         ];
 
         $notices->add(
-            '_summer_2026_notice',
-            $_summer_2026_notice,
+            '_halloween_2026_notice',
+            $_halloween_2026_notice,
             [
-                'start'       => strtotime('20th May 2026'),
+                'start'       => strtotime('14th October 2026'),
                 'recurrence'  => false,
                 'dismissible' => true,
                 'refresh'     => EMBEDPRESS_VERSION,
-                "expire"      => strtotime('11:59:59pm 25th June 2026'),
+                "expire"      => strtotime('11:59:59pm 5th November 2026'),
                 'display_if' => !is_plugin_active('embedpress-pro/embedpress-pro.php') && ($_SERVER['REQUEST_URI'] === '/wp-admin/' || $_SERVER['REQUEST_URI'] === '/wp-admin/index.php'),
             ]
         );
@@ -194,20 +212,42 @@ trait Shared
     }
 
 
+    /**
+     * Whether the current request is one of EmbedPress's own admin screens
+     * (?page=embedpress or ?page=embedpress-*). Usable before the current
+     * screen is set (e.g. on `init`, where notices are registered).
+     *
+     * @return bool
+     */
+    public function is_embedpress_admin_page()
+    {
+        if (!is_admin() || empty($_GET['page'])) {
+            return false;
+        }
+
+        $page = sanitize_key(wp_unslash($_GET['page']));
+
+        return $page === 'embedpress' || strpos($page, 'embedpress-') === 0;
+    }
+
+    /**
+     * Admin notices on EmbedPress screens.
+     *
+     * WordPress core and other plugins' notices are left untouched (WP.org
+     * guideline 11) — they render above the EmbedPress app. Only EmbedPress's
+     * own promotional notices (review / opt-in) are kept off these screens,
+     * via their `display_if` gate in notices(). Here we just fire the
+     * `ep_admin_notices` hook used for EmbedPress-specific notices.
+     *
+     * Kept under its historical name; it no longer removes any callbacks.
+     */
     public function remove_admin_notice()
     {
-
         $current_screen = get_current_screen();
-        if ($current_screen->id == 'toplevel_page_embedpress' || $current_screen->id == 'embedpress_page_embedpress-analytics') {
-
-            remove_all_actions('user_admin_notices');
-            remove_all_actions('admin_notices');
-
-            // To showing notice in EA settings page we have to use 'eael_admin_notices' action hook
+        if ($current_screen && ($current_screen->id == 'toplevel_page_embedpress' || $current_screen->id == 'embedpress_page_embedpress-analytics')) {
             add_action('admin_notices', function () {
                 do_action('ep_admin_notices');
             });
         }
-
     }
 }

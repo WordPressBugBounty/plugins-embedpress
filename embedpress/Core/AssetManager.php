@@ -249,15 +249,6 @@ class AssetManager
             'handle' => 'embedpress-blocks-style',
             'priority' => 10,
         ],
-        'lazy-load-css' => [
-            'file' => 'css/lazy-load.css',
-            'deps' => [],
-            'contexts' => ['frontend', 'elementor'],
-            'type' => 'style',
-            'handle' => 'embedpress-lazy-load-css',
-            'priority' => 10,
-            'condition' => 'lazy_load',
-        ],
 
         // Priority 15-20: Legacy JS files
         'admin-legacy-js' => [
@@ -269,26 +260,6 @@ class AssetManager
             'handle' => 'embedpress-admin-legacy',
             'priority' => 15,
             'page' => 'embedpress'
-        ],
-        'ads-js' => [
-            'file' => 'js/sponsored.js',
-            'deps' => ['jquery', 'embedpress-front'],
-            'contexts' => ['editor', 'frontend', 'elementor'],
-            'type' => 'script',
-            'footer' => true,
-            'handle' => 'embedpress-ads',
-            'priority' => 16,
-            'condition' => 'has_content', // Load for any EmbedPress content (ads can be on any embed)
-        ],
-        'lazy-load-js' => [
-            'file' => 'js/lazy-load.js',
-            'deps' => [],
-            'contexts' => ['frontend', 'elementor'],
-            'type' => 'script',
-            'footer' => true,
-            'handle' => 'embedpress-lazy-load',
-            'priority' => 16,
-            'condition' => 'lazy_load',
         ],
         'analytics-tracker-js' => [
             'file' => 'js/analytics-tracker.js',
@@ -339,16 +310,6 @@ class AssetManager
             'handle' => 'embedpress-yt-queue',
             'priority' => 15,
             'condition' => 'has_content', // Lightweight; loads with any EmbedPress content
-        ],
-        'gallery-justify-js' => [
-            'file' => 'js/gallery-justify.js',
-            'deps' => ['jquery'],
-            'contexts' => ['editor', 'frontend', 'elementor'],
-            'type' => 'script',
-            'footer' => true,
-            'handle' => 'embedpress-gallery-justify',
-            'priority' => 15,
-            'providers' => ['google-photos'],
         ],
         'pdf-gallery-js' => [
             'file' => 'js/pdf-gallery.js',
@@ -663,10 +624,16 @@ class AssetManager
 
             // Register (not enqueue) all assets
             if ($asset['type'] === 'script') {
+                // Vite builds import React from WordPress's own `react` /
+                // `react-dom` / `react-jsx-runtime` handles (see vite.config.js).
+                $deps = strpos($asset['file'], '.build.js') !== false
+                    ? self::with_react_deps($asset['deps'])
+                    : $asset['deps'];
+
                 wp_register_script(
                     $asset['handle'],
                     $file_url,
-                    $asset['deps'],
+                    $deps,
                     $version,
                     !empty($asset['footer'])
                 );
@@ -1116,6 +1083,29 @@ class AssetManager
 
 
     /**
+     * Add WordPress's bundled React handles to a Vite build's dependencies.
+     *
+     * The *.build.js bundles don't ship their own React (WP.org guideline 13);
+     * vite.config.js maps react / react-dom / react-dom/client /
+     * react/jsx-runtime onto the window.React / window.ReactDOM /
+     * window.ReactJSXRuntime globals these handles provide.
+     * `react-jsx-runtime` exists since WP 6.6; on older cores the bundle falls
+     * back to a React.createElement-based shim, so it's only added when
+     * registered (avoids a "dependency not registered" notice).
+     *
+     * @param array $deps Existing dependencies.
+     * @return array
+     */
+    public static function with_react_deps($deps = [])
+    {
+        $react = ['react', 'react-dom'];
+        if (wp_script_is('react-jsx-runtime', 'registered')) {
+            $react[] = 'react-jsx-runtime';
+        }
+        return array_values(array_unique(array_merge($react, (array) $deps)));
+    }
+
+    /**
      * Add module attribute to script tags for ES modules
      */
     public static function add_module_attribute($tag, $handle)
@@ -1160,17 +1150,6 @@ class AssetManager
                     }
                 }
                 return self::has_embedpress_content();
-
-            case 'lazy_load':
-                // In Elementor editor, always load lazy load scripts
-                // because we can't detect unsaved content
-                if (class_exists('\Elementor\Plugin')) {
-                    $elementor = \Elementor\Plugin::$instance;
-                    if (isset($elementor->editor) && $elementor->editor->is_edit_mode()) {
-                        return true;
-                    }
-                }
-                return self::has_lazy_load_enabled();
 
             case 'analytics_enabled':
                 // Gate on both the tracking toggle and the presence of EmbedPress content,
@@ -1291,79 +1270,6 @@ class AssetManager
     }
 
     /**
-     * Check if lazy loading is enabled in any embed on the page
-     *
-     * @return bool
-     */
-    private static function has_lazy_load_enabled()
-    {
-        // Check global lazy load setting first - if enabled globally,
-        // load lazy-load assets whenever EmbedPress content is present
-        $g_settings = get_option(EMBEDPRESS_PLG_NAME, []);
-        if (isset($g_settings['g_lazyload']) && $g_settings['g_lazyload'] == 1) {
-            return self::has_embedpress_content();
-        }
-
-        global $post;
-
-        if (!$post) {
-            return false;
-        }
-
-        $content = $post->post_content;
-
-        // Check if post content contains lazy load attributes in blocks
-        if (function_exists('has_blocks') && has_blocks($content)) {
-            $blocks = parse_blocks($content);
-            if (self::has_lazy_load_in_blocks($blocks)) {
-                return true;
-            }
-        }
-
-        // Check for Elementor meta (if Elementor is active)
-        if (class_exists('\Elementor\Plugin')) {
-            $document = \Elementor\Plugin::$instance->documents->get($post->ID);
-            if ($document && method_exists($document, 'is_built_with_elementor') && $document->is_built_with_elementor()) {
-                $elementor_data = get_post_meta($post->ID, '_elementor_data', true);
-                if ($elementor_data && is_string($elementor_data) && strpos($elementor_data, '"enable_lazy_load":"yes"') !== false) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if blocks contain lazy load settings
-     *
-     * @param array $blocks
-     * @return bool
-     */
-    private static function has_lazy_load_in_blocks($blocks)
-    {
-        foreach ($blocks as $block) {
-            // Check if this is an EmbedPress block with lazy load enabled
-            $block_name = $block['blockName'] ?? '';
-            if ($block_name && strpos($block_name, 'embedpress/') === 0) {
-                if (isset($block['attrs']['enableLazyLoad']) && $block['attrs']['enableLazyLoad']) {
-                    return true;
-                }
-            }
-
-            // Recursively check inner blocks
-            if (!empty($block['innerBlocks'])) {
-                if (self::has_lazy_load_in_blocks($block['innerBlocks'])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-
-    /**
      * Check if current page has EmbedPress content
      *
      * @return bool
@@ -1385,7 +1291,7 @@ class AssetManager
         $content = $post->post_content;
 
         // Check for EmbedPress shortcodes
-        if (has_shortcode($content, 'embedpress') || has_shortcode($content, 'embedpress_pdf_gallery')) {
+        if (has_shortcode($content, 'embedpress') || has_shortcode($content, 'embedpress_pdf') || has_shortcode($content, 'embedpress_pdf_gallery')) {
             self::$has_embedpress_content = true;
             return true;
         }
@@ -1606,6 +1512,11 @@ class AssetManager
             foreach ($matches[1] as $url) {
                 $types = array_merge($types, self::detect_type_from_url($url));
             }
+        }
+
+        // Detect PDF shortcode ([embedpress_pdf]URL[/embedpress_pdf] — URL is between tags, not in url=)
+        if (has_shortcode($content, 'embedpress_pdf')) {
+            $types[] = 'pdf';
         }
 
         // Detect PDF gallery shortcode

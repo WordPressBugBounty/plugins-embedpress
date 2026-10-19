@@ -40,10 +40,6 @@ class Handler extends EndHandlerAbstract
 
         add_action('wp_ajax_get_instagram_userdata_ajax', [$this, 'get_instagram_userdata_ajax']);
 
-        if (!empty($_GET['page_type']) && $_GET['page_type'] == 'calendly') {
-            add_action('init', [$this, 'handle_calendly_data']);
-        }
-
         if (defined('EMBEDPRESS_SL_ITEM_SLUG') && is_admin()) {
             add_action('admin_enqueue_scripts',  [$this, 'enqueueLisenceScripts']);
         }
@@ -323,82 +319,10 @@ class Handler extends EndHandlerAbstract
         }
     }
 
-    public function handle_calendly_data()
-    {
-
-        if (empty($_GET['_nonce'])) {
-            return false;
-        }
-
-        $verify = wp_verify_nonce($_GET['_nonce'], 'calendly_nonce');
-
-        // Check if access_token or calendly_status is present and nonce is invalid
-        if (!$verify) {
-            echo esc_html__('Invalid nonce', 'embedpress');
-            die;
-        }
-
-        if ((!empty($_GET['_nonce']) && $verify) && (!empty($_GET['access_token']) && isset($_GET['page_type']) && $_GET['page_type'] == 'calendly') || (isset($_GET['calendly_status']) && ($_GET['calendly_status'] == 'sync' || $_GET['calendly_status'] == 'connect'))) {
-
-            if ($_GET['calendly_status'] === 'connect') {
-                update_option('is_calendly_connected', true);
-            }
-
-            if (isset($_GET['access_token']) && !empty($_GET['access_token'])) {
-                $access_token = $_GET['access_token'];
-                $refresh_token = $_GET['refresh_token'];
-                $expires_in = $_GET['expires_in'];
-                $created_at = $_GET['created_at'];
-            } elseif (isset($_GET['calendly_status']) && ($_GET['calendly_status'] == 'sync' || $_GET['calendly_status'] == 'connect')) {
-                $token_data = get_option('calendly_tokens');
-                $access_token = $token_data['access_token'];
-                $refresh_token = $token_data['refresh_token'];
-                $expires_in = $token_data['expires_in'];
-                $created_at = $token_data['created_at'];
-            }
-
-
-            // Create an array to store the tokens and expiration time
-            $token_data = array(
-                'access_token' => $access_token,
-                'refresh_token' => $refresh_token,
-                'expires_in' => $expires_in,
-                'created_at' => $created_at
-            );
-
-            // Save the serialized data in a single option key
-            update_option('calendly_tokens', $token_data);
-
-            $user_info = json_decode(Helper::getCalendlyUserInfo($access_token), true);
-
-            if (!empty($user_info['resource']['uri'])) {
-                $event_types = Helper::getCalaendlyEventTypes($user_info['resource']['uri'], $access_token);
-                $scheduled_events = Helper::getCalaendlyScheduledEvents($user_info['resource']['uri'], $access_token);
-
-                $invite_list = [];
-
-                if (is_array($scheduled_events['collection'])) {
-                    foreach ($scheduled_events['collection'] as $event) :
-                        $uuid = Helper::getCalendlyUuid($event['uri']);
-                        $invite_list[$uuid] = Helper::getListEventInvitee($uuid, $access_token);
-                    endforeach;
-                }
-
-                update_option('calendly_user_info', $user_info);
-
-                if (!apply_filters('embedpress/is_allow_rander', false)) {
-                    update_option('calendly_event_types', []);
-                    update_option('calendly_scheduled_events', []);
-                    update_option('calendly_invitees_list', []);
-                } else {
-                    do_action('embedepress/calendly_event_data',  $event_types, $scheduled_events, $invite_list);
-                }
-            }
-
-            wp_redirect(admin_url('admin.php?page=embedpress&page_type=calendly'), 302);
-            exit();
-        }
-    }
+    // The Calendly dashboard connect/sync handler (Calendly API calls for user
+    // info, event types, scheduled events and invitees) lives in EmbedPress
+    // Pro (Embedpress\Pro\Filters\Calendly). The Calendly embed itself needs
+    // no account connection.
 
     public function enqueueScripts()
     {

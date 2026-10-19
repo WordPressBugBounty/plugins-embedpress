@@ -1,0 +1,702 @@
+/**
+ * EmbedPress Helper Functions
+ *
+ * Collection of utility functions for the EmbedPress block
+ */
+import md5 from "md5";
+
+/**
+ * Save source data for analytics tracking
+ */
+export const saveSourceData = (clientId, url) => {
+    if (typeof embedpressGutenbergData === 'undefined' || !embedpressGutenbergData.ajaxUrl) {
+        return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', embedpressGutenbergData.ajaxUrl);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            console.log('EmbedPress: Source data saved successfully');
+        } else {
+            console.error('EmbedPress: Failed to save source data:', xhr.statusText);
+        }
+    };
+
+    xhr.onerror = function () {
+        console.error('EmbedPress: Request failed:', xhr.statusText);
+    };
+
+    const data = {
+        action: 'save_source_data',
+        block_id: clientId,
+        source_url: url,
+        _source_nonce: embedpressGutenbergData.source_nonce || '',
+    };
+
+    const encodedData = Object.keys(data)
+        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(data[key])}`)
+        .join('&');
+
+    xhr.send(encodedData);
+};
+
+/**
+ * Generate social share icons HTML
+ */
+export const shareIconsHtml = (sharePosition, shareFacebook, shareTwitter, sharePinterest, shareLinkedin) => {
+    let shareHtml = `<div class="ep-social-share share-position-${sharePosition}">`;
+
+    if (shareFacebook) {
+        shareHtml += `
+        <a href="#" class="ep-social-icon facebook" target="_blank">
+            <svg fill="#ffffff" height="24" width="24" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+        </a>`;
+    }
+
+    if (shareTwitter) {
+        shareHtml += `
+        <a href="#" class="ep-social-icon twitter" target="_blank">
+            <svg fill="#ffffff" height="24" width="24" viewBox="0 0 24 24">
+                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+            </svg>
+        </a>`;
+    }
+
+    if (sharePinterest) {
+        shareHtml += `
+        <a href="#" class="ep-social-icon pinterest" target="_blank">
+            <svg fill="#ffffff" height="24" width="24" viewBox="0 0 24 24">
+                <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001.012.001z"/>
+            </svg>
+        </a>`;
+    }
+
+    if (shareLinkedin) {
+        shareHtml += `
+        <a href="#" class="ep-social-icon linkedin" target="_blank">
+            <svg fill="#ffffff" height="24" width="24" viewBox="0 0 24 24">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+            </svg>
+        </a>`;
+    }
+
+    shareHtml += '</div>';
+    return shareHtml;
+};
+
+/**
+ * Get player options for custom player
+ */
+export const getPlayerOptions = ({ attributes }) => {
+    const { customPlayer } = attributes;
+
+    if (!customPlayer) {
+        return '';
+    }
+
+    const {
+        playerPreset,
+        playerColor,
+        posterThumbnail,
+        playerPip,
+        playerRestart,
+        playerRewind,
+        playerFastForward,
+        playerTooltip,
+        playerHideControls,
+        playerDownload,
+        // YouTube options
+        starttime,
+        endtime,
+        relatedvideos,
+        muteVideo,
+        fullscreen,
+        // Vimeo options
+        vstarttime,
+        vautoplay,
+        vautopause,
+        vdnt,
+        // Pro features (PRD #81243) — mirror PHP build_player_options() so the
+        // editor preview's data-options matches what the backend emits.
+        playerAutoResume,
+        playerAutoResumeThreshold,
+        playerTimedCTAItems,
+        playerChapters,
+        playerChaptersItems,
+        playerChaptersShowTitle,
+        playerEmailCapture,
+        playerEmailCaptureTime,
+        playerEmailCaptureUnit,
+        playerEmailCaptureHeadline,
+        playerEmailCaptureRequireName,
+        playerEmailCaptureAllowSkip,
+        playerEmailCaptureButtonText,
+        playerActionLock,
+        playerActionLockType,
+        playerActionLockHeadline,
+        playerActionLockMessage,
+        playerActionLockShareNetworks,
+        playerActionLockShareUrl,
+        playerActionLockLinkUrl,
+        playerActionLockLinkText,
+        playerActionLockBypassAdmins,
+        playerAdaptiveStreaming,
+        playerHeatmap,
+        playerLmsTracking,
+        playerLmsThreshold,
+        playerPrivacyMode,
+        playerPrivacyMessage,
+        playerEndScreen,
+        playerEndScreenMode,
+        playerEndScreenMessage,
+        playerEndScreenButtonText,
+        playerEndScreenButtonUrl,
+        playerEndScreenRedirectUrl,
+        playerEndScreenRedirectNewWindow,
+        playerEndScreenCountdown,
+        playerEndScreenShowReplay,
+    } = attributes;
+
+    const { selfhosted, format } = checkMediaFormat(attributes.url);
+
+    // REST URLs / nonces for features that POST back to WP. Pulled from the
+    // global the editor already exposes; placeholder strings keep the JSON
+    // valid in older builds where the global isn't populated.
+    const epData = (typeof window !== 'undefined' && window.embedpressGutenbergData) || {};
+    // Prefer the server-supplied, permalink-aware base. Falls back to the WP
+    // API global, then to /wp-json/ for older builds that don't expose either
+    // — the fallback breaks under Plain permalinks but matches legacy behavior.
+    const apiSettings = (typeof window !== 'undefined' && window.wpApiSettings) || {};
+    const restRoot = (
+        epData.restUrl
+        || (apiSettings.root ? apiSettings.root + 'embedpress/v1/' : '')
+        || ((epData.siteUrl || '') + '/wp-json/embedpress/v1/')
+    ).replace(/\/$/, '');
+    const restNonce = epData.restNonce || '';
+
+    const sanitizeChapters = () => {
+        if (!playerChapters) return false;
+        const items = Array.isArray(playerChaptersItems) ? playerChaptersItems : [];
+        const cleaned = items
+            .map((it) => ({ time: parseFloat(it && it.time) || 0, title: String((it && it.title) || '') }))
+            .filter((it) => it.title !== '');
+        if (!cleaned.length) return false;
+        return { items: cleaned, show_title: playerChaptersShowTitle !== false };
+    };
+
+    const buildEmailCapture = () => {
+        if (!playerEmailCapture) return false;
+        return {
+            time: parseFloat(playerEmailCaptureTime) || 30,
+            unit: playerEmailCaptureUnit || 'seconds',
+            headline: playerEmailCaptureHeadline || '',
+            require_name: !!playerEmailCaptureRequireName,
+            allow_skip: !!playerEmailCaptureAllowSkip,
+            button_text: playerEmailCaptureButtonText || 'Continue',
+            rest_url: restRoot + '/lead',
+            nonce: restNonce,
+        };
+    };
+
+    const buildActionLock = () => {
+        if (!playerActionLock) return false;
+        return {
+            type: playerActionLockType || 'share',
+            headline: playerActionLockHeadline || '',
+            message: playerActionLockMessage || '',
+            share_networks: Array.isArray(playerActionLockShareNetworks) ? playerActionLockShareNetworks : ['facebook', 'twitter', 'linkedin'],
+            share_url: playerActionLockShareUrl || '',
+            link_url: playerActionLockLinkUrl || '',
+            link_text: playerActionLockLinkText || '',
+            bypass_admins: playerActionLockBypassAdmins !== false,
+        };
+    };
+
+    const buildEndScreen = () => {
+        if (!playerEndScreen) return false;
+        // Fall back to the same defaults the attributes schema declares.
+        // When a user just toggles End Screen on and never touches the
+        // text fields, Gutenberg sometimes serializes the saved post with
+        // empty strings rather than the schema defaults — so the rendered
+        // overlay would be a blank dark box. Re-apply the defaults here so
+        // initplyr.js's epShowEndScreen always has visible content.
+        return {
+            mode: playerEndScreenMode || 'message',
+            message: playerEndScreenMessage || 'Thanks for watching!',
+            button_text: playerEndScreenButtonText || 'Learn more',
+            button_url: playerEndScreenButtonUrl || '',
+            redirect_url: playerEndScreenRedirectUrl || '',
+            redirect_new_window: !!playerEndScreenRedirectNewWindow,
+            countdown: parseInt(playerEndScreenCountdown, 10) || 5,
+            show_replay: playerEndScreenShowReplay !== false,
+        };
+    };
+
+    // Build the JSON in TWO segments so the saved markup matches the
+    // pre-#81243 13-key shape when no Pro feature is enabled. Each Pro
+    // key is only emitted when its toggle is actually on, so old posts
+    // (where Pro attributes are at their defaults) regenerate the
+    // original JSON byte-for-byte and don't trigger Gutenberg's block
+    // validation / "attempt block recovery" prompt.
+    const chapters = sanitizeChapters();
+    const emailCapture = buildEmailCapture();
+    const actionLock = buildActionLock();
+    const endScreen = buildEndScreen();
+
+    const playerOptions = {
+        rewind: !!playerRewind,
+        restart: !!playerRestart,
+        pip: !!playerPip,
+        poster_thumbnail: posterThumbnail || '',
+        player_color: playerColor || '',
+        player_preset: playerPreset || 'preset-default',
+        fast_forward: !!playerFastForward,
+        player_tooltip: !!playerTooltip,
+        hide_controls: !!playerHideControls,
+        download: !!playerDownload,
+        // Pro feature keys — only emitted when enabled. Order is preserved
+        // to match the PHP build_player_options() output for parity with
+        // the front-end renderer.
+        ...(playerAutoResume && {
+            auto_resume: true,
+            auto_resume_threshold: parseInt(playerAutoResumeThreshold, 10) || 30,
+        }),
+        ...(Array.isArray(playerTimedCTAItems) && playerTimedCTAItems.length > 0 && { timed_cta: playerTimedCTAItems }),
+        ...(chapters && { chapters }),
+        ...(emailCapture && { email_capture: emailCapture }),
+        ...(actionLock && { action_lock: actionLock }),
+        ...(playerAdaptiveStreaming && { adaptive_streaming: true }),
+        ...(playerHeatmap && { heatmap: { rest_url: restRoot + '/heatmap/sample', nonce: restNonce, interval: 30 } }),
+        ...(playerLmsTracking && { lms_tracking: {
+            threshold: Math.max(50, Math.min(99, parseInt(playerLmsThreshold, 10) || 90)),
+            rest_url: restRoot + '/completion',
+            nonce: restNonce,
+        } }),
+        ...(playerPrivacyMode && {
+            privacy_mode: true,
+            privacy_message: playerPrivacyMessage || '',
+        }),
+        ...(endScreen && { end_screen: endScreen }),
+        // YouTube
+        ...(starttime && { start: starttime }),
+        ...(endtime && { end: endtime }),
+        ...(relatedvideos && { rel: relatedvideos }),
+        ...(muteVideo && { mute: muteVideo }),
+        ...(fullscreen && { fullscreen: fullscreen }),
+        // Vimeo
+        ...(vstarttime && { t: vstarttime }),
+        ...(vautoplay && { autoplay: vautoplay }),
+        ...(vautopause && { autopause: vautopause }),
+        ...(vdnt && { dnt: vdnt }),
+        ...(selfhosted && { self_hosted: selfhosted }),
+        ...(format && { hosted_format: format })
+    };
+
+    return JSON.stringify(playerOptions);
+};
+
+/**
+ * Legacy getPlayerOptions — emits the pre-#81243 13-key JSON shape.
+ * Used by the v4 block deprecation so old posts (saved with this shape
+ * in their data-options attribute) parse cleanly without triggering
+ * Gutenberg's "attempt block recovery" prompt.
+ */
+export const getLegacyPlayerOptions = ({ attributes }) => {
+    const { customPlayer } = attributes;
+    if (!customPlayer) return '';
+
+    const {
+        playerPreset, playerColor, posterThumbnail, playerPip,
+        playerRestart, playerRewind, playerFastForward, playerTooltip,
+        playerHideControls, playerDownload,
+        starttime, endtime, relatedvideos, muteVideo, fullscreen,
+        vstarttime, vautoplay, vautopause, vdnt
+    } = attributes;
+
+    const { selfhosted, format } = checkMediaFormat(attributes.url);
+
+    return JSON.stringify({
+        rewind: playerRewind,
+        restart: playerRestart,
+        pip: playerPip,
+        poster_thumbnail: posterThumbnail,
+        player_color: playerColor,
+        player_preset: playerPreset,
+        fast_forward: playerFastForward,
+        player_tooltip: playerTooltip,
+        hide_controls: playerHideControls,
+        download: playerDownload,
+        ...(starttime && { start: starttime }),
+        ...(endtime && { end: endtime }),
+        ...(relatedvideos && { rel: relatedvideos }),
+        ...(muteVideo && { mute: muteVideo }),
+        ...(fullscreen && { fullscreen: fullscreen }),
+        ...(vstarttime && { t: vstarttime }),
+        ...(vautoplay && { autoplay: vautoplay }),
+        ...(vautopause && { autopause: vautopause }),
+        ...(vdnt && { dnt: vdnt }),
+        ...(selfhosted && { self_hosted: selfhosted }),
+        ...(format && { hosted_format: format })
+    });
+};
+
+/**
+ * Get carousel options for Instagram carousel
+ */
+export const getCarouselOptions = ({ attributes }) => {
+    const {
+        instaLayout,
+        slidesShow,
+        slidesScroll,
+        carouselAutoplay,
+        autoplaySpeed,
+        transitionSpeed,
+        carouselLoop,
+        carouselArrows,
+        carouselSpacing,
+    } = attributes;
+
+    if (instaLayout !== 'insta-carousel') {
+        return '';
+    }
+
+    const carouselOptions = {
+        layout: instaLayout,
+        slideshow: slidesShow,
+        autoplay: carouselAutoplay,
+        autoplayspeed: autoplaySpeed,
+        transitionspeed: transitionSpeed,
+        loop: carouselLoop,
+        arrows: carouselArrows,
+        spacing: carouselSpacing
+    };
+
+    return JSON.stringify(carouselOptions);
+};
+
+/**
+ * Platform Detection Functions
+ */
+
+// Self-hosted media detection
+export const isSelfHostedVideo = (url) => {
+    if (!url) return null;
+    const path = String(url).replace(/[?#].*$/, '');
+    return path.match(/\.(mp4|mov|avi|wmv|flv|mkv|webm|mpeg|mpg|m3u8|mpd)$/i);
+};
+
+export const isSelfHostedAudio = (url) => {
+    if (!url) return null;
+    return url.match(/\.(mp3|wav|ogg|aac)$/i);
+};
+
+// YouTube detection
+export const isYTChannel = (url) => {
+    if (!url) return false;
+    const ytChannelPattern = /^(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:c\/|channel\/|user\/|@)[\w.-]+\/?$/i;
+    return ytChannelPattern.test(url);
+};
+
+// Any YouTube URL with a list= parameter:
+//   /playlist?list=PL…              (playlist landing)
+//   /watch?v=…&list=PL|RD|UU…        (video inside playlist / Mix radio)
+export const isYTPlaylist = (url) => {
+    if (!url) return false;
+    const ytPlaylistPattern = /^(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:playlist|watch)\?(?:[^#]*&)?list=[\w-]+/i;
+    return ytPlaylistPattern.test(url);
+};
+
+
+export const isYTVideo = (url) => {
+    if (!url) return false;
+    const ytVideoPattern = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)[\w-]+/i;
+    // A watch?v=…&list=… URL is BOTH a video and a playlist — let isYTPlaylist
+    // win so the playlist-mode toggle lights up in the inspector.
+    return ytVideoPattern.test(url) && !isYTChannel(url) && !isYTLive(url) && !isYTShorts(url) && !isYTPlaylist(url);
+};
+
+export const isYTLive = (url) => {
+    const ytLivePattern = /^(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:c\/|channel\/|user\/|@)[\w-]+\/live\/?$/i;
+    return ytLivePattern.test(url);
+};
+
+export const isYTShorts = (url) => {
+    const ytShortsPattern = /^(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/[\w-]+/i;
+    return ytShortsPattern.test(url);
+};
+
+// Vimeo detection
+export const isVimeoVideo = (url) => {
+    const vimeoPattern = /^(?:https?:\/\/)?(?:www\.)?vimeo\.com\/\d+/i;
+    return vimeoPattern.test(url);
+};
+
+// Wistia detection
+export const isWistiaVideo = (url) => {
+    const wistiaPattern = /\/medias\/|(?:https?:\/\/)?(?:www\.)?(?:wistia.com\/)(\w+)[^?\/]*$/i;
+    return wistiaPattern.test(url);
+};
+
+// Instagram detection
+export const isInstagramFeed = (url) => {
+    const instaPattern = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/[\w.-]+\/?$/i;
+    return instaPattern.test(url);
+};
+
+export const isInstagramHashtag = (url) => {
+    const hashtagPattern = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/explore\/tags\/[\w.-]+\/?$/i;
+    return hashtagPattern.test(url);
+};
+
+// OpenSea detection
+export const isOpensea = (url) => {
+    const openseaPattern = /^(?:https?:\/\/)?(?:www\.)?opensea\.io\/collection\/[\w.-]+\/?$/i;
+    return openseaPattern.test(url);
+};
+
+export const isOpenseaSingle = (url) => {
+    const openseaSinglePattern = /^(?:https?:\/\/)?(?:www\.)?opensea\.io\/assets\/[\w.-]+\/[\w.-]+\/?$/i;
+    return openseaSinglePattern.test(url);
+};
+
+// Calendly detection
+export const isCalendly = (url) => {
+    const calendlyPattern = /^(?:https?:\/\/)?(?:www\.)?calendly\.com\/[\w.-]+/i;
+    return calendlyPattern.test(url);
+};
+
+// TikTok detection
+export const isTikTok = (url) => {
+    const tiktokPattern = /^(?:https?:\/\/)?(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/([\w.-]+)$/i;
+    return tiktokPattern.test(url);
+};
+
+// Spreaker detection
+export const isSpreakerUrl = (url) => {
+    const spreakerPattern = /^https?:\/\/(www\.)?spreaker\.com\/(show|user|podcast|episode)\/[^/]+/;
+    return spreakerPattern.test(url);
+};
+
+// Google Photos detection
+export const isGooglePhotosUrl = (url) => {
+    const googlePhotosPattern = /^https:\/\/(photos\.app\.goo\.gl|photos\.google\.com)\/.*$/i;
+    return googlePhotosPattern.test(url);
+};
+
+// Meetup detection
+export const isMeetupUrl = (url) => {
+    const meetupPattern = /^(?:https?:\/\/)?(?:www\.)?meetup\.com\/.+/i;
+    return meetupPattern.test(url);
+};
+
+// Twitch detection
+export const isTwitchUrl = (url) => {
+    const twitchPattern = /^https?:\/\/(?:www\.|clips\.)?twitch\.tv\/.+/i;
+    return twitchPattern.test(url);
+};
+
+// Global player registry to track initialized players
+if (typeof window.embedpressPlayers === 'undefined') {
+    window.embedpressPlayers = {};
+}
+
+/**
+ * Custom Player Initialization
+ */
+export const initCustomPlayer = (clientId, attributes) => {
+    const {
+        url,
+        posterThumbnail,
+        customPlayer,
+        playerTooltip,
+        playerHideControls,
+        playerPreset,
+        playerColor,
+        playerPip,
+        playerRestart,
+        playerRewind,
+        playerFastForward,
+        fullscreen,
+        vautopause,
+        vdnt,
+        vstarttime
+    } = attributes;
+
+    const autoPause = vautopause ? true : false;
+    const vDnt = vdnt ? true : false;
+
+    const _isSelfHostedAudio = isSelfHostedAudio(url);
+    const _isSelfHostedVideo = isSelfHostedVideo(url);
+
+    // Check if player is already initialized for this clientId
+    if (window.embedpressPlayers[clientId]) {
+        // Destroy existing player before reinitializing
+        try {
+            window.embedpressPlayers[clientId].destroy();
+            delete window.embedpressPlayers[clientId];
+        } catch (e) {
+            console.warn('EmbedPress: Error destroying player:', e);
+        }
+    }
+
+    const intervalId = setInterval(() => {
+        let playerElement = document.querySelector(`[data-playerid="${clientId}"] .ose-embedpress-responsive`);
+
+        if (isSelfHostedVideo(url)) {
+            playerElement = document.querySelector(`[data-playerid="${clientId}"] .ose-embedpress-responsive video`);
+        } else if (isSelfHostedAudio(url)) {
+            playerElement = document.querySelector(`[data-playerid="${clientId}"] .ose-embedpress-responsive audio`);
+        }
+
+        if (playerElement && typeof Plyr !== 'undefined') {
+            clearInterval(intervalId);
+
+            const wrapper = document.querySelector(`[data-playerid="${clientId}"]`);
+            let options = wrapper.getAttribute('data-options');
+            options = JSON.parse(options);
+            wrapper.style.opacity = '1';
+            wrapper.classList.add('plyr-initialized');
+
+            // Detect if we're on iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            // Detect if this is a YouTube video
+            const isYouTube = document.querySelector(`[data-playerid='${clientId}'] iframe[src*="youtube"]`) !== null;
+
+            // For iOS YouTube videos, we need to use fallback fullscreen instead of native
+            // because webkitEnterFullscreen() doesn't work on iframes
+            const shouldUseFallbackFullscreen = isIOS && isYouTube;
+
+            const player = new Plyr(playerElement, {
+                // Bundled sprite + blank video (no cdn.plyr.io requests).
+                ...((window.embedpressPlayerData && window.embedpressPlayerData.plyr) || {}),
+                controls: [
+                    'play-large',
+                    'restart',
+                    'rewind',
+                    'play',
+                    'fast-forward',
+                    'progress',
+                    'current-time',
+                    'duration',
+                    'mute',
+                    'volume',
+                    'captions',
+                    'settings',
+                    _isSelfHostedAudio ? '' : 'pip',
+                    'airplay',
+                    options.download ? 'download' : '',
+                    _isSelfHostedAudio ? '' : 'fullscreen',
+                ],
+                hideControls: playerHideControls,
+                tooltips: { controls: playerTooltip, seek: playerTooltip },
+                // iOS fullscreen configuration - use fallback for YouTube on iOS
+                fullscreen: {
+                    enabled: true,
+                    fallback: true,
+                    iosNative: !shouldUseFallbackFullscreen // Disable iosNative for YouTube on iOS
+                },
+                // Enable playsinline for iOS devices to allow custom controls
+                playsinline: true,
+                youtube: {
+                    ...(options.autoplay && { autoplay: options.autoplay }),
+                    ...(options.start && { start: options.start }),
+                    ...(options.end && { end: options.end }),
+                    ...(options.rel && { rel: options.rel }),
+                    ...(options.fullscreen && { fs: options.fullscreen })
+                },
+                vimeo: {
+                    byline: false,
+                    portrait: false,
+                    title: false,
+                    speed: true,
+                    transparent: false,
+                    controls: false,
+                    ...(options.t && { t: options.t }),
+                    ...(options.vautoplay && { autoplay: options.vautoplay }),
+                    ...(options.autopause && { autopause: options.autopause }),
+                    ...(options.dnt && { dnt: options.dnt }),
+                }
+            });
+
+            // Store player instance in global registry
+            window.embedpressPlayers[clientId] = player;
+
+            // iOS YouTube fullscreen fix: Ensure iframe has proper attributes
+            if (shouldUseFallbackFullscreen) {
+                const iframe = document.querySelector(`[data-playerid='${clientId}'] iframe[src*="youtube"]`);
+                if (iframe) {
+                    // Ensure the iframe allows fullscreen
+                    iframe.setAttribute('allowfullscreen', '');
+                    iframe.setAttribute('webkitallowfullscreen', '');
+                    iframe.setAttribute('mozallowfullscreen', '');
+
+                    // Add iOS-specific class for styling
+                    iframe.classList.add('ios-youtube-iframe');
+
+                    // Listen for fullscreen events to handle iOS-specific behavior
+                    player.on('enterfullscreen', () => {
+                        // Force viewport meta tag update for better fullscreen experience
+                        const viewport = document.querySelector('meta[name="viewport"]');
+                        if (viewport) {
+                            const originalContent = viewport.getAttribute('content');
+                            viewport.setAttribute('data-original-content', originalContent);
+                            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+                        }
+                    });
+
+                    player.on('exitfullscreen', () => {
+                        // Restore original viewport meta tag
+                        const viewport = document.querySelector('meta[name="viewport"]');
+                        if (viewport && viewport.hasAttribute('data-original-content')) {
+                            viewport.setAttribute('content', viewport.getAttribute('data-original-content'));
+                            viewport.removeAttribute('data-original-content');
+                        }
+                    });
+                }
+            }
+
+            if (posterThumbnail) {
+                player.poster = posterThumbnail;
+            }
+        }
+    }, 200);
+};
+
+// The Instagram Carousel editor preview is initialised by EmbedPress Pro via
+// the `embedpress.instagram.previewRendered` action (see edit.js).
+
+function checkMediaFormat(url) {
+    const path = String(url || '').replace(/[?#].*$/, '');
+    const videoPattern = /\.(mp4|mov|avi|wmv|flv|mkv|webm|mpeg|mpg|m3u8|mpd)$/i;
+    const audioPattern = /\.(mp3|wav|ogg|aac)$/i;
+
+    const isVideo = videoPattern.test(path);
+    const isAudio = audioPattern.test(path);
+
+    let isSelfHosted = false;
+    let format = '';
+
+    if (isVideo || isAudio) {
+        isSelfHosted = true;
+        if (isVideo) {
+            format = 'video';
+        } else if (isAudio) {
+            format = 'audio';
+        }
+    }
+
+    if (!isSelfHosted) {
+        return { selfhosted: false };
+    }
+
+    return {
+        selfhosted: true,
+        format: format
+    };
+}

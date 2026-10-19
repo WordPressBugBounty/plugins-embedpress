@@ -678,6 +678,10 @@ class GoogleReviewsRestController
      */
     public static function managed_connect()
     {
+        // This route is only reached by the admin clicking "Connect to
+        // EmbedPress API" next to the disclosure of what is sent — that click
+        // is the consent. Record it before the first request to the API.
+        GoogleReviewsManaged::grant_consent();
         $result = GoogleReviewsManaged::connect();
         if (empty($result['ok'])) {
             return new WP_Error(
@@ -710,12 +714,12 @@ class GoogleReviewsRestController
     {
         $auth = GoogleReviewsManaged::get_auth();
         // `would_send` mirrors the payload connect.php will receive — used by
-        // the Connect button on the admin page to show the user exactly what
-        // will leave their server (site URL, admin email, install fingerprint)
-        // BEFORE they click. Honesty over magic-button UX.
+        // the Connect button to show the user exactly what will leave their
+        // server BEFORE they click. No admin email is sent.
         $would_send = [
-            'site_url'    => home_url(),
-            'admin_email' => (string) get_option('admin_email'),
+            'site_url'       => home_url(),
+            'plugin_version' => defined('EMBEDPRESS_VERSION') ? EMBEDPRESS_VERSION : '',
+            'wp_version'     => get_bloginfo('version'),
         ];
         return [
             'connected'    => $auth !== [],
@@ -725,6 +729,7 @@ class GoogleReviewsRestController
             'connected_at' => isset($auth['connected_at']) ? (int) $auth['connected_at'] : 0,
             'endpoint'     => GoogleReviewsManaged::endpoint(),
             'would_send'   => $would_send,
+            'privacy_url'  => GoogleReviewsManaged::PRIVACY_URL,
         ];
     }
 
@@ -959,22 +964,9 @@ class GoogleReviewsRestController
 
         switch ($action) {
             case 'add':
-                // Free plan supports ONE place in the global library; Pro is
-                // unlimited. Re-adding a place that's already saved is always
-                // fine (idempotent). A NET-NEW place is rejected for free users
-                // once the library already holds a different place — this is the
-                // server-side backstop for the settings-page crown upsell, so the
-                // cap holds regardless of how the add is attempted.
-                if (!Helper::is_pro_active() && !GoogleReviewsStore::get($place_id)) {
-                    $existing = GoogleReviewsStore::all();
-                    if (is_array($existing) && count($existing) >= 1) {
-                        return new WP_Error(
-                            'embedpress_gr_pro_required',
-                            __('The free plan supports one place. Upgrade to EmbedPress Pro to add unlimited places.', 'embedpress'),
-                            ['status' => 403]
-                        );
-                    }
-                }
+                // The places library has no plan-based size limit. (Showing
+                // several places merged in ONE block is the Pro multi-place
+                // feature, wired through the pre_fetch filter — not a cap here.)
                 // Lookup-first: if already saved, this just returns the existing
                 // row — no duplicate, no fetch.
                 $is_new = !GoogleReviewsStore::get($place_id);

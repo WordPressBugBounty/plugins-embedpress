@@ -2,7 +2,6 @@
 
 namespace EmbedPress\Includes\Classes;
 
-use Elementor\Group_Control_Image_Size;
 use Elementor\Utils;
 use SplMinHeap;
 use EmbedPress\Includes\Classes\Helper;
@@ -59,105 +58,28 @@ class Elementor_Enhancer {
 		return $embed;
 	}
 
+	/**
+	 * Custom Branding (logo + call-to-action) for Elementor embeds.
+	 *
+	 * Custom Branding is an EmbedPress Pro feature; free renders no branding.
+	 * This method is kept only as a stable entry point for callers that still
+	 * reference it. It does nothing itself and hands the embed to the
+	 * `embedpress/branding/elementor_markup` filter, which EmbedPress Pro fills.
+	 *
+	 * @param object $embed         Embed object; `$embed->embed` holds the HTML.
+	 * @param array  $settings      Elementor widget settings.
+	 * @param string $provider_name Provider slug, e.g. 'youtube'.
+	 * @return object
+	 */
 	public static function apply_cta_markup( $embed, $settings, $provider_name = '' ) {
-		
-		if ( empty( $settings["embedpress_pro_{$provider_name}_logo"] ) || empty( $settings["embedpress_pro_{$provider_name}_logo"]['url'] ) ) {
-			return $embed;
-		}
-		$img = Group_Control_Image_Size::get_attachment_image_html( $settings, "embedpress_pro_{$provider_name}_logo" );
-		if ( empty( $img ) ) {
-			return $embed;
-		}
-
-		$cta    = '';
-		$url    = '';
-		$target = '';
-		$x      = ! empty( $settings["embedpress_pro_{$provider_name}_logo_xpos"] ) && ! empty( $settings["embedpress_pro_{$provider_name}_logo_xpos"]['unit'] ) ? $settings["embedpress_pro_{$provider_name}_logo_xpos"]['size'] . $settings["embedpress_pro_{$provider_name}_logo_xpos"]['unit'] : '10%';
-
-		$y        = ! empty( $settings["embedpress_pro_{$provider_name}_logo_ypos"] ) && ! empty( $settings["embedpress_pro_{$provider_name}_logo_ypos"]['unit'] ) ?  $settings["embedpress_pro_{$provider_name}_logo_ypos"]['size'] . $settings["embedpress_pro_{$provider_name}_logo_ypos"]['unit'] : '10%';
-		$cssClass = isset( $embed->url ) ? '.ose-uid-' . md5( $embed->url ) : ".ose-{$provider_name}";
-		ob_start();
-		?>
-        <style type="text/css">
-            .ep-embed-content-wraper .watermark {
-                text-align: left;
-                position: relative;
-            }
-            .ep-embed-content-wraper .watermark {
-                border: 0;
-                position: absolute;
-                bottom: 10%;
-                right: 5%;
-                max-width: 150px;
-                max-height: 75px;
-                opacity: 0.35!important;
-                z-index: 5;
-                -o-transition: opacity 0.5s ease-in-out;
-                -moz-transition: opacity 0.5s ease-in-out;
-                -webkit-transition: opacity 0.5s ease-in-out;
-                transition: opacity 0.5s ease-in-out;
-            }
-
-			<?php echo esc_html($cssClass); ?> .watermark {
-				bottom: <?php echo esc_html($y); ?>;
-                right: <?php echo esc_html($x); ?>;
-			}	
-
-			.ep-embed-content-wraper .watermark:hover {
-                opacity: 1!important;
-            }
-        </style>
-		<?php
-		$style = ob_get_clean();
-
-		if ( ! class_exists( '\simple_html_dom' ) ) {
-			include_once EMBEDPRESS_PATH_CORE . 'simple_html_dom.php';
-		}
-
-		if ( ! empty( $settings["embedpress_pro_{$provider_name}_cta"] ) && ! empty( $settings["embedpress_pro_{$provider_name}_cta"]['url'] ) ) {
-			$url = $settings["embedpress_pro_{$provider_name}_cta"]['url'];
-		}
-
-		if ( $url ) {
-			$atts       = self::get_link_attributes( $settings["embedpress_pro_{$provider_name}_cta"] );
-			$attributes = '';
-			foreach ( $atts as $att => $value ) {
-				$attributes .= $att . '="' . esc_attr( $value ) . '" ';
-			}
-			$cta .= sprintf( '<a %s>', trim( $attributes ) );
-		}
-
-
-		$imgDom = str_get_html( $img );
-		$imgDom = $imgDom->find( 'img', 0 );
-		$imgDom->setAttribute( 'class', 'watermark' );
-		$imgDom->removeAttribute( 'style' );
-		$imgDom->setAttribute( 'width', 'auto' );
-		$imgDom->setAttribute( 'height', 'auto' );
-		ob_start();
-		echo $imgDom;
-		$cta .= ob_get_clean();
-		$imgDom->clear();
-		unset( $img, $imgDom );
-
-		if ( $url ) {
-			$cta .= '</a>';
-		}
-		$dom     = str_get_html( $embed->embed );
-		$wrapDiv = $dom->find( "div.ose-{$provider_name}", 0 );
-		if ( ! empty( $wrapDiv ) && is_object( $wrapDiv ) ) {
-			$wrapDiv->innertext .= $cta;
-		}
-
-		ob_start();
-		echo $wrapDiv;
-		$markup = ob_get_clean();
-		$dom->clear();
-		unset( $dom, $wrapDiv );
-
-		$embed->embed = $style . $markup;
-
-		return $embed;
+		/**
+		 * Filters an Elementor embed so a custom logo / CTA overlay can be added.
+		 *
+		 * @param object $embed         Embed object; `$embed->embed` holds the HTML.
+		 * @param array  $settings      Elementor widget settings.
+		 * @param string $provider_name Provider slug, e.g. 'youtube'.
+		 */
+		return apply_filters( 'embedpress/branding/elementor_markup', $embed, $settings, $provider_name );
 	}
 
 	public static function get_link_attributes( $url_control ) {
@@ -263,9 +185,7 @@ class Elementor_Enhancer {
 			$embedOptions->time             = $setting['embedpress_pro_video_start_time'];
 		}
 
-		if (is_embedpress_pro_active()) {
-			$embedOptions = apply_filters('embedpress/elementor_enhancer_wistia', $embedOptions, $setting);
-		}
+		$embedOptions = apply_filters('embedpress/elementor_enhancer_wistia', $embedOptions, $setting);
 
 
 		// Plugins
@@ -274,8 +194,11 @@ class Elementor_Enhancer {
 		$pluginList = [];
 
 
-		if (is_embedpress_pro_active()) {
-			$embedOptions = apply_filters('embedpress/elementor_enhancer_wistia_captions', $embedOptions, $setting, $pluginList);
+		$embedOptions = apply_filters('embedpress/elementor_enhancer_wistia_captions', $embedOptions, $setting, $pluginList);
+		// This filter's first argument is the options object, not the list, so
+		// only run it when something is hooked (an empty run would return the
+		// options object as the plugin list).
+		if (has_filter('embedpress/elementor_enhancer_wistia_pluginlist')) {
 			$pluginList = apply_filters('embedpress/elementor_enhancer_wistia_pluginlist', $embedOptions, $setting, $pluginList);
 		}
 
@@ -318,9 +241,7 @@ class Elementor_Enhancer {
 		$html         .= '</div>';
 		$embed->embed = $html;
 
-		if (is_embedpress_pro_active()) {
-			$embed = apply_filters('embedpress/elementor_enhancer_wistia_cta', $embed, $setting);
-		}
+		$embed = apply_filters('embedpress/elementor_enhancer_wistia_cta', $embed, $setting);
 
 
 		return $embed;

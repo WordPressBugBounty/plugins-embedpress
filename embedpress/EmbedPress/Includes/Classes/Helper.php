@@ -31,12 +31,11 @@ class Helper
 
 	public function __construct()
 	{
-		add_action('wp_ajax_lock_content_form_handler', [$this, 'lock_content_form_handler']);
-		add_action('wp_ajax_nopriv_lock_content_form_handler', [$this, 'lock_content_form_handler']);
-
-		add_action('wp_ajax_embedpress_gutenberg_password_check', [$this, 'gutenberg_password_check']);
-		add_action('wp_ajax_nopriv_embedpress_gutenberg_password_check', [$this, 'gutenberg_password_check']);
-
+		add_action('admin_notices', [$this, 'outdated_pro_admin_notice']);
+		// EmbedPress's own settings / analytics screens only print
+		// `ep_admin_notices` (Shared::remove_admin_notice()).
+		add_action('ep_admin_notices', [$this, 'outdated_pro_admin_notice']);
+		add_action('admin_init', [$this, 'dismiss_outdated_pro_notice']);
 
 		add_action('wp_ajax_loadmore_data_handler', [$this, 'loadmore_data_handler']);
 		add_action('wp_ajax_nopriv_loadmore_data_handler', [$this, 'loadmore_data_handler']);
@@ -135,6 +134,203 @@ class Helper
 	 *
 	 * @return string
 	 */
+	/**
+	 * Extension scripts the PDF viewer should load, as a comma-separated list
+	 * of names for its `ext` hash param.
+	 *
+	 * viewer.html is a standalone document served in an iframe, so there is no
+	 * wp_enqueue_script hook a plugin can use to add behaviour to it. Instead
+	 * the viewer ships a small loader (assets/pdf/web/ep-extensions.js) that
+	 * resolves names against its own allowlist; this is where PHP decides
+	 * which of those names to request.
+	 *
+	 * Pro adds "watermark" here. Free requests nothing, so the loader is inert
+	 * on a free install.
+	 *
+	 * @param array $params The viewer params this embed sends (watermark_text,
+	 *                      …), so a filter can skip an extension the embed
+	 *                      doesn't use. Empty when unknown.
+	 * @return string Comma-separated extension names, or '' for none.
+	 */
+	public static function pdf_viewer_extensions($params = [])
+	{
+		$params = is_array($params) ? $params : [];
+		$extensions = (array) apply_filters('embedpress/pdf/viewer_extensions', [], $params);
+
+		$extensions = array_filter(array_map(function ($name) {
+			return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $name));
+		}, $extensions));
+
+		return implode(',', array_unique($extensions));
+	}
+
+	/**
+	 * Pass a PDF viewer param array through `embedpress/pdf/viewer_params`.
+	 *
+	 * Every PHP surface that builds the PDF.js / flipbook viewer params (the
+	 * base64 `key` blob) fills the viewer options a site owner can only change
+	 * with the Pro add-on — toolbar, print/download, copy text, draw, default
+	 * selection tool and scrolling, RTL page flip and the watermark_* keys —
+	 * with their default values, then calls this. Free never reads the user's
+	 * choice for those keys itself.
+	 *
+	 * Filter contract — `embedpress/pdf/viewer_params`:
+	 *
+	 *   @param array  $params     Param array as built by free (Pro-controlled
+	 *                             keys hold their defaults). Callbacks should
+	 *                             only overwrite keys that already exist so the
+	 *                             key order — and therefore the encoded blob —
+	 *                             stays stable.
+	 *   @param array  $attributes The raw source of the render surface: block
+	 *                             attributes, shortcode attributes or
+	 *                             Elementor widget settings.
+	 *   @param string $context    Which surface (and attribute naming scheme)
+	 *                             $attributes comes from: `shortcode`,
+	 *                             `shortcode_gallery`, `gutenberg`,
+	 *                             `gutenberg_gallery`, `elementor`,
+	 *                             `elementor_wrapper` (data-* attributes on the
+	 *                             Elementor PDF wrapper), `elementor_gallery`
+	 *                             or `elementor_document`.
+	 *   @return array
+	 *
+	 * @param array  $params
+	 * @param mixed  $attributes
+	 * @param string $context
+	 * @return array
+	 */
+	public static function pdf_viewer_params(array $params, $attributes, $context)
+	{
+		$filtered = apply_filters('embedpress/pdf/viewer_params', $params, is_array($attributes) ? $attributes : [], (string) $context);
+
+		return is_array($filtered) ? $filtered : $params;
+	}
+
+	/**
+	 * PDF Gallery layouts this install can render.
+	 *
+	 * Free ships `grid` and `masonry`. Other layouts (EmbedPress Pro adds
+	 * `carousel` and `bookshelf`) are registered through the
+	 * `embedpress/pdf_gallery/layouts` filter by the plugin that implements
+	 * them — that plugin also enqueues the layout's own JS/CSS.
+	 *
+	 * Filter contract — `embedpress/pdf_gallery/layouts`:
+	 *   @param string[] $layouts Layout slugs. Return the list with yours added.
+	 *
+	 * @return string[]
+	 */
+	public static function pdf_gallery_layouts()
+	{
+		$layouts = (array) apply_filters('embedpress/pdf_gallery/layouts', ['grid', 'masonry']);
+
+		return array_values(array_unique(array_filter(array_map(function ($layout) {
+			return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $layout));
+		}, $layouts))));
+	}
+
+	/**
+	 * Resolve a saved PDF Gallery layout to one this install can render,
+	 * falling back to `grid` for unknown layouts.
+	 *
+	 * @param string $layout
+	 * @return string
+	 */
+	public static function pdf_gallery_layout($layout)
+	{
+		return in_array($layout, self::pdf_gallery_layouts(), true) ? $layout : 'grid';
+	}
+
+	/**
+	 * Markup that wraps the PDF Gallery items for a layout.
+	 *
+	 * Free wraps the items in `.ep-pdf-gallery__grid` (Grid and Masonry are
+	 * pure CSS). A plugin that registers a layout through
+	 * `embedpress/pdf_gallery/layouts` supplies that layout's wrapper here.
+	 *
+	 * Filter contract — `embedpress/pdf_gallery/layout_markup`:
+	 *   @param array  $markup     [
+	 *                               'attributes' => extra attributes for the
+	 *                                               `.ep-pdf-gallery` element
+	 *                                               (already escaped, without
+	 *                                               a leading space),
+	 *                               'open'       => HTML printed before the items,
+	 *                               'close'      => HTML printed after the items,
+	 *                             ]
+	 *   @param string $layout     Resolved layout slug (see pdf_gallery_layout()).
+	 *   @param array  $attributes Raw attributes / settings of the surface.
+	 *   @param string $context    `shortcode_gallery`, `gutenberg_gallery` or
+	 *                             `elementor_gallery`.
+	 *   @return array
+	 *
+	 * @param string $layout
+	 * @param mixed  $attributes
+	 * @param string $context
+	 * @return array{attributes:string,open:string,close:string}
+	 */
+	public static function pdf_gallery_layout_markup($layout, $attributes, $context)
+	{
+		$default = [
+			'attributes' => '',
+			'open'       => '<div class="ep-pdf-gallery__grid">',
+			'close'      => '</div>',
+		];
+
+		$markup = apply_filters('embedpress/pdf_gallery/layout_markup', $default, (string) $layout, is_array($attributes) ? $attributes : [], (string) $context);
+
+		if (!is_array($markup)) {
+			return $default;
+		}
+
+		$markup = array_merge($default, $markup);
+
+		return [
+			'attributes' => (string) $markup['attributes'],
+			'open'       => (string) $markup['open'],
+			'close'      => (string) $markup['close'],
+		];
+	}
+
+	/**
+	 * Add the `ext` param to every PDF viewer URL in rendered HTML.
+	 *
+	 * The viewer reads its options from a base64 `#key=` hash. Markup built
+	 * client-side (the PDF blocks' save()) has no `ext`, so extensions such as
+	 * Pro's watermark were never requested on block embeds. This appends
+	 * `&ext=…` inside that key. No-op when no extension is registered (Pro
+	 * inactive) or the URL already names one.
+	 *
+	 * @param string $html
+	 * @return string
+	 */
+	public static function add_pdf_viewer_extensions($html)
+	{
+		if (!is_string($html) || strpos($html, 'viewer.html') === false || strpos($html, 'key=') === false) {
+			return $html;
+		}
+
+		if (self::pdf_viewer_extensions() === '') {
+			return $html;
+		}
+
+		return preg_replace_callback(
+			'/(viewer\.html[^"\'\s<>]*?#key=)([A-Za-z0-9+\/=%]+)/',
+			function ($m) {
+				$decoded = base64_decode(rawurldecode($m[2]), true);
+				if ($decoded === false || preg_match('/(^|&)ext=/', $decoded)) {
+					return $m[0];
+				}
+
+				parse_str($decoded, $params);
+				$ext = self::pdf_viewer_extensions($params);
+				if ($ext === '') {
+					return $m[0];
+				}
+
+				return $m[1] . base64_encode($decoded . '&ext=' . rawurlencode($ext));
+			},
+			$html
+		);
+	}
+
 	public static function get_pdf_renderer()
 	{
 		if (apply_filters('embedpress_pdf_use_ajax_renderer', false)) {
@@ -593,245 +789,6 @@ class Helper
 		return get_the_title(attachment_url_to_postid($url));
 	}
 
-	public static function get_hash()
-	{
-		$hash_key = get_option(EMBEDPRESS_PLG_NAME . '_hash_key');
-		if (!$hash_key) {
-			$hash_key = wp_hash_password(wp_generate_password(30));
-			update_option(EMBEDPRESS_PLG_NAME . '_hash_key', $hash_key);
-		}
-		return $hash_key;
-	}
-
-	public function lock_content_form_handler() {
-		// print_r($embedHTML);
-
-		$client_id = isset($_POST['client_id']) ? sanitize_text_field($_POST['client_id']) : '';
-		$password = isset($_POST['password']) ? sanitize_text_field($_POST['password']) : '';
-		$post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
-		
-		$epbase64 = get_post_meta( $post_id, 'ep_base_' .$client_id, true );	
-		$hash_key = get_post_meta( $post_id, 'hash_key_' .$client_id, true  );
-
-		// Set the decryption key and initialization vector (IV)
-		$key = Helper::get_hash();
-
-		// Decode the base64 encoded cipher
-		$cipher = base64_decode($epbase64);
-		// Decrypt the cipher using AES-128-CBC encryption
-
-		$wp_pass_key = hash('sha256', wp_salt(32) . md5($password));
-		$iv = substr($wp_pass_key, 0, 16);
-		
-		if ($wp_pass_key === $hash_key) {
-
-			$embed = openssl_decrypt($cipher, 'AES-128-CBC', $key, OPENSSL_RAW_DATA, $iv) . '<script>
-			var now = new Date();
-			var time = now.getTime();
-			var expireTime = time + 1000 * 60 * 60 * 24 * 30;
-			now.setTime(expireTime);
-			document.cookie = "password_correct_'.esc_js($client_id).'='.esc_js($hash_key).'; expires=" + now.toUTCString() + "; path=/";
-		</script>';
-
-		}
-		else{
-			$embed = 0;
-		}
-
-		// Process the form data and return a response
-		$response = array(
-		'success' => true,
-		'password' => $password,
-		'embedHtml' => $embed,
-		'post_id' => $post_id
-		);
-
-		wp_send_json($response);
-
-	}
-
-	public function gutenberg_password_check()
-	{
-		$client_id = isset($_POST['client_id']) ? sanitize_text_field($_POST['client_id']) : '';
-		$password = isset($_POST['password']) ? sanitize_text_field($_POST['password']) : '';
-		$content_password = isset($_POST['content_password']) ? sanitize_text_field($_POST['content_password']) : '';
-
-		// Verify password
-		if ($password === $content_password) {
-			// Set cookie for authentication
-			$hash_pass = hash('sha256', wp_salt(32) . md5($password));
-			setcookie("password_correct_" . $client_id, $hash_pass, time() + 3600, '/');
-
-			$response = array(
-				'success' => true,
-				'message' => 'Password correct'
-			);
-		} else {
-			$response = array(
-				'success' => false,
-				'message' => 'Incorrect password'
-			);
-		}
-
-		wp_send_json($response);
-	}
-
-	public static function display_password_form($client_id = '', $embedHtml = '', $pass_hash_key = '', $attributes = [])
-	{
-		$lock_heading = !empty($attributes['lockHeading']) ? sanitize_text_field($attributes['lockHeading']) : '';
-		$lock_subheading = !empty($attributes['lockSubHeading']) ? sanitize_text_field($attributes['lockSubHeading']) : '';
-		$lock_error_message = !empty($attributes['lockErrorMessage']) ? sanitize_text_field($attributes['lockErrorMessage']) : '';
-		$footer_message = !empty($attributes['footerMessage']) ? sanitize_text_field($attributes['footerMessage']) : '';
-		$password_placeholder = !empty($attributes['passwordPlaceholder']) ? sanitize_text_field($attributes['passwordPlaceholder']) : '';
-		$button_text = !empty($attributes['submitButtonText']) ? sanitize_text_field($attributes['submitButtonText']) : '';
-		$unlocking_text = !empty($attributes['submitUnlockingText']) ? sanitize_text_field($attributes['submitUnlockingText']) : '';
-		$enable_footer_message = !empty($attributes['enableFooterMessage']) ? sanitize_text_field($attributes['enableFooterMessage']) : '';
-
-
-		// Set the encryption key and initialization vector (IV)
-		$key = self::get_hash();
-
-		$salt = wp_salt(32);
-		$wp_hash_key = hash('sha256', $salt . $pass_hash_key);
-		$iv = substr($wp_hash_key, 0, 16);
-
-
-		// Encrypt the plaintext using AES-128-CBC encryption
-		$cipher = openssl_encrypt($embedHtml, 'AES-128-CBC', $key, OPENSSL_RAW_DATA, $iv);
-
-		// Base64 encode the encrypted cipher
-		$encrypted_data = base64_encode($cipher);
-
-		update_post_meta(get_the_ID(), 'ep_base_' . $client_id, $encrypted_data);
-		update_post_meta(get_the_ID(), 'hash_key_' . $client_id, $wp_hash_key);
-
-		$lock_icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g fill="#6354a5" class="color134563 svgShape"><path d="M46.3 28.7h-3v-6.4C43.3 16.1 38.2 11 32 11c-6.2 0-11.3 5.1-11.3 11.3v6.4h-3v-6.4C17.7 14.4 24.1 8 32 8s14.3 6.4 14.3 14.3v6.4" fill="#6354a5" class="color000000 svgShape"></path><path d="M44.8 55.9H19.2c-2.6 0-4.8-2.2-4.8-4.8V31.9c0-2.6 2.2-4.8 4.8-4.8h25.6c2.6 0 4.8 2.2 4.8 4.8v19.2c0 2.7-2.2 4.8-4.8 4.8zM19.2 30.3c-.9 0-1.6.7-1.6 1.6v19.2c0 .9.7 1.6 1.6 1.6h25.6c.9 0 1.6-.7 1.6-1.6V31.9c0-.9-.7-1.6-1.6-1.6H19.2z" fill="#6354a5" class="color000000 svgShape"></path><path d="M35.2 36.7c0 1.8-1.4 3.2-3.2 3.2s-3.2-1.4-3.2-3.2 1.4-3.2 3.2-3.2 3.2 1.5 3.2 3.2" fill="#6354a5" class="color000000 svgShape"></path><path d="M32.8 36.7h-1.6l-1.6 9.6h4.8l-1.6-9.6" fill="#6354a5" class="color000000 svgShape"></path></g></svg>';
-
-		echo '
-		<div class="password-form-container sd">
-			<h2>' . esc_html($lock_heading) . '</h2>
-			<p>' . esc_html($lock_subheading) . ' </p>
-				<form class="password-form" method="post" class="password-form" data-unlocking-text="' . esc_attr($unlocking_text) . '">
-
-					<div class="password-field">
-						<span class="lock-icon">' . $lock_icon . '</span>
-						<input type="password" name="pass_' . esc_attr($client_id) . '" placeholder="' . esc_attr($password_placeholder) . '" required>
-					</div>
-					<input type="hidden" name="ep_client_id" value="' . esc_attr($client_id) . '">
-					<input type="hidden" name="post_id" value="' . esc_attr(get_the_ID()) . '">
-
-					<input type="submit" name="password_submit" value="' . esc_attr($button_text) . '">
-					<div class="error-message hidden">' . esc_html($lock_error_message) . '</div>
-				</form>
-				' . (!empty($enable_footer_message) ? '<p class="need-access-message">' . esc_html($footer_message) . '</p>' : '') . '
-			</div>
-		';
-	}
-
-	// Check if the user has already entered the correct password
-	public static function is_password_correct($client_id)
-	{
-		if (isset($_COOKIE['password_correct_' . $client_id])) {
-			return $_COOKIE['password_correct_' . $client_id];
-		} else {
-			return false;
-		}
-	}
-
-	public static function customLogo($embedHTML, $atts)
-	{
-		$x = !empty($atts['logoX']) ? $atts['logoX'] : 0;
-		$y = !empty($atts['logoY']) ? $atts['logoY'] : 0;
-		$uniqid = !empty($atts['url']) ? '.ose-uid-' . md5($atts['url']) : '';
-
-		$brandUrl = !empty($atts['customlogoUrl']) ? $atts['customlogoUrl'] : '';
-		$opacity = !empty($atts['logoOpacity']) ? $atts['logoOpacity'] : '';
-
-		$cssClass = !empty($atts['url']) ? '.ose-uid-' . md5($atts['url']) : '.ose-youtube';
-
-
-
-		ob_start(); ?>
-		<style type="text/css">
-			<?php echo esc_html($cssClass); ?> {
-				position: relative;
-			}
-
-			<?php echo esc_html($cssClass); ?>.watermark {
-				border: 0;
-				position: absolute;
-				bottom: <?php echo esc_html($y); ?>%;
-				right: <?php echo esc_html($x); ?>%;
-				max-width: 150px;
-				max-height: 75px;
-				opacity: 0.25;
-				z-index: 5;
-				-o-transition: opacity 0.5s ease-in-out;
-				-moz-transition: opacity 0.5s ease-in-out;
-				-webkit-transition: opacity 0.5s ease-in-out;
-				transition: opacity 0.5s ease-in-out;
-				opacity: <?php echo esc_html($opacity); ?>;
-			}
-
-			<?php echo esc_html($cssClass); ?>.watermark:hover {
-				opacity: 1;
-			}
-		</style>
-		<?php
-
-
-		$style = ob_get_clean();
-
-		if (!class_exists('\simple_html_dom')) {
-			include_once EMBEDPRESS_PATH_CORE . 'simple_html_dom.php';
-		}
-
-		$cta    = '';
-		$img = '';
-
-		if (!empty($atts['customlogo'])) {
-			$img = '<img src="' . esc_url($atts['customlogo']) . '"/>';
-
-			$imgDom = str_get_html($img);
-			$imgDom = $imgDom->find('img', 0);
-			$imgDom->setAttribute('class', 'watermark ep-custom-logo');
-			$imgDom->removeAttribute('style');
-			$imgDom->setAttribute('width', 'auto');
-			$imgDom->setAttribute('height', 'auto');
-			ob_start();
-			echo $imgDom;
-
-			$cta .= ob_get_clean();
-
-			$imgDom->clear();
-			unset($img, $imgDom);
-
-			if (!empty($brandUrl)) {
-				$cta = '<a href="' . esc_url($brandUrl) . '" target="_blank">' . $cta . '</a>';
-			}
-			$dom     = str_get_html($embedHTML);
-
-			$wrapDiv = $dom->find($uniqid, 0);
-
-			if (!empty($wrapDiv) && is_object($wrapDiv)) {
-				$wrapDiv->innertext .= $cta;
-			}
-
-			ob_start();
-			echo $wrapDiv;
-
-			$markup = ob_get_clean();
-
-			$dom->clear();
-			unset($dom, $wrapDiv);
-
-			$embedHTML = $style . $markup;
-		}
-
-		return $embedHTML;
-	}
-
-
 	public static function embed_content_share($content_id = '', $attributes = [])
 	{
 		$share_position = !empty($attributes['sharePosition']) ? $attributes['sharePosition'] : 'right';
@@ -1089,20 +1046,25 @@ class Helper
 		$feeds_data = get_option('ep_instagram_feed_data');
 		$user_data = $feeds_data[$user_id]['feed_userinfo'];
 
-		if ($feed_type == 'hashtag_type') {
-			$feeds_data = get_option('ep_instagram_hashtag_feed');
-		}
-
-
 		$profile_picture_url = isset($user_data['profile_picture_url']) ? $user_data['profile_picture_url'] : '';
 
 		if ($feed_type === 'user_account_type' && isset($feeds_data[$loadmore_key]['feed_posts'])) {
 			$feed_posts = $feeds_data[$loadmore_key]['feed_posts'];
-		} else if ($feed_type === 'hashtag_type' && isset($feeds_data[$loadmore_key])) {
-			$feed_posts = $feeds_data[$loadmore_key];
 		} else {
 			$feed_posts = ['error'];
 		}
+
+		/**
+		 * Filters the posts served by the Instagram "Load more" AJAX handler.
+		 *
+		 * Free serves user-account feeds. EmbedPress Pro serves its hashtag
+		 * feed (feed type `hashtag_type`) through this filter.
+		 *
+		 * @param array  $feed_posts   Posts for $loadmore_key, or ['error'].
+		 * @param string $feed_type    'user_account_type' or 'hashtag_type'.
+		 * @param string $loadmore_key User id or hashtag id.
+		 */
+		$feed_posts = apply_filters('embedpress/instagram/loadmore_posts', $feed_posts, $feed_type, $loadmore_key);
 
 
 		if (is_array($feed_posts) && count($feed_posts) > 0) {
@@ -1171,22 +1133,7 @@ class Helper
 							</div>
 						</div>
 						<div class="insta-gallery-item-info">
-							<?php if (apply_filters('embedpress/is_allow_rander', false)): ?>
-								<div class="insta-item-reaction-count">
-									<div class="insta-gallery-item-likes">
-										<?php echo Helper::get_insta_like_icon();
-										echo esc_html($like_count); ?>
-									</div>
-									<div class="insta-gallery-item-comments">
-										<?php echo Helper::get_insta_comment_icon();
-										echo esc_html($comments_count); ?>
-									</div>
-								</div>
-							<?php else : ?>
-								<div class="insta-gallery-item-permalink">
-									<?php echo Helper::get_instagram_icon(); ?>
-								</div>
-							<?php endif; ?>
+							<?php echo \EmbedPress\Providers\InstagramFeed::item_info_html($like_count, $comments_count, (array) $params, 'loadmore'); ?>
 						</div>
 					</div>
 
@@ -1208,145 +1155,9 @@ class Helper
 		}
 	}
 
-	public static function getCalendlyUuid($url)
-	{
-		$pattern = '/\/([0-9a-fA-F-]+)$/';
-		if (preg_match($pattern, $url, $matches)) {
-			$uuid = $matches[1];
-			return $uuid;
-		}
-		return '';
-	}
-
-	public static function getCalendlyUserInfo($access_token)
-	{
-		$transient_name = 'calendly_user_info_' . $access_token;
-		$user_info = get_transient($transient_name);
-		if (false === $user_info) {
-			$user_endpoint = 'https://api.calendly.com/users/me';
-			$headers = array(
-				'Authorization' => "Bearer $access_token",
-				'Content-Type' => 'application/json',
-			);
-			$args = array(
-				'headers' => $headers,
-			);
-			$response = wp_remote_get($user_endpoint, $args);
-			if (!is_wp_error($response) && 200 === wp_remote_retrieve_response_code($response)) {
-				$user_info = wp_remote_retrieve_body($response);
-				set_transient($transient_name, $user_info, 3600);
-			} else {
-				return false;
-			}
-		}
-
-		return $user_info;
-	}
-
-
-
-	public static function getCalaendlyEventTypes($user_uri, $access_token)
-	{
-		// Attempt to retrieve the data from the transient
-		$events_list = get_transient('calendly_events_list_' . md5($access_token));
-
-		if (false === $events_list) {
-			// If the data is not in the transient, fetch it from the API
-			$events_endpoint = "https://api.calendly.com/event_types?user=$user_uri";
-
-			$headers = array(
-				'Authorization' => "Bearer $access_token",
-				'Content-Type' => 'application/json',
-			);
-
-			$args = array(
-				'headers' => $headers,
-			);
-
-			$response = wp_remote_get($events_endpoint, $args);
-
-			if (!is_wp_error($response)) {
-				$body = wp_remote_retrieve_body($response);
-				$events_list = json_decode($body, true);
-
-				// Store the data in a transient for a specified time (e.g., 1 hour)
-				set_transient('calendly_events_list', $events_list, HOUR_IN_SECONDS);
-
-				return $events_list;
-			}
-		}
-
-		return $events_list;
-	}
-
-	public static function getListEventInvitee($uuid, $access_token)
-	{
-		// Attempt to retrieve the data from the transient
-		$invitee_list = get_transient('calendly_invitee_list_' . md5($access_token));
-
-		if (false === $invitee_list) {
-			// If the data is not in the transient, fetch it from the API
-			$events_endpoint = "https://api.calendly.com/scheduled_events/$uuid/invitees";
-
-			$headers = array(
-				'Authorization' => "Bearer $access_token",
-				'Content-Type' => 'application/json',
-			);
-
-			$args = array(
-				'headers' => $headers,
-			);
-
-			$response = wp_remote_get($events_endpoint, $args);
-
-			if (!is_wp_error($response)) {
-				$body = wp_remote_retrieve_body($response);
-				$invitee_list = json_decode($body, true);
-
-				// Store the data in a transient for a specified time (e.g., 1 hour)
-				set_transient('calendly_invitee_list', $invitee_list, HOUR_IN_SECONDS);
-
-				return $invitee_list;
-			}
-		}
-
-		return $invitee_list;
-	}
-
-	public static function getCalaendlyScheduledEvents($user_uri, $access_token)
-	{
-		// Attempt to retrieve the data from the transient
-		$events_list = get_transient('calendly_events_list_' . md5($access_token));
-
-		if (false === $events_list) {
-			// If the data is not in the transient, fetch it from the API
-			$events_endpoint = "https://api.calendly.com/scheduled_events?user=$user_uri";
-
-			$headers = array(
-				'Authorization' => "Bearer $access_token",
-				'Content-Type' => 'application/json',
-			);
-
-			$args = array(
-				'headers' => $headers,
-			);
-
-			$response = wp_remote_get($events_endpoint, $args);
-
-			if (!is_wp_error($response)) {
-				$body = wp_remote_retrieve_body($response);
-				$events_list = json_decode($body, true);
-
-				// Store the data in a transient for a specified time (e.g., 1 hour)
-				set_transient('calendly_events_list', $events_list, HOUR_IN_SECONDS);
-
-				return $events_list;
-			}
-		}
-
-		return $events_list;
-	}
-
+	// Calendly API helpers (user info / event types / scheduled events /
+	// invitees) moved to EmbedPress Pro with the Calendly dashboard
+	// (Embedpress\Pro\Filters\Calendly).
 
 	public static function parseDuration($durationString)
 	{
@@ -1363,6 +1174,166 @@ class Helper
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Whether an active EmbedPress Pro predates the hooks this free version
+	 * relies on (content protection, PDF viewer options).
+	 *
+	 * Version-agnostic: checks that the hooks are actually registered, not a
+	 * version number. Always false when Pro is not active, and before
+	 * `plugins_loaded` has finished (Pro registers its hooks then).
+	 *
+	 * @return bool
+	 */
+	public static function pro_is_outdated()
+	{
+		if (!self::is_pro_active() || !did_action('plugins_loaded')) {
+			return false;
+		}
+
+		return !has_filter('embedpress/content_protection/is_locked')
+			|| !has_filter('embedpress/pdf/viewer_params');
+	}
+
+	/**
+	 * Whether an embed has content protection switched on and configured.
+	 *
+	 * Only used to fail closed when Pro is outdated (see is_content_locked());
+	 * free never enforces protection itself.
+	 *
+	 * @param array $data lock_content, protection_type, content_password.
+	 * @return bool
+	 */
+	public static function is_protection_configured($data)
+	{
+		$lock = $data['lock_content'] ?? '';
+		if (empty($lock) || $lock === 'no' || $lock === 'false') {
+			return false;
+		}
+		if (($data['protection_type'] ?? '') === 'password' && (string) ($data['content_password'] ?? '') === '') {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Content protection decision for blocks and Elementor widgets.
+	 *
+	 * Asks `embedpress/content_protection/is_locked` (default false — free
+	 * never locks). When an outdated Pro is active it cannot answer that
+	 * filter, so a protected embed is treated as locked (fail closed) and the
+	 * caller prints protection_paused_notice() instead of the lock UI.
+	 *
+	 * @param array  $data    lock_content, protection_type, content_password,
+	 *                        user_role, protection_message, client_id.
+	 * @param string $context gutenberg | elementor | elementor_pdf | elementor_document.
+	 * @return bool
+	 */
+	public static function is_content_locked($data, $context)
+	{
+		$data = is_array($data) ? $data : [];
+		if (self::pro_is_outdated() && self::is_protection_configured($data)) {
+			return true;
+		}
+		return (bool) apply_filters('embedpress/content_protection/is_locked', false, $data, $context);
+	}
+
+	/**
+	 * Neutral notice shown in place of a protected embed while an outdated
+	 * Pro is active.
+	 *
+	 * @return string
+	 */
+	public static function protection_paused_notice()
+	{
+		return '<div class="protected-message ep-protection-paused">' . esc_html__('This content is protected. The site administrator needs to update EmbedPress Pro.', 'embedpress') . '</div>';
+	}
+
+	/**
+	 * Whether something can render the private (OAuth) Google Calendar
+	 * through the `embedpress_google_helper_shortcode` action.
+	 *
+	 * Compat for Pro < next release, remove later: EmbedPress Pro <= 3.9.1
+	 * hooks that action but calls the Embedpress_Google_Helper class that
+	 * used to ship in free, so firing it would fatal. With an outdated Pro the
+	 * private calendar is treated as unavailable (same output as without Pro).
+	 *
+	 * @return bool
+	 */
+	public static function has_private_calendar_renderer()
+	{
+		return has_action('embedpress_google_helper_shortcode') && !self::pro_is_outdated();
+	}
+
+	/**
+	 * Site-wide content-protection hash key (option `embedpress_hash_key`).
+	 *
+	 * @deprecated Compat for Pro <= 3.9.1, remove later. Old Pro's
+	 *             `display_password_form` calls `Helper::get_hash()`, which
+	 *             moved to Pro (Content_Protection_Pro::get_hash()). Returns
+	 *             the same value; free never uses it itself.
+	 *
+	 * @return string
+	 */
+	public static function get_hash()
+	{
+		$option = (defined('EMBEDPRESS_PLG_NAME') ? EMBEDPRESS_PLG_NAME : 'embedpress') . '_hash_key';
+		$hash_key = get_option($option);
+		if (!$hash_key) {
+			$hash_key = wp_hash_password(wp_generate_password(30));
+			update_option($option, $hash_key);
+		}
+		return $hash_key;
+	}
+
+	/**
+	 * Admin notice: an outdated Pro is active, so protected embeds and some Pro
+	 * settings are paused. Dismissible per Pro version, per user.
+	 */
+	public function outdated_pro_admin_notice()
+	{
+		static $printed = false;
+		if ($printed || !current_user_can('activate_plugins') || !self::pro_is_outdated()) {
+			return;
+		}
+
+		$version = defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? (string) EMBEDPRESS_PRO_PLUGIN_VERSION : 'unknown';
+		if (get_user_meta(get_current_user_id(), 'embedpress_outdated_pro_dismissed', true) === $version) {
+			return;
+		}
+		$printed = true;
+
+		$dismiss_url = wp_nonce_url(add_query_arg('embedpress_dismiss_outdated_pro', '1'), 'embedpress_dismiss_outdated_pro');
+		?>
+		<div class="notice notice-warning embedpress-outdated-pro-notice">
+			<p>
+				<strong><?php esc_html_e('Please update EmbedPress Pro.', 'embedpress'); ?></strong>
+				<?php esc_html_e('Your EmbedPress Pro version is not compatible with this version of EmbedPress. Protected embeds stay hidden and some Pro settings are paused until you update EmbedPress Pro.', 'embedpress'); ?>
+			</p>
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url(self_admin_url('plugins.php')); ?>"><?php esc_html_e('Go to Plugins', 'embedpress'); ?></a>
+				<a class="button" href="<?php echo esc_url($dismiss_url); ?>"><?php esc_html_e('Dismiss', 'embedpress'); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Store the per-version dismissal of the outdated-Pro notice.
+	 */
+	public function dismiss_outdated_pro_notice()
+	{
+		if (empty($_GET['embedpress_dismiss_outdated_pro']) || !current_user_can('activate_plugins')) {
+			return;
+		}
+		check_admin_referer('embedpress_dismiss_outdated_pro');
+
+		$version = defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? (string) EMBEDPRESS_PRO_PLUGIN_VERSION : 'unknown';
+		update_user_meta(get_current_user_id(), 'embedpress_outdated_pro_dismissed', $version);
+
+		wp_safe_redirect(remove_query_arg(['embedpress_dismiss_outdated_pro', '_wpnonce']));
+		exit;
 	}
 
 	/**
@@ -1966,18 +1937,6 @@ class Helper
 		return (bool) $default;
 	}
 
-	public static function has_allowed_roles($allowed_roles = [])
-	{
-
-		if (empty($allowed_roles) || (count($allowed_roles) == 1 && empty($allowed_roles[0]))) {
-			return true;
-		}
-		$current_user = wp_get_current_user();
-		$user_roles = $current_user->roles;
-
-		return !empty(array_intersect($user_roles, $allowed_roles));
-	}
-
 	public static function get_elementor_global_color($settings, $key)
 	{
 
@@ -2062,23 +2021,6 @@ class Helper
 		}
 
 		return $user_roles;
-	}
-
-	public static function has_content_allowed_roles($allowed_roles = [])
-	{
-		// Ensure it's always an array
-		if (!is_array($allowed_roles)) {
-			$allowed_roles = [];
-		}
-
-		if (count($allowed_roles) === 1 && empty($allowed_roles[0])) {
-			return true;
-		}
-
-		$current_user = wp_get_current_user();
-		$user_roles = $current_user->roles;
-
-		return !empty(array_intersect($user_roles, $allowed_roles));
 	}
 
 	/**

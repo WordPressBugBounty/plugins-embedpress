@@ -61,9 +61,6 @@ class Embedpress_Document extends Widget_Base
 		$handles[] = 'embedpress-pdfobject';
 		$handles[] = 'embedpress-front';
 
-		if (isset($handler_keys['enabled_ads']) && $handler_keys['enabled_ads'] === 'yes') {
-			$handles[] = 'embedpress-ads';
-		}
 		if (isset($handler_keys['enabled_docs_custom_viewer']) && $handler_keys['enabled_docs_custom_viewer'] === 'yes') {
 			$handles[] = 'embedpress-documents-viewer';
 		}
@@ -545,11 +542,11 @@ class Embedpress_Document extends Widget_Base
     {
         $urlParamData = array(
             'themeMode' => isset($settings['embedpress_theme_mode']) ? $settings['embedpress_theme_mode'] : 'default',
-            'toolbar' => !empty($settings['doc_toolbar']) ? 'true' : 'false',
+            'toolbar' => 'true',
             'position' => 'top',
             'presentation' => 'false',
             'lazyLoad' => 'false',
-            'download' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? $settings['doc_print_download'] : 'true',
+            'download' => 'true',
             'copy_text' => 'true',
             'add_text' => 'false',
             'draw' => !empty($settings['doc_draw']) ? 'true' : 'false',
@@ -565,13 +562,15 @@ class Embedpress_Document extends Widget_Base
             'selection_tool' => '0',
             'scrolling' => '-1',
             'spreads' => '-1',
-            'is_pro_active' => apply_filters('embedpress/is_allow_rander', false),
             'watermark_text' => '',
             'watermark_font_size' => '48',
             'watermark_color' => '#000000',
             'watermark_opacity' => '15',
             'watermark_style' => 'center',
         );
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $urlParamData = Helper::pdf_viewer_params($urlParamData, $settings, 'elementor_document');
 
         $custom_color = Helper::get_elementor_global_color($settings, 'embedpress_doc_custom_color');
 
@@ -647,10 +646,10 @@ class Embedpress_Document extends Widget_Base
         // Explicit on/off lets the per-embed toggle win over the global option.
         $doc_render_attrs['data-ep-views'] = (isset($settings['embedpress_doc_show_view_count']) && $settings['embedpress_doc_show_view_count'] === 'yes') ? 'on' : 'off';
         $doc_render_attrs['data-ep-downloads'] = (isset($settings['embedpress_doc_show_download_count']) && $settings['embedpress_doc_show_download_count'] === 'yes') ? 'on' : 'off';
-        // Badge position is Pro-only; only emit a non-default placement when
-        // Pro is active so free installs always use the default 'below'.
+        // Saved badge position marker; free always places the badge below,
+        // alternative placements are applied by Pro.
         $doc_position = isset($settings['embedpress_doc_count_position']) ? (string) $settings['embedpress_doc_count_position'] : 'below';
-        if ($doc_position !== 'below' && \EmbedPress\Includes\Classes\Helper::is_pro_active()) {
+        if ($doc_position !== 'below') {
             $doc_render_attrs['data-ep-count-position'] = $doc_position;
         }
         $this->add_render_attribute('embedpres-pdf-render', $doc_render_attrs);
@@ -882,44 +881,25 @@ class Embedpress_Document extends Widget_Base
                         <?php
 
                         $content_id = $client_id;
-                        if (
-                            (empty($settings['embedpress_doc_lock_content']) || ($settings['embedpress_doc_protection_type'] == 'password' && empty($settings['embedpress_doc_lock_content_password'])) || $settings['embedpress_doc_lock_content'] == 'no') ||
-                            ($settings['embedpress_doc_protection_type'] == 'password' && !empty(Helper::is_password_correct($client_id)) && ($hash_pass === $password_correct) ) ||
-                            !apply_filters('embedpress/is_allow_rander', false) ||
-                            ($settings['embedpress_doc_protection_type'] == 'user-role' && Helper::has_allowed_roles($embed_settings['userRole']))
-                            ) {
+                        // Content protection: see `embedpress/content_protection/is_locked`
+                        // in EmbedPressBlockRenderer::should_display_content(). Free
+                        // never locks; the lock UI comes from the actions below.
+                        $is_content_locked = Helper::is_content_locked([
+                            'lock_content'       => $settings['embedpress_doc_lock_content'] ?? '',
+                            'protection_type'    => $settings['embedpress_doc_protection_type'] ?? '',
+                            'content_password'   => $settings['embedpress_doc_lock_content_password'] ?? '',
+                            'user_role'          => $embed_settings['userRole'],
+                            'protection_message' => $embed_settings['protectionMessage'],
+                            'client_id'          => $client_id,
+                        ], 'elementor_document');
+                        if (!$is_content_locked) {
 
                             if (!empty($settings['embedpress_doc_content_share'])) {
                                 $embed_content .= Helper::embed_content_share($content_id, $embed_settings);
                             }
 
-                            // Apply lazy loading if enabled (but not in editor mode)
-                            if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !empty($embed_content) && !$is_editor_view) {
-                                $embed_content = preg_replace_callback(
-                                    '/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
-                                    function($matches) {
-                                        $before = $matches[1];
-                                        $src = $matches[2];
-                                        $after = $matches[3];
-
-                                        // Extract style attribute if exists
-                                        $style = '';
-                                        if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
-                                            $style = $style_match[1];
-                                        }
-
-                                        return sprintf(
-                                            '<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
-                                            esc_attr($src),
-                                            esc_attr($style),
-                                            $before,
-                                            $after,
-                                            esc_attr($style)
-                                        );
-                                    },
-                                    $embed_content
-                                );
-                            }
+                            /** This filter is documented in EmbedPress/Elementor/Widgets/Embedpress_Pdf.php */
+                            $embed_content = apply_filters('embedpress/lazy_load/html', $embed_content ?? '', $settings, ['surface' => 'elementor-document', 'is_editor' => (bool) $is_editor_view]);
 
                             if (!empty($embed_content)) {
                                 echo $embed_content;
@@ -929,35 +909,13 @@ class Embedpress_Document extends Widget_Base
                                 $embed_content .= Helper::embed_content_share($content_id, $embed_settings);
                             }
 
-                            // Apply lazy loading if enabled (but not in editor mode)
-                            if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !empty($embed_content) && !$is_editor_view) {
-                                $embed_content = preg_replace_callback(
-                                    '/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
-                                    function($matches) {
-                                        $before = $matches[1];
-                                        $src = $matches[2];
-                                        $after = $matches[3];
+                            /** This filter is documented in EmbedPress/Elementor/Widgets/Embedpress_Pdf.php */
+                            $embed_content = apply_filters('embedpress/lazy_load/html', $embed_content ?? '', $settings, ['surface' => 'elementor-document', 'is_editor' => (bool) $is_editor_view]);
 
-                                        // Extract style attribute if exists
-                                        $style = '';
-                                        if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
-                                            $style = $style_match[1];
-                                        }
-
-                                        return sprintf(
-                                            '<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
-                                            esc_attr($src),
-                                            esc_attr($style),
-                                            $before,
-                                            $after,
-                                            esc_attr($style)
-                                        );
-                                    },
-                                    $embed_content
-                                );
-                            }
-
-                            if ($settings['embedpress_doc_protection_type'] == 'password') {
+                            if (Helper::pro_is_outdated()) {
+                                // Outdated Pro cannot render the lock UI — fail closed.
+                                echo Helper::protection_paused_notice();
+                            } elseif ($settings['embedpress_doc_protection_type'] == 'password') {
                                 do_action('embedpress/display_password_form', $client_id, $embed_content, $pass_hash_key, $embed_settings);
                             } else {
                                 do_action('embedpress/content_protection_content', $client_id, $embed_settings['protectionMessage'],  $embed_settings['userRole']);

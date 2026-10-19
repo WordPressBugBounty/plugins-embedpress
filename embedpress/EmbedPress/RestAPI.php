@@ -157,12 +157,13 @@ class RestAPI
 
         $layout = (string) $request->get_param('layout');
 
-        // Pro layouts (library/spotlight/cinema/magazine) ship their own
-        // per-item markup, so let the Pro plugin filter the HTML when its
-        // layout is asked for. If no Pro filter is registered, we fall back
-        // to queue items below — matches the front-render fallback.
-        $pro_layouts = ['library', 'spotlight', 'cinema', 'magazine'];
-        if (in_array($layout, $pro_layouts, true)) {
+        // Layouts added by an extension (see Youtube::playlist_layouts())
+        // ship their own per-item markup through
+        // `embedpress/youtube_playlist_pro_items_html` ($html, $layout, $json,
+        // $options, $offset). If nothing is returned we fall back to queue
+        // items — matches the front-render fallback.
+        $free_layouts = \EmbedPress\Providers\Youtube::FREE_PLAYLIST_LAYOUTS;
+        if (!in_array($layout, $free_layouts, true) && in_array($layout, \EmbedPress\Providers\Youtube::playlist_layouts(), true)) {
             $html = apply_filters(
                 'embedpress/youtube_playlist_pro_items_html',
                 '',

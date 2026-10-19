@@ -19,7 +19,7 @@ $yt_cta_url      = isset( $yt_settings['cta_url']) ? esc_url( $yt_settings['cta_
 $yt_branding     = isset( $yt_settings['branding']) ? sanitize_text_field( $yt_settings['branding']) : (!empty( $yt_logo_url) ? 'yes': 'no');
 
 
-$embedpress_document_powered_by = isset( $gen_settings['embedpress_document_powered_by']) ? sanitize_text_field( $gen_settings['embedpress_document_powered_by']) : 'yes';
+$embedpress_document_powered_by = isset( $gen_settings['embedpress_document_powered_by']) ? sanitize_text_field( $gen_settings['embedpress_document_powered_by']) : 'no';
 
 // Vimeo branding
 $vm_settings = get_option( EMBEDPRESS_PLG_NAME.':vimeo');

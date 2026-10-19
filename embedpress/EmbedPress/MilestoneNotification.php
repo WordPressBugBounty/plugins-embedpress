@@ -160,9 +160,6 @@ class MilestoneNotification
         // Get milestone data
         $data = $this->get_milestone_data();
 
-        // Check if Black Friday banner should be shown (until December 4, 2025)
-        $show_bfriday_banner = (time() < strtotime('2025-12-04 23:59:59'));
-
 ?>
         <div id="embedpress-milestone-container" style="display: none;">
             <div class="milestone-overlay">
@@ -182,14 +179,6 @@ class MilestoneNotification
                             </svg>
                         </button>
                     </div>
-
-                    <?php if ($show_bfriday_banner): ?>
-                        <div class="bfriday-deal-campaign">
-                            <a href="https://embedpress.com/in/bfcm2025-unlock-advanced-analytics" target="_blank">
-                                <img src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS . 'images/bfcm2025-banner.png'); ?>" alt="Black Friday Sale">
-                            </a>
-                        </div>
-                    <?php endif; ?>
 
                     <!-- Content -->
                     <div class="milestone-content">

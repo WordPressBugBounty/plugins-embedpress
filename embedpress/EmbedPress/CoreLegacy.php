@@ -76,7 +76,6 @@ class CoreLegacy
 
         add_action( 'in_admin_header', [ $this, 'remove_admin_notice' ], 99 );
         add_action('ep_admin_notices', [$this, 'embedpress_admin_notice']);
-        add_action('ep_admin_notices', [$this, 'admin_notice']);
 
     }
 

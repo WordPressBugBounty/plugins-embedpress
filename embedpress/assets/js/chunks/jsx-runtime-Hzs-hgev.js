@@ -1,0 +1,1 @@
+const e=window.React,n=window.ReactJSXRuntime;function a(c,t,s){return s!==void 0&&(t=Object.assign({},t,{key:s})),e.createElement(c,t)}const i=n?n.jsx:a,j=n?n.jsxs:a,o=e.Fragment;export{o as F,i as a,j};

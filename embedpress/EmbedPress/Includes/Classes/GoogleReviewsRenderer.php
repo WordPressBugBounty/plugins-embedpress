@@ -178,21 +178,14 @@ class GoogleReviewsRenderer
 
         $args = wp_parse_args($args, self::DEFAULTS);
 
-        // Server-side free/Pro enforcement (so the gating can't be bypassed via
-        // shortcode/REST). The split now MIRRORS Essential Addons' free Business
-        // Reviews widget: sort/keyword/hide-empty, header per-part toggles +
-        // alignment, autoplay + speed, theme/accent, and JSON-LD schema are ALL
-        // FREE. Only genuinely premium things stay Pro: the per-review attached
-        // IMAGES strip, multi-place merge (pre_fetch filter), and the premium
-        // layouts (gated separately via gr_pro_unlocked / allowed_layouts).
-        if (!Helper::is_pro_active()) {
-            // Review images (the per-review photo strip) are Pro — force off so it
-            // can't be enabled via shortcode/REST without Pro.
-            $args['show_images'] = false;
-            // Minimum rating ("show only N★") is Pro — the highest-demand filter.
-            // Force to 0 (Any) so it can't be applied via shortcode/REST in free.
-            $args['min_rating'] = 0;
-        }
+        // Free/Pro split (mirrors Essential Addons' free Business Reviews
+        // widget): sort/keyword/hide-empty, header toggles, autoplay, theme/
+        // accent and JSON-LD schema are implemented here in free. The per-review
+        // photo strip (`show_images`, via the review_media filter), the minimum-
+        // rating filter (`min_rating`, via the reviews filter), multi-place merge
+        // (pre_fetch) and the premium layouts are implemented by EmbedPress Pro
+        // through the filters below — free carries the attributes only so they
+        // round-trip, and never acts on them itself.
 
         /**
          * Filter the normalized render args before anything else. Pro uses this
@@ -222,13 +215,18 @@ class GoogleReviewsRenderer
 
         $layout = in_array($requested, $allowed_layouts, true) ? $requested : 'list';
 
-        // Visible-count ceiling. Free shows up to 10 reviews. When the site is
-        // connected to the hosted EmbedPress API (the managed proxy), the store
-        // holds many more, so lift the cap to 50 — matching the editor control's
-        // ceiling (REVIEWS_PER_PAGE_MAX in edit.js) so the UI and the renderer
-        // agree. Pro can lift further (multi-place / paginated) via the filter.
-        $source_has_more = \EmbedPress\Includes\Classes\GoogleReviewsManaged::is_connected();
-        $default_cap = $source_has_more ? 50 : 10;
+        // Visible-count ceiling — a technical render bound, the same for every
+        // site (not a plan limit): 50 cards per render, or 500 when the block
+        // asked for the full set (`fetch_all`). The editor's "Reviews per page"
+        // slider stays at or below this. Sliding layouts are additionally
+        // bounded to 200 cards in gr_render_count().
+        $default_cap = !empty($args['fetch_all']) ? 500 : 50;
+        /**
+         * Filter the visible-review ceiling for one render.
+         *
+         * @param int   $default_cap Ceiling (50, or 500 with fetch_all).
+         * @param array $args        Render args.
+         */
         $max_allowed = (int) apply_filters('embedpress/google_reviews/max_reviews', $default_cap, $args);
         $max_allowed = $max_allowed > 0 ? $max_allowed : $default_cap;
         $limit       = max(1, min($max_allowed, (int) $args['limit']));
@@ -252,13 +250,6 @@ class GoogleReviewsRenderer
         $meta         = $result['meta'] ?? [];
         $fetch_status = $result['fetch_status'] ?? GoogleReviewsStore::STATUS_DONE;
 
-        if (!empty($args['min_rating'])) {
-            $min     = (int) $args['min_rating'];
-            $reviews = array_values(array_filter($reviews, function ($r) use ($min) {
-                return (int) ($r['rating'] ?? 0) >= $min;
-            }));
-        }
-
         // Sort / keyword / hide-empty are FREE (mirrors Essential Addons' free
         // Business Reviews widget). Applied here in the free renderer so they
         // work without Pro. Pro NO LONGER hooks the reviews filter for these —
@@ -266,9 +257,12 @@ class GoogleReviewsRenderer
         $reviews = self::apply_review_filters($reviews, $args);
 
         /**
-         * Filter the review set after the built-in min-rating/sort/keyword/
-         * hide-empty handling but before the limit slice. Pro hooks here ONLY
-         * for multi-place merging now; sort/keyword/hide-empty are free (above).
+         * Filter the review set after the built-in sort/keyword/hide-empty
+         * handling but before the limit slice. Runs identically for the first
+         * render and for every "Load more" page (render_page), so a callback
+         * that narrows the set stays consistent across pages. EmbedPress Pro
+         * hooks it to apply the minimum-rating filter (`min_rating` arg); free
+         * itself never filters by rating.
          *
          * @param array $reviews List of normalized review arrays.
          * @param array $args    Render args.
@@ -583,12 +577,6 @@ class GoogleReviewsRenderer
         $args = self::enforce_layout_caps($args);
         $args = wp_parse_args($args, self::DEFAULTS);
 
-        if (!Helper::is_pro_active()) {
-            // Mirror render()'s server-side free enforcement for the Pro-gated bits
-            // a card can carry (none affect card text, but keep parity).
-            $args['accent_color'] = $args['accent_color'] ?? '';
-        }
-
         $args   = (array) apply_filters('embedpress/google_reviews/render_args', $args);
         // Public "load more" endpoint: render from the store only, never fetch.
         // Prevents an unauthenticated caller from spraying arbitrary place_ids to
@@ -604,16 +592,8 @@ class GoogleReviewsRenderer
         $meta    = $result['meta'] ?? [];
 
         // Apply the SAME filter pipeline as render() so paged ("Load more")
-        // results match the first page. Previously this only applied min_rating,
-        // so hide-empty / keyword / sort were skipped on pages 2+ and e.g.
-        // no-text reviews reappeared after Load more even with "Hide reviews
-        // with no text" enabled.
-        if (!empty($args['min_rating'])) {
-            $min     = (int) $args['min_rating'];
-            $reviews = array_values(array_filter($reviews, static function ($r) use ($min) {
-                return (int) ($r['rating'] ?? 0) >= $min;
-            }));
-        }
+        // results match the first page (hide-empty / keyword / sort here, then
+        // the `reviews` filter that Pro uses for its minimum-rating filter).
         $reviews = self::apply_review_filters($reviews, $args);
         $reviews = (array) apply_filters('embedpress/google_reviews/reviews', $reviews, $args, $meta);
 
@@ -966,8 +946,7 @@ class GoogleReviewsRenderer
         // Rich fields (present only for Apify-sourced reviews; absent → not rendered).
         $is_local_guide = !empty($review['is_local_guide']);
         $rev_count      = isset($review['reviewer_reviews']) ? (int) $review['reviewer_reviews'] : 0;
-        $images         = (isset($review['images']) && is_array($review['images'])) ? $review['images'] : [];
-        $owner_resp     = isset($review['owner_response']) ? (string) $review['owner_response'] : '';
+        $owner_resp    = isset($review['owner_response']) ? (string) $review['owner_response'] : '';
         $likes          = isset($review['likes']) ? (int) $review['likes'] : 0;
 
         ob_start();
@@ -1036,26 +1015,20 @@ class GoogleReviewsRenderer
                 </div>
             <?php endif; ?>
 
-            <?php if (!empty($images) && !empty($args['show_images'])) : ?>
-                <?php
-                // Cap rendered thumbnails; show a "+N" overlay on the last tile
-                // when there are more. data-count drives the CSS grid layout.
-                $max_thumbs = 4;
-                $total_imgs = count($images);
-                $shown      = array_slice($images, 0, $max_thumbs);
-                $overflow   = $total_imgs - count($shown);
-                ?>
-                <div class="ep-gr-photos" data-count="<?php echo esc_attr((string) count($shown)); ?>">
-                    <?php foreach ($shown as $idx => $img) : ?>
-                        <?php $is_last = ($idx === count($shown) - 1); ?>
-                        <span class="ep-gr-photo<?php echo ($is_last && $overflow > 0) ? ' ep-gr-photo--more' : ''; ?>"<?php
-                            echo ($is_last && $overflow > 0) ? ' data-more="+' . esc_attr((string) $overflow) . '"' : '';
-                        ?>>
-                            <img src="<?php echo esc_url($img); ?>" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()" />
-                        </span>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+            <?php
+            /**
+             * Extra media markup for one review card, printed between the
+             * review text and the owner response. Free prints nothing here.
+             * EmbedPress Pro hooks it to render the per-review photo strip
+             * when `show_images` is on and the review carries `images`.
+             * Callbacks must return escaped HTML.
+             *
+             * @param string $html   Markup to print (default '').
+             * @param array  $review Normalized review (may carry `images`: string[] URLs).
+             * @param array  $args   Render args (layout caps already applied).
+             */
+            echo apply_filters('embedpress/google_reviews/review_media', '', $review, $args); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- callbacks return escaped markup.
+            ?>
 
             <?php if ($owner_resp !== '') : ?>
                 <div class="ep-gr-owner">
@@ -1993,11 +1966,16 @@ class GoogleReviewsRenderer
         }
         $url = add_query_arg($params, $endpoint);
 
-        // The proxy now requires a valid connection token. Place search is free
-        // and setup-less, so provision a token on demand (open Connect handshake)
-        // the first time it's needed, then send the same Bearer/site/fingerprint
-        // headers as the instant-reviews path.
-        \EmbedPress\Includes\Classes\GoogleReviewsManaged::ensure_connected();
+        // The proxy requires a connection token, and the site only connects
+        // after the admin explicitly clicks "Connect to EmbedPress API". Without
+        // that consent, refuse here — nothing is sent to api.embedpress.com.
+        if (!\EmbedPress\Includes\Classes\GoogleReviewsManaged::ensure_connected()) {
+            return new \WP_Error(
+                'embedpress_gr_not_connected',
+                __('Connect to the EmbedPress API to search for places.', 'embedpress'),
+                ['status' => 403]
+            );
+        }
         $headers = \EmbedPress\Includes\Classes\GoogleReviewsManaged::managed_headers();
         $headers['Accept'] = 'application/json';
 
@@ -2057,6 +2035,11 @@ class GoogleReviewsRenderer
     {
         $place_ids = array_values(array_filter(array_map('trim', $place_ids)));
         if (!$place_ids) {
+            return [];
+        }
+        // Counts come from api.embedpress.com — only contact it once the admin
+        // has connected (consented). Otherwise rows just show no count.
+        if (!\EmbedPress\Includes\Classes\GoogleReviewsManaged::is_connected()) {
             return [];
         }
 

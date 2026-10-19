@@ -208,71 +208,37 @@ class Shortcode
 
 
 
-    public static function content_protection_content($client_id = '', $protection_message = '', $allowed_roles = [])
+    /**
+     * Content protection gate for the shortcodes.
+     *
+     * Filter `embedpress/content_protection/gate` — lets an extension replace
+     * the embed with other markup (e.g. a lock form or an access message).
+     *
+     * @param string|null $gate       Default null: render the embed.
+     * @param string      $client_id  Per-embed id.
+     * @param array       $attributes Shortcode attributes (protection_content,
+     *                                protection_type, protection_password,
+     *                                user_roles, protection_message, lock*).
+     * @param string      $embed_html The embed markup that would be printed.
+     * @param string      $context    'shortcode' | 'shortcode_pdf'.
+     * @return string|null A string is output instead of the embed; null renders it.
+     *
+     * Free registers no callback, so protection attributes are ignored and the
+     * embed always renders.
+     */
+    private static function content_protection_gate($client_id, $attributes, $embed_html, $context)
     {
-        $default_message = "This content is protected. Please log in or contact the administrator for access.";
-        $protection_message = $protection_message ?: $default_message;
-
-        $current_user = wp_get_current_user();
-        $user_roles = $current_user->roles;
-
-        if (!empty($user_roles) && array_intersect($user_roles, $allowed_roles)) {
-            echo '';
-            return;
+        // An outdated Pro cannot answer this filter: fail closed for embeds
+        // that have protection configured instead of showing them publicly.
+        if (Helper::pro_is_outdated() && is_array($attributes) && ($attributes['protection_content'] ?? '') === 'true') {
+            $type = $attributes['protection_type'] ?? 'user-role';
+            $configured = $type !== 'password' || (string) ($attributes['protection_password'] ?? '') !== '';
+            if ($configured) {
+                return Helper::protection_paused_notice();
+            }
         }
 
-        if (strpos($protection_message, '[user_roles]') !== false) {
-            $role_list = implode(', ', $allowed_roles);
-            $protection_message = str_replace('[user_roles]', $role_list, $protection_message);
-        }
-
-        return sprintf('<div class="protected-message">%s</div>', esc_html($protection_message));
-    }
-
-    public static function display_password_form($client_id = '', $embedHtml = '', $pass_hash_key = '', $attributes = [])
-    {
-        $lock_heading = !empty($attributes['lockHeading']) ? sanitize_text_field($attributes['lockHeading']) : 'Content Locked';
-        $lock_subheading = !empty($attributes['lockSubHeading']) ? sanitize_text_field($attributes['lockSubHeading']) : 'Content is locked and requires password to access it.';
-        $lock_error_message = !empty($attributes['lockErrorMessage']) ? sanitize_text_field($attributes['lockErrorMessage']) : "Oops, that wasn't the right password. Try again.";
-        $footer_message = !empty($attributes['footerMessage']) ? sanitize_text_field($attributes['footerMessage']) : "In case you don't have the password, kindly reach out to content owner or administrator to request access.";
-        $password_placeholder = !empty($attributes['passwordPlaceholder']) ? sanitize_text_field($attributes['passwordPlaceholder']) : 'Password';
-        $button_text = !empty($attributes['submitButtonText']) ? sanitize_text_field($attributes['submitButtonText']) : 'Unlock';
-        $unlocking_text = !empty($attributes['submitUnlockingText']) ? sanitize_text_field($attributes['submitUnlockingText']) : 'Unlocking';
-        $enable_footer_message = !empty($attributes['enableFooterMessage']);
-
-        $key = Helper::get_hash();
-        $salt = wp_salt(32);
-        $wp_hash_key = hash('sha256', $salt . $pass_hash_key);
-        $iv = substr($wp_hash_key, 0, 16);
-
-        $cipher = openssl_encrypt($embedHtml, 'AES-128-CBC', $key, OPENSSL_RAW_DATA, $iv);
-        $encrypted_data = base64_encode($cipher);
-
-        update_post_meta(get_the_ID(), 'ep_base_' . $client_id, $encrypted_data);
-        update_post_meta(get_the_ID(), 'hash_key_' . $client_id, $wp_hash_key);
-
-        $lock_icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g fill="#6354a5" class="color134563 svgShape"><path d="M46.3 28.7h-3v-6.4C43.3 16.1 38.2 11 32 11c-6.2 0-11.3 5.1-11.3 11.3v6.4h-3v-6.4C17.7 14.4 24.1 8 32 8s14.3 6.4 14.3 14.3v6.4" fill="#6354a5" class="color000000 svgShape"></path><path d="M44.8 55.9H19.2c-2.6 0-4.8-2.2-4.8-4.8V31.9c0-2.6 2.2-4.8 4.8-4.8h25.6c2.6 0 4.8 2.2 4.8 4.8v19.2c0 2.7-2.2 4.8-4.8 4.8zM19.2 30.3c-.9 0-1.6.7-1.6 1.6v19.2c0 .9.7 1.6 1.6 1.6h25.6c.9 0 1.6-.7 1.6-1.6V31.9c0-.9-.7-1.6-1.6-1.6H19.2z" fill="#6354a5" class="color000000 svgShape"></path><path d="M35.2 36.7c0 1.8-1.4 3.2-3.2 3.2s-3.2-1.4-3.2-3.2 1.4-3.2 3.2-3.2 3.2 1.5 3.2 3.2" fill="#6354a5" class="color000000 svgShape"></path><path d="M32.8 36.7h-1.6l-1.6 9.6h4.8l-1.6-9.6" fill="#6354a5" class="color000000 svgShape"></path></g></svg>';
-
-        return '
-        <div id="ep-shortcode-content-' . $client_id . '" class="ep-shortcode-content">	
-            <div class="ep-embed-content-wraper">
-                <div class="password-form-container">
-                    <h2>' . esc_html($lock_heading) . '</h2>
-                    <p>' . esc_html($lock_subheading) . '</p>
-                    <form class="password-form" method="post" data-unlocking-text="' . esc_attr($unlocking_text) . '">
-                        <div class="password-field">
-                            <span class="lock-icon">' . $lock_icon . '</span>
-                            <input type="password" name="pass_' . esc_attr($client_id) . '" placeholder="' . esc_attr($password_placeholder) . '" required>
-                        </div>
-                        <input type="hidden" name="ep_client_id" value="' . esc_attr($client_id) . '">
-                        <input type="hidden" name="post_id" value="' . esc_attr(get_the_ID()) . '">
-                        <input type="submit" name="password_submit" value="' . esc_attr($button_text) . '">
-                        <div class="error-message hidden">' . esc_html($lock_error_message) . '</div>
-                    </form>
-                    ' . ($enable_footer_message ? '<p class="need-access-message">' . esc_html($footer_message) . '</p>' : '') . '
-                </div>
-            </div>
-        </div>';
+        return apply_filters('embedpress/content_protection/gate', null, $client_id, $attributes, $embed_html, $context);
     }
 
 
@@ -317,35 +283,9 @@ class Shortcode
 
         $client_id = is_object($embed) ? md5($embed->embed)  : '';
 
-        $hash_pass = isset($attributes['protection_password'])
-            ? hash('sha256', wp_salt(32) . md5($attributes['protection_password']))
-            : '';
-
-        $pass_hash_key = isset($attributes['protection_password'])
-            ? md5($attributes['protection_password'])
-            : '';
-
-        $password_correct = $_COOKIE['password_correct_' . $client_id] ?? '';
-
-        $protection_type = $attributes['protection_type'] ?? 'user-role';
-        $protection_password = $attributes['protection_password'] ?? '';
-        $protection_content = isset($attributes['protection_content']) ? $attributes['protection_content'] === 'true' : false;
-        $user_role = isset($attributes['user_roles']) ? explode(',', preg_replace('/\s*,\s*/', ',', $attributes['user_roles'])) : '';
-        $protection_message = $attributes['protection_message'] ?? '';
-
-
-        // Conditions for content protection
-        $password_protected = $protection_type == 'password' && !empty($protection_password);
-
-        $password_verified = $password_protected && !empty(Helper::is_password_correct($client_id)) && ($hash_pass === $password_correct);
-        $user_role_protected = $protection_type === 'user-role' && Helper::has_allowed_roles($user_role);
-
-        if (
-            apply_filters('embedpress/is_allow_rander', false) && ($protection_content == 'true') && (($protection_type == 'password' && !$password_verified) || ($protection_type == 'user-role' && !Helper::has_allowed_roles($user_role)))
-        ) {
-            return $password_protected
-                ? self::display_password_form($client_id, $embed->embed, $pass_hash_key, $attributes)
-                : self::content_protection_content($client_id, $protection_message, $user_role);
+        $protection_gate = self::content_protection_gate($client_id, $attributes, is_object($embed) ? $embed->embed : '', 'shortcode');
+        if (is_string($protection_gate)) {
+            return $protection_gate;
         }
 
 
@@ -354,38 +294,21 @@ class Shortcode
             if (!empty($array[$embed->url]['provider_name']) && $array[$embed->url]['provider_name'] === 'Instagram Feed') {
                 // shortcode_parse_atts() lowercases keys, so `instaLayout` arrives as `instalayout`.
                 $attr_ci = array_change_key_case((array) $attributes, CASE_LOWER);
-                $layout = isset($attr_ci['instalayout']) ? $attr_ci['instalayout'] : 'insta-grid';
-                $allowed_layouts = ['insta-grid', 'insta-masonry', 'insta-carousel', 'insta-justify'];
-                if (!in_array($layout, $allowed_layouts, true)) {
-                    $layout = 'insta-grid';
+                $layout = \EmbedPress\Providers\InstagramFeed::resolve_layout(isset($attr_ci['instalayout']) ? $attr_ci['instalayout'] : '');
+
+                // Extra wrapper attributes (none in free; Pro adds its carousel
+                // data attributes). The id is unique per rendered feed.
+                $extra_attrs = \EmbedPress\Providers\InstagramFeed::wrapper_attributes(
+                    $layout,
+                    $attr_ci,
+                    'shortcode',
+                    'epsc-' . substr(md5($embed->embed . microtime(true)), 0, 10)
+                );
+                if ($extra_attrs !== '' && $extra_attrs[0] !== ' ') {
+                    $extra_attrs = ' ' . $extra_attrs;
                 }
 
-                // For carousel layout, the front-end JS (assets/js/instafeed.js) looks
-                // up `data-carouselid` + `data-carousel-options` on the wrapper to
-                // initialize CgCarousel and unhide the nav buttons. Without these the
-                // shortcode-rendered carousel has no arrows and no scroll behavior.
-                $carousel_attrs = '';
-                if ($layout === 'insta-carousel') {
-                    $boolish = function ($v, $default) {
-                        if ($v === null) return $default;
-                        $v = is_string($v) ? strtolower($v) : $v;
-                        return in_array($v, ['true', '1', 1, true], true);
-                    };
-                    $options = [
-                        'layout'          => 'insta-carousel',
-                        'slideshow'       => isset($attr_ci['slidesshow']) ? intval($attr_ci['slidesshow']) : 3,
-                        'autoplay'        => $boolish($attr_ci['carouselautoplay'] ?? null, false),
-                        'autoplayspeed'   => isset($attr_ci['autoplayspeed']) ? intval($attr_ci['autoplayspeed']) : 3000,
-                        'transitionspeed' => isset($attr_ci['transitionspeed']) ? intval($attr_ci['transitionspeed']) : 650,
-                        'loop'            => $boolish($attr_ci['carouselloop'] ?? null, false),
-                        'arrows'          => $boolish($attr_ci['carouselarrows'] ?? null, true),
-                        'spacing'         => isset($attr_ci['carouselspacing']) ? intval($attr_ci['carouselspacing']) : 10,
-                    ];
-                    $carousel_attrs = ' data-carouselid="' . esc_attr('epsc-' . substr(md5($embed->embed . microtime(true)), 0, 10))
-                        . '" data-carousel-options="' . esc_attr(wp_json_encode($options)) . '"';
-                }
-
-                $embed->embed = '<div class="ep-embed-content-wraper ' . esc_attr($layout) . '"' . $carousel_attrs . '>' . $embed->embed . '</div>';
+                $embed->embed = '<div class="ep-embed-content-wraper ' . esc_attr($layout) . '"' . $extra_attrs . '>' . $embed->embed . '</div>';
             };
         }
 
@@ -1476,19 +1399,19 @@ KAMAL;
 
         $urlParamData = array(
             'themeMode' => isset($attributes['theme_mode']) ? esc_attr($attributes['theme_mode']) : 'default',
-            'toolbar' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['toolbar']) ? esc_attr($attributes['toolbar']) : 'true',
+            'toolbar' => 'true',
             'lazyLoad' => isset($attributes['lazyLoad']) ? esc_attr($attributes['lazyLoad']) : 'false',
             'position' => isset($attributes['toolbar_position']) ? esc_attr($attributes['toolbar_position']) : 'top',
             'presentation' => isset($attributes['presentation']) ? esc_attr($attributes['presentation']) : 'true',
-            'download' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['download']) ? esc_attr($attributes['download']) : 'true',
-            'copy_text' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['copy_text']) ? esc_attr($attributes['copy_text']) : 'true',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => isset($attributes['add_text']) ? esc_attr($attributes['add_text']) : 'true',
-            'draw' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['draw']) ? esc_attr($attributes['draw']) : 'true',
+            'draw' => 'true',
             'doc_rotation' => isset($attributes['doc_rotation']) ? esc_attr($attributes['doc_rotation']) : 'true',
             'add_image' => isset($attributes['add_image']) ? esc_attr($attributes['add_image']) : 'true',
             'doc_details' => isset($attributes['doc_details']) ? esc_attr($attributes['doc_details']) : 'true',
-            'selection_tool' => isset($attributes['selection_tool']) ? esc_attr($attributes['selection_tool']) : '0',
-            'scrolling' => isset($attributes['scrolling']) ? esc_attr($attributes['scrolling']) : '-1',
+            'selection_tool' => '0',
+            'scrolling' => '-1',
             'spreads' => isset($attributes['spreads']) ? esc_attr($attributes['spreads']) : '-1',
             'zoom_in' =>  isset($attributes['zoom_in'])  ? $attributes['zoom_in'] : 'true',
             'zoom_out' => isset($attributes['zoom_out'])  ? $attributes['zoom_out'] : 'true',
@@ -1496,16 +1419,20 @@ KAMAL;
             'bookmark' => isset($attributes['bookmark'])  ? $attributes['bookmark'] : 'true',
             'sound' => isset($attributes['sound'])  ? $attributes['sound'] : 'true',
             'flipbook_toolbar_position' => !empty($attributes['toolbar_position'])  ? $attributes['toolbar_position'] : 'bottom',
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['flipbook_rtl']) && ($attributes['flipbook_rtl'] === 'true' || $attributes['flipbook_rtl'] === true) ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => isset($attributes['flipbook_highlight_links']) && ($attributes['flipbook_highlight_links'] === 'true' || $attributes['flipbook_highlight_links'] === true) ? 'true' : 'false',
             'flipbook_highlight_color' => isset($attributes['flipbook_highlight_color']) ? esc_attr($attributes['flipbook_highlight_color']) : '',
             'pageNumber' => isset($attributes['page_number']) ? absint($attributes['page_number']) : 1,
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkText']) ? esc_attr($attributes['watermarkText']) : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkFontSize']) ? esc_attr($attributes['watermarkFontSize']) : '48',
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkColor']) ? esc_attr($attributes['watermarkColor']) : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkOpacity']) ? esc_attr($attributes['watermarkOpacity']) : '15',
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkStyle']) ? esc_attr($attributes['watermarkStyle']) : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => '48',
+            'watermark_color' => '#000000',
+            'watermark_opacity' => '15',
+            'watermark_style' => 'center',
         );
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $urlParamData = \EmbedPress\Includes\Classes\Helper::pdf_viewer_params($urlParamData, $attributes, 'shortcode');
+        $urlParamData['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($urlParamData);
 
         if ($urlParamData['themeMode'] == 'custom') {
             $urlParamData['customColor'] = isset($attributes['custom_color']) ? esc_attr($attributes['custom_color']) : '#333333';
@@ -1613,6 +1540,32 @@ KAMAL;
 
         $url = esc_url($url);
 
+        // Stable per-embed ID for the lock form, unlock request and unlock cookie.
+        // The password is left out so the public ID can't be used to brute-force it.
+        $client_id_attributes = $attributes;
+        unset($client_id_attributes['protection_password']);
+        $client_id = md5($url . serialize($client_id_attributes));
+
+        // Rendered once: Pro's password form encrypts this markup for the unlock request.
+        $pdf_html = self::render_pdf_shortcode($url, $attributes);
+
+        $protection_gate = self::content_protection_gate($client_id, $attributes, $pdf_html, 'shortcode_pdf');
+        if (is_string($protection_gate)) {
+            return $protection_gate;
+        }
+
+        return $pdf_html;
+    }
+
+    /**
+     * Build the [embedpress_pdf] viewer markup (inline, lightbox or trigger).
+     *
+     * @param string $url        Escaped PDF URL.
+     * @param array  $attributes Parsed shortcode attributes.
+     * @return string
+     */
+    protected static function render_pdf_shortcode($url, $attributes)
+    {
         ob_start();
 
         $id = 'embedpress-pdf-shortcode';
@@ -1622,38 +1575,6 @@ KAMAL;
 
         $dimension = "width: {$attributes['width']}{$widthUnit}; height: {$attributes['height']}{$heightUnit};";
 
-
-        $client_id = is_object('$embed') ? md5('$embed->embed')  : '';
-
-        $hash_pass = isset($attributes['protection_password'])
-            ? hash('sha256', wp_salt(32) . md5($attributes['protection_password']))
-            : '';
-
-        $pass_hash_key = isset($attributes['protection_password'])
-            ? md5($attributes['protection_password'])
-            : '';
-
-        $password_correct = $_COOKIE['password_correct_' . $client_id] ?? '';
-
-        $protection_type = $attributes['protection_type'] ?? 'user-role';
-        $protection_password = $attributes['protection_password'] ?? '';
-        $protection_content = isset($attributes['protection_content']) ? $attributes['protection_content'] === 'true' : false;
-        $user_role = isset($attributes['user_roles']) ? explode(',', preg_replace('/\s*,\s*/', ',', $attributes['user_roles'])) : '';
-
-        $protection_message = $attributes['protection_message'] ?? '';
-
-        // Conditions for content protection
-        $password_protected = $protection_type == 'password' && !empty($protection_password);
-
-        $password_verified = $password_protected && !empty(Helper::is_password_correct($client_id)) && ($hash_pass === $password_correct);
-        $user_role_protected = $protection_type === 'user-role' && Helper::has_allowed_roles($user_role);
-
-        if (
-            apply_filters('embedpress/is_allow_rander', false) && ($protection_content == 'true') && (($protection_type == 'user-role' && !Helper::has_allowed_roles($user_role)))
-        ) {
-
-            return self::content_protection_content($client_id, $protection_message, $user_role);
-        }
 
         // Lightbox mode: render thumbnail + lightbox instead of inline viewer
         $display_mode = isset($attributes['display_mode']) ? $attributes['display_mode'] : 'inline';
@@ -1795,7 +1716,7 @@ KAMAL;
             'width' => !empty($plgSettings->enableEmbedResizeWidth) ? esc_attr($plgSettings->enableEmbedResizeWidth) : '100%',
             'height' => !empty($plgSettings->enableEmbedResizeHeight) ? esc_attr($plgSettings->enableEmbedResizeHeight) : '500px',
             'viewer' => !empty($plgSettings->embedpress_document_viewer) ? esc_attr($plgSettings->embedpress_document_viewer) : 'custom',
-            'powered_by' => (!isset($plgSettings->embedpress_document_powered_by) || $plgSettings->embedpress_document_powered_by === 'yes') ? 'yes' : 'no',
+            'powered_by' => (isset($plgSettings->embedpress_document_powered_by) && $plgSettings->embedpress_document_powered_by === 'yes') ? 'yes' : 'no',
         ];
 
 
@@ -1949,10 +1870,9 @@ KAMAL;
 
         $layout = esc_attr($attributes['layout']);
 
-        // Pro gate: bookshelf requires Pro
-        if ($layout === 'bookshelf' && !defined('EMBEDPRESS_SL_ITEM_SLUG')) {
-            $layout = 'grid';
-        }
+        // Unknown layouts (e.g. ones another plugin registered but is no
+        // longer active) render as the default grid.
+        $layout = \EmbedPress\Includes\Classes\Helper::pdf_gallery_layout($layout);
 
         $columns = intval($attributes['columns']);
         $columns_tablet = intval($attributes['columns_tablet']);
@@ -1963,17 +1883,7 @@ KAMAL;
         $viewer_style = esc_attr($attributes['viewer_style']);
         $gallery_id = 'ep-gallery-' . substr(md5($attributes['urls']), 0, 8);
 
-        $carousel_options = '';
-        if ($layout === 'carousel' || $layout === 'bookshelf') {
-            $carousel_options = wp_json_encode([
-                'autoplay' => $attributes['carousel_autoplay'] === 'true',
-                'autoplaySpeed' => intval($attributes['carousel_speed']),
-                'loop' => $attributes['carousel_loop'] !== 'false',
-                'arrows' => $attributes['carousel_arrows'] !== 'false',
-                'dots' => $attributes['carousel_dots'] === 'true',
-                'slidesPerView' => intval($attributes['slides_per_view']),
-            ]);
-        }
+        $layout_markup = \EmbedPress\Includes\Classes\Helper::pdf_gallery_layout_markup($layout, $attributes, 'shortcode_gallery');
 
         $style = sprintf(
             '--ep-gallery-columns:%d;--ep-gallery-columns-tablet:%d;--ep-gallery-columns-mobile:%d;--ep-gallery-gap:%dpx;--ep-gallery-radius:%dpx;',
@@ -1992,15 +1902,10 @@ KAMAL;
              data-viewer-style="<?php echo $viewer_style; ?>"
              data-viewer-params="<?php echo esc_attr($viewer_params); ?>"
              data-gallery-id="<?php echo esc_attr($gallery_id); ?>"
-             <?php if ($carousel_options): ?>data-carousel-options="<?php echo esc_attr($carousel_options); ?>"<?php endif; ?>
+             <?php echo $layout_markup['attributes']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the filter callback ?>
              style="<?php echo esc_attr($style); ?>">
 
-            <?php if ($layout === 'carousel' || $layout === 'bookshelf'): ?>
-            <div class="ep-pdf-gallery__carousel">
-                <div class="ep-pdf-gallery__carousel-track">
-            <?php else: ?>
-            <div class="ep-pdf-gallery__grid">
-            <?php endif; ?>
+            <?php echo $layout_markup['open']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
                 <?php foreach ($items as $index => $item): ?>
                 <div class="ep-pdf-gallery__item"
@@ -2026,19 +1931,7 @@ KAMAL;
                 </div>
                 <?php endforeach; ?>
 
-            <?php if ($layout === 'carousel' || $layout === 'bookshelf'): ?>
-                </div>
-                <button class="ep-pdf-gallery__carousel-prev" aria-label="Previous">
-                    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                </button>
-                <button class="ep-pdf-gallery__carousel-next" aria-label="Next">
-                    <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-                </button>
-                <div class="ep-pdf-gallery__carousel-dots"></div>
-            </div>
-            <?php else: ?>
-            </div>
-            <?php endif; ?>
+            <?php echo $layout_markup['close']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
         <?php
         return ob_get_clean();
@@ -2053,14 +1946,14 @@ KAMAL;
 
         $params = [
             'themeMode' => $theme_mode,
-            'toolbar' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['toolbar']) ? esc_attr($attributes['toolbar']) : 'true',
+            'toolbar' => 'true',
             'position' => esc_attr($attributes['toolbar_position']),
             'flipbook_toolbar_position' => esc_attr($attributes['flipbook_toolbar_position']),
             'presentation' => esc_attr($attributes['presentation']),
-            'download' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['download']) ? esc_attr($attributes['download']) : 'true',
-            'copy_text' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['copy_text']) ? esc_attr($attributes['copy_text']) : 'true',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => esc_attr($attributes['add_text']),
-            'draw' => apply_filters('embedpress/is_allow_rander', false) && isset($attributes['draw']) ? esc_attr($attributes['draw']) : 'true',
+            'draw' => 'true',
             'doc_rotation' => esc_attr($attributes['doc_rotation']),
             'doc_details' => esc_attr($attributes['doc_details']),
             'add_image' => esc_attr($attributes['add_image']),
@@ -2068,15 +1961,19 @@ KAMAL;
             'zoom_out' => esc_attr($attributes['zoom_out']),
             'fit_view' => esc_attr($attributes['fit_view']),
             'bookmark' => esc_attr($attributes['bookmark']),
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['flipbook_rtl']) && ($attributes['flipbook_rtl'] === 'true' || $attributes['flipbook_rtl'] === true) ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => isset($attributes['flipbook_highlight_links']) && ($attributes['flipbook_highlight_links'] === 'true' || $attributes['flipbook_highlight_links'] === true) ? 'true' : 'false',
             'flipbook_highlight_color' => isset($attributes['flipbook_highlight_color']) ? esc_attr($attributes['flipbook_highlight_color']) : '',
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_text']) : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_font_size']) : '48',
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_color']) : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_opacity']) : '15',
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') ? esc_attr($attributes['watermark_style']) : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => '48',
+            'watermark_color' => '#000000',
+            'watermark_opacity' => '15',
+            'watermark_style' => 'center',
         ];
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $params = \EmbedPress\Includes\Classes\Helper::pdf_viewer_params($params, $attributes, 'shortcode_gallery');
+        $params['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($params);
 
         if ($theme_mode === 'custom') {
             $params['customColor'] = esc_attr($attributes['custom_color']);

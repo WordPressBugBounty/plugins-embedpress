@@ -1,12 +1,12 @@
-=== EmbedPress – PDF Embedder, 3D PDF FlipBook, Google Reviews, YouTube Videos, Upload & Embed PDF documents ===
+=== EmbedPress ===
 Contributors: EmbedPress, asif2bd, re_enter_rupok, wpdevteam, seakashdiu, alimuzzamanalim
 Author: WPDeveloper
 Author URI: https://wpdeveloper.com
 Tags: embed, embed YouTube, embed PDF, Google Docs, Social Feeds
-Requires at least: 4.6
+Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 5.6
-Stable tag: 4.6.8
+Stable tag: 4.7.0
 License: GPLv3 or later
 License URI: https://opensource.org/licenses/GPL-3.0
 
@@ -273,23 +273,7 @@ This embed plugin is brought to you by the team behind [WPDeveloper](https://wpd
 
 ### 💪 CONTRIBUTE
 
-The full source code is available on [GitHub Repository](https://github.com/WPDevelopers/embedpress). Feel free to contribute or report an issue.
-
-### 🔥 WHAT’S NEXT?
-
-If you like EmbedPress, then consider checking out our other WordPress Plugins:
-
-🔝 [Essential Addons For Elementor](https://essential-addons.com/elementor/) – Most popular Elementor extensions with 2 millions+ active users in the WordPress repository.
-
-🔔 [NotificationX](https://notificationx.com/) – The all-in-one plugin for creating social proof and FOMO campaigns
-
-⏰ [SchedulePress](https://wordpress.org/plugins/wp-scheduled-posts/) – Complete solution for WordPress Post Scheduling to manage schedules through an editorial calendar & Social Share.
-
-🗒️ [BetterDocs](https://betterdocs.co/) – The ultimate solution for creating documentation and knowledge bases in WordPress, which also reduces your manual support request.
-
-☁ [Templately](https://wordpress.org/plugins/templately/) – Ultimate Template clouds with 2500+ ready templates for Elementor & Gutenberg along with FREE cloud collaboration.
-
-💰 [Better Payment](https://wordpress.org/plugins/better-payment/) – Create stunning payment forms and manage payments for donations, membership, and products seamlessly.
+The full, unminified source code ships with the plugin: the Vite sources are in its `src/` folder, and the other scripts and styles in `assets/` are unminified as written. Feel free to report an issue or suggest an improvement in the [support forum](https://wordpress.org/support/plugin/embedpress/).
 
 == Acknowledgements ==
 
@@ -298,7 +282,11 @@ This plugin incorporates code from the following sources:
 - [PDF Flipbook WordPress by iberezansky](https://3dflipbook.net/): Used for creating the 3D flipbook effect.
 - [Plyr](https://github.com/sampotts/plyr) : Used for displaying video/audio player
 - [Glider](http://nickpiscitelli.github.io/Glider.js) : Used for making Carousel layout
-- [PublicAlbum](publicalbum.org) : Used for creating a Google Photos gallery player
+- [Chart.js](https://www.chartjs.org/) (MIT) : Used for drawing the analytics charts
+- [react-chartjs-2](https://github.com/reactchartjs/react-chartjs-2) (MIT) : Used for rendering Chart.js charts in the React analytics dashboard
+- [PublicAlbum](https://www.publicalbum.org/) : Used for creating a Google Photos gallery player
+- [hls.js](https://github.com/video-dev/hls.js) (Apache-2.0) : Used for HLS (.m3u8) adaptive streaming in the custom player
+- [dash.js](https://github.com/Dash-Industry-Forum/dash.js) (BSD-3-Clause) : Used for MPEG-DASH (.mpd) adaptive streaming in the custom player
 
 == Installation ==
 
@@ -351,6 +339,62 @@ How To Create A 3D Flipbook WordPress Post?
 With EmbedPress you can easily create PDF flipbooks. First, upload PDF into your website. Then embed PDF with EmbedPress PDF block. From the right side panel you will find the option to create 3D flipbooks. Click on it and instantly you will get 3D flipbook PDF viewer.
 
 
+### Where is the source code for the minified JavaScript?
+
+The admin, analytics and block editor bundles (`assets/js/*.build.js`, `assets/js/chunks/*.js` and `assets/css/*.build.css`) are built with Vite from the unminified sources in the plugin's `src/` folder; `package.json` and `vite.config.js` ship with the plugin, so `npm install && npm run build` in the plugin folder rebuilds them in place. EmbedPress's other scripts and styles in `assets/js` and `assets/css` are shipped unminified as written.
+
+Third-party libraries shipped pre-minified, with their upstream source:
+
+- `assets/pdf-flip-book/js/3dflipbook.min.js` – 3D FlipBook (GPL): [github.com/iberezansky/flip-book-jquery](https://github.com/iberezansky/flip-book-jquery)
+- `assets/pdf-flip-book/js/pdf.min.js`, `pdf.worker.js` – PDF.js 2.5.207: [github.com/mozilla/pdf.js](https://github.com/mozilla/pdf.js/tree/v2.5.207)
+- `assets/pdf-flip-book/js/three.min.js` – three.js r104: [github.com/mrdoob/three.js](https://github.com/mrdoob/three.js/tree/r104)
+- `assets/pdf-flip-book/js/html2canvas.min.js` – html2canvas 0.5.0-beta4: [github.com/niklasvh/html2canvas](https://github.com/niklasvh/html2canvas/tree/v0.5.0-beta4)
+- `assets/pdf/` – PDF.js viewer 4.3.136: [github.com/mozilla/pdf.js](https://github.com/mozilla/pdf.js/tree/v4.3.136)
+- `assets/js/vendor/carousel.min.js` – CG Carousel (MIT): [github.com/ClaudiaPascualGea/cg-carousel](https://github.com/ClaudiaPascualGea/cg-carousel)
+- `assets/js/vendor/chart.umd.min.js` – Chart.js 4.5.1 (MIT): [github.com/chartjs/Chart.js](https://github.com/chartjs/Chart.js/tree/v4.5.1)
+- `assets/js/vendor/glider.min.js` – Glider.js 1.7.4: [github.com/NickPiscitelli/Glider.js](https://github.com/NickPiscitelli/Glider.js)
+- `assets/js/vendor/embed-ui.min.js` – PublicAlbum embed player 1.3.4: [publicalbum.org](https://www.publicalbum.org/) / [npm: publicalbum](https://www.npmjs.com/package/publicalbum)
+- `assets/js/vendor/plyr.js`, `plyr.polyfilled.js` – Plyr 3.8.3: [github.com/sampotts/plyr](https://github.com/sampotts/plyr/tree/v3.8.3)
+- `assets/js/vendor/vimeo-player.js` – Vimeo Player 2.20.1: [github.com/vimeo/player.js](https://github.com/vimeo/player.js/tree/v2.20.1)
+- `assets/js/vendor/hls/hls.min.js` – hls.js 1.7.3 (Apache-2.0): [github.com/video-dev/hls.js](https://github.com/video-dev/hls.js/tree/v1.7.3)
+- `assets/js/vendor/dashjs/dash.all.min.js` – dash.js 4.7.4 (BSD-3-Clause): [github.com/Dash-Industry-Forum/dash.js](https://github.com/Dash-Industry-Forum/dash.js/tree/v4.7.4)
+
+== External services ==
+
+EmbedPress contacts these services only when the related feature is used. Analytics data stays in your database.
+
+= Embed providers and document viewers =
+
+Adding an embed sends its URL from your server to the provider's oEmbed/API endpoint (YouTube, Vimeo, Spotify, X and 250+ more); GitHub Gists, Meetup events and Google Photos albums are read from their public pages. Visitors' browsers then load the provider's player directly, sharing their IP address. Office files display via Microsoft Office Online or Google Docs Viewer, which receive the file URL. Provider terms apply, e.g. Google ([Terms](https://policies.google.com/terms), [Privacy](https://policies.google.com/privacy)), Meta ([Terms](https://www.facebook.com/terms.php), [Privacy](https://www.facebook.com/privacy/policy/)), Microsoft ([Terms](https://www.microsoft.com/servicesagreement), [Privacy](https://privacy.microsoft.com/privacystatement)), GitHub ([Terms](https://docs.github.com/site-policy/github-terms/github-terms-of-service), [Privacy](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)) and Meetup ([Terms](https://www.meetup.com/terms/), [Privacy](https://www.meetup.com/privacy/)).
+
+= EmbedPress API (api.embedpress.com) =
+
+Run by EmbedPress (WPDeveloper). Google Reviews uses it to search businesses and fetch reviews, only after an administrator agrees to connect. Connecting sends your site URL, a hashed site fingerprint, WordPress/EmbedPress versions and Pro status. Searches send the search text; fetches send the Place ID and a callback URL, with WP-Cron checking progress. Reviews are stored locally; page views only contact it for places never fetched or still fetching. Instagram, Facebook and Calendly sign-in also passes through it to swap the sign-in code (and your admin URL) for a token. [Terms](https://embedpress.com/terms-of-service/), [Privacy](https://embedpress.com/privacy-policy/).
+
+= Google APIs =
+
+Only with a key or account you add. Places API: search text and Place ID when searching or fetching reviews. YouTube Data API: channel/playlist/video ID when a gallery loads. Calendar API: OAuth sign-in and calendar IDs when a calendar loads. Review photos load from Google's image servers. [Terms](https://policies.google.com/terms), [APIs Terms](https://developers.google.com/terms), [Maps Platform Terms](https://cloud.google.com/maps-platform/terms), [YouTube API Terms](https://developers.google.com/youtube/terms/api-services-terms-of-service), [Privacy](https://policies.google.com/privacy).
+
+= Apify (api.apify.com) =
+
+Optional, with your own token only. Sends the token (to validate it) and the search text or Place ID when searching or fetching reviews. [Terms](https://docs.apify.com/legal/general-terms-and-conditions), [Privacy](https://docs.apify.com/legal/privacy-policy).
+
+= Instagram/Facebook Graph API, Calendly, OpenSea =
+
+Once connected, your token is sent to graph.instagram.com / graph.facebook.com when a feed loads, and to api.calendly.com on connect or sync; visitors load Calendly's widget from assets.calendly.com. OpenSea embeds send the contract/token/collection ID and your own OpenSea API key to api.opensea.io; without a saved key nothing is sent to the OpenSea API. Meta ([Platform Terms](https://developers.facebook.com/terms/), [Privacy](https://www.facebook.com/privacy/policy/)), Calendly ([Terms](https://calendly.com/legal/customer-terms-conditions), [Privacy](https://calendly.com/legal/privacy-notice)), OpenSea ([Terms](https://opensea.io/tos), [Privacy](https://opensea.io/privacy)).
+
+= Visitor geolocation (ipapi.co, ipinfo.io) =
+
+The country comes from host/CDN headers when present. Otherwise the visitor's IP address is sent over HTTPS to ipapi.co (or ipinfo.io as a fallback): for Analytics only if you enable Visitor Geolocation (off by default), and for embeds you give a country restriction (disable via the `embedpress/geolocation/allow_remote_lookup` filter). ipapi.co ([Terms](https://ipapi.co/terms/), [Privacy](https://ipapi.co/privacy/)) and ipinfo.io ([Terms](https://ipinfo.io/terms-of-service), [Privacy](https://ipinfo.io/privacy-policy)).
+
+= Usage tracking (send.wpinsight.com) =
+
+Opt-in only; nothing is sent unless an administrator agrees. Then, daily and on deactivation, it sends site URL and name, WordPress/PHP/server versions, language, plugins, theme, embed counts per source, the opting-in admin's email and any deactivation reason. Run by WPDeveloper: [Terms](https://wpdeveloper.com/terms-and-conditions/), [Privacy](https://wpdeveloper.com/privacy-policy/).
+
+= Other assets =
+
+Some admin screens load images from embedpress.com and cloud.zoobbe.com (What's New window); only the admin's browser connects. Zoobbe ([Terms](https://zoobbe.com/terms), [Privacy](https://zoobbe.com/privacy)). On AMP pages, Reddit/X embeds load AMP components from cdn.ampproject.org (Google), which receives only the visitor's IP address.
+
 == Screenshots ==
 
 1. YouTube Embedding Example
@@ -363,6 +407,23 @@ With EmbedPress you can easily create PDF flipbooks. First, upload PDF into your
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
+
+= [4.7.0] – 2026-10-19 =
+- Improved: Pro features now live entirely in EmbedPress Pro, so the free plugin no longer ships locked Pro code. Pro features require EmbedPress Pro 3.10.0 or newer.
+- Improved: Analytics charts now use Chart.js, bundled with the plugin.
+- Improved: Streaming (HLS/DASH), Plyr and gallery assets are now bundled locally instead of loading from public CDNs.
+- Improved: The block editor and admin screens now use the React copy that ships with WordPress.
+- Improved: The "Powered By EmbedPress" credit is now off by default on new installs.
+- Improved: Visitor IP addresses stay on your site unless Visitor Geolocation is enabled.
+- Improved: Added an External services section, third-party licenses and source links to the plugin.
+- Improved: Other plugins' admin notices now show on EmbedPress pages, and a dismissed review notice stays dismissed.
+- Fixed: Password protection was ignored for the [embedpress_pdf] shortcode.
+- Fixed: PDF thumbnail and lightbox did not work for the [embedpress_pdf] shortcode.
+- Fixed: Analytics stopped recording browser and device data on some upgraded sites.
+- Fixed: Instagram feed popup did not escape post data (security fix).
+- Fixed: Reflected XSS in the 3D FlipBook viewer's Print action via the file parameter (security fix). Props to Wordfence.
+- Fixed: OpenSea embeds no longer fall back to a built-in API key; add your own key under EmbedPress > Platforms > OpenSea.
+- Few minor bug fixes and improvements.
 
 = [4.6.8] – 2026-10-07 =
 - Fixed: Unauthenticated requests could spend the site's YouTube API quota and create cache entries through the YouTube gallery pagination endpoints (security fix). Props to Alberto Ucendo Martínez (WPScan) for the responsible disclosure.

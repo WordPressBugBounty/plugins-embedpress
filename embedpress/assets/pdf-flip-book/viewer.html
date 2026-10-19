@@ -4,6 +4,35 @@
 <head>
   <title>Debugging</title>
   <meta charset="utf-8" />
+
+  <script>
+    /**
+     * EmbedPress security (embedpress#341): the 3D FlipBook "Print" action
+     * concatenated the PDF source into an iframe's HTML, so a crafted `file`
+     * query value could inject attributes (e.g. onload=) and run JS in the
+     * WordPress origin on Print click. These helpers validate that source and
+     * build the print iframe with DOM APIs instead of an HTML string.
+     */
+    (function () {
+      // Only http/https PDF URLs with no HTML/quote/control characters.
+      window._epSafePdfSrc = function (src) {
+        if (typeof src !== 'string' || src === '') return false;
+        if (/["'<>\\]/.test(src)) return false;
+        for (var i = 0; i < src.length; i++) { var c = src.charCodeAt(i); if (c < 0x20 || c === 0x7f) return false; }
+        try {
+          var u = new URL(src, window.location.href);
+          return u.protocol === 'http:' || u.protocol === 'https:';
+        } catch (e) { return false; }
+      };
+      // Build the print iframe without string concatenation. Unsafe src => no iframe.
+      window._epMakePrintIframe = function (src) {
+        var iframe = document.createElement('iframe');
+        if (window._epSafePdfSrc(src)) { iframe.setAttribute('src', src); }
+        iframe.style.display = 'none';
+        return iframe;
+      };
+    })();
+  </script>
 </head>
 
 <body>
@@ -226,7 +255,7 @@
 
           // Build FlipBook options
           var flipBookOptions = {
-            pdf: extractFileParamData(parentIframeSrc, "file"),
+            pdf: (function () { var _f = extractFileParamData(parentIframeSrc, "file"); return window._epSafePdfSrc(_f) ? _f : ""; })(),
             template: template,
           };
 

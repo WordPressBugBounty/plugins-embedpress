@@ -1,0 +1,878 @@
+/**
+ * Google Reviews — block editor styling (placeholder + sidebar picker).
+ *
+ * Tokens mirror the EmbedPress onboarding / admin SPA design:
+ *   brand        #5b4e96 (DM Sans purple)
+ *   brand-light  #f5f6fc
+ *   heading      #092161
+ *   muted        #7f8bb2
+ *   border       #e2e6f0
+ *   surface-hov  #f1f3fb
+ *
+ * `.ep-gr-block-picker`, `.ep-gr-block-selected`, etc. live in BOTH the
+ * placeholder (inside `.ep-gr-block-wrap`) AND the sidebar
+ * `InspectorControls` panel — so picker rules are scoped to the picker
+ * classes themselves, not the block wrapper.
+ */
+
+$ep-brand: #5b4e96;
+$ep-brand-dark: #474559;
+$ep-brand-light: #f5f6fc;
+$ep-heading: #092161;
+$ep-text: #1e1e1e;
+$ep-muted: #7f8bb2;
+$ep-border: #e2e6f0;
+$ep-surface-hov: #f1f3fb;
+$ep-radius: 6px;
+$ep-radius-sm: 4px;
+$ep-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+/* --- Placeholder (canvas) ----------------------------------------------
+ * WP's <Placeholder> wraps children in `.components-placeholder__fieldset`
+ * which uses `display: flex`. That makes the picker render in a half-width
+ * column with empty space to the right. Override on our own placeholder
+ * class so the picker fills the available width.
+ */
+.ep-gr-block-placeholder {
+    .components-placeholder__fieldset {
+        display: block;
+        max-width: none;
+        width: 100%;
+    }
+    .ep-gr-block-picker {
+        width: 100%;
+    }
+}
+
+/* Selected-place card — scoped to the picker class itself (NOT `.ep-gr-block-wrap`)
+   so it styles BOTH the canvas placeholder AND the sidebar Place panel. A clean
+   row: map-pin icon, the place NAME prominent, the raw Place ID demoted to a tiny
+   single-line muted caption (never wrapped to a monospace blob), and a compact
+   "Change" button. */
+.ep-gr-block-selected {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid $ep-border;
+    border-radius: $ep-radius;
+    box-shadow: 0 1px 2px rgba(9, 33, 97, 0.04);
+
+    .ep-gr-block-selected-pin {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: $ep-brand-light;
+        color: $ep-brand;
+    }
+
+    .ep-gr-block-selected-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .ep-gr-block-selected-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: $ep-heading;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ep-gr-block-selected-address {
+        font-size: 12px;
+        color: $ep-muted;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ep-gr-block-selected-id {
+        font-size: 10px;
+        color: $ep-muted;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ep-gr-block-selected-change.components-button {
+        flex: 0 0 auto;
+        height: auto;
+        min-height: 0;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        color: $ep-brand;
+    }
+}
+
+/* Quick-preview hint — one short muted line under the picker with a "Fetch more"
+   link. Shown only while on the 5-review preview; hidden once more are fetched. */
+.ep-gr-fetch-hint {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: $ep-muted;
+    margin-top: 8px !important;
+    margin-left: 8px;
+
+    a {
+        color: $ep-brand;
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+/* --- Picker (used in placeholder + sidebar panel) ---------------------- */
+
+.ep-gr-block-picker {
+    .ep-gr-block-status {
+        font-size: 12px;
+        color: $ep-muted;
+        margin: 6px 0 0;
+    }
+}
+
+/* Autocomplete dropdown — unified with the settings-page picker flow:
+   full-width attached panel, results-first, "+ Select" affordance, and the
+   upsell note BELOW the results (inside the panel). */
+// Anchor the floating panel to the SEARCH FIELD wrapper (not the whole picker),
+// so the dropdown sits directly under the input — not below the manual toggle /
+// saved list that also live in the picker.
+.ep-gr-block-search {
+    position: relative;
+
+    // Kill any bottom spacing on the control so the dropdown attaches flush to
+    // the input edge (top:100% lands exactly at the input's bottom border).
+    .components-base-control {
+        margin-bottom: 0 !important;
+    }
+}
+.ep-gr-suggestions-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 60;
+    box-sizing: border-box;
+    margin-top: -1px; // overlap the input's bottom border → visually attached
+    max-height: 340px;
+    overflow-y: auto;
+    border: 1px solid $ep-border;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-radius: 0 0 $ep-radius $ep-radius;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(9, 33, 97, 0.12);
+    margin-top: 0px;
+
+    .ep-gr-suggestions-note {
+        margin: 0;
+        padding: 9px 12px;
+        border-top: 1px solid $ep-border;
+        font-size: 11.5px;
+        line-height: 1.4;
+        color: $ep-muted;
+
+        a {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+    }
+}
+.ep-gr-suggestions {
+    list-style: none;
+    margin: 0;
+    padding: 0; // rows are flush; hover spans full width
+    width: 100%;
+    box-sizing: border-box;
+
+    li {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        &::before {
+            content: none !important;
+            display: none !important;
+        }
+    }
+    li + li {
+        border-top: 1px solid $ep-border;
+    }
+    .ep-gr-suggestion {
+        position: relative;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 9px;
+        width: 100%;
+        box-sizing: border-box;
+        background: none;
+        border: 0;
+        border-radius: 0; // full-bleed rows
+        padding: 9px 12px;
+        text-align: start;
+        cursor: pointer;
+        color: $ep-text;
+        font: inherit;
+        transition: background 0.12s ease;
+
+        &:hover,
+        &:focus-visible {
+            background: $ep-surface-hov;
+            outline: none;
+            box-shadow: none;
+        }
+        &:focus:not(:focus-visible) {
+            background: none;
+        }
+
+        // Leading map-pin marker.
+        .ep-gr-suggestion-pin {
+            flex: 0 0 auto;
+            margin-top: 1px;
+            color: $ep-brand;
+        }
+        // Stacked name / address / rating column.
+        .ep-gr-suggestion-body {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        strong {
+            font-size: 13px;
+            font-weight: 600;
+            color: $ep-heading;
+            line-height: 1.3;
+        }
+        span {
+            font-size: 11px;
+            color: $ep-muted;
+            line-height: 1.3;
+        }
+
+        // Rating + review-count line.
+        .ep-gr-suggestion-meta {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 8px;
+            margin-top: 1px;
+            font-size: 11px;
+            color: $ep-muted;
+        }
+        .ep-gr-suggestion-rating {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-weight: 600;
+            color: $ep-heading;
+        }
+        .ep-gr-suggestion-star {
+            color: #fbbf24; // amber star
+            font-size: 12px;
+            line-height: 1;
+        }
+        .ep-gr-suggestion-count::before {
+            content: '·';
+            margin-right: 6px;
+            color: $ep-muted;
+        }
+
+        @keyframes ep-gr-suggestion-shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        // Counts arrive after the suggestions (Autocomplete carries names
+        // only), so a row waits here first. A shimmer says "still loading"
+        // where the "Reviews unavailable" label would have wrongly said "this
+        // place has no reviews". Sized to the real ★ 4.5 · 1,234 reviews line
+        // so the row does not shift when the numbers land.
+        .ep-gr-suggestion-meta--loading .ep-gr-suggestion-skeleton {
+            position: relative;
+            display: inline-block;
+            vertical-align: middle;
+            width: 96px;
+            height: 10px;
+            background-color: #eef0f6;
+            border-radius: 4px;
+            overflow: hidden;
+
+            &::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(
+                    90deg,
+                    rgba(238, 240, 246, 0) 0,
+                    rgba(255, 255, 255, 0.85) 50%,
+                    rgba(238, 240, 246, 0) 100%
+                );
+                animation: ep-gr-suggestion-shimmer 1.2s linear infinite;
+                will-change: transform;
+            }
+        }
+
+        // "Reviews unavailable" — the lookup finished without a count for this
+        // place. Stands alone with no rating beside it, so drop the separator
+        // dot and mute it further; an absent count must never read as data.
+        .ep-gr-suggestion-meta--unknown {
+            font-style: italic;
+            opacity: 0.75;
+
+            .ep-gr-suggestion-count::before {
+                content: none;
+                margin-right: 0;
+            }
+        }
+
+        // Badges live INSIDE the body (own line below the place text) — not an
+        // absolutely-positioned right slot, which crammed the name into ~140px
+        // and wrapped every word in the narrow inspector panel.
+        em.ep-gr-suggestion-add,
+        em.ep-gr-already,
+        em.ep-gr-suggestion-pro {
+            align-self: flex-start;
+            margin-top: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            font-style: normal;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+            svg {
+                display: block;
+            }
+        }
+        // "+ Select" + "already added" keep a subtle pill; "Upgrade to add" is
+        // text-only (amber crown + label).
+        em.ep-gr-suggestion-add,
+        em.ep-gr-already {
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+        em.ep-gr-suggestion-add {
+            color: $ep-brand;
+            background: $ep-surface-hov;
+            border: 1px solid transparent;
+            transition:
+                background 0.12s ease,
+                border-color 0.12s ease;
+        }
+        &:hover em.ep-gr-suggestion-add,
+        &:focus em.ep-gr-suggestion-add {
+            background: $ep-brand;
+            color: #fff;
+            border-color: $ep-brand;
+        }
+        em.ep-gr-already {
+            color: #15803d;
+            background: #e6f4ea;
+        }
+        em.ep-gr-suggestion-pro {
+            padding: 0;
+            background: none;
+            color: #8a6d00;
+        }
+        &.is-locked {
+            cursor: pointer;
+            strong {
+                color: $ep-muted;
+            }
+            &:hover,
+            &:focus {
+                background: $ep-surface-hov;
+            }
+        }
+    }
+}
+
+/* Recent / Saved lists */
+.ep-gr-block-lists {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* Cap the saved/recent area and scroll when there are many places, so the
+       picker can't grow taller than the panel. */
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+.ep-gr-block-list {
+    > .ep-gr-block-list-heading {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: $ep-muted;
+        margin: 0 0 6px;
+    }
+    ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    li {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        align-items: stretch;
+        gap: 4px;
+
+        // WP's editor stylesheet adds bullets to <ul><li> — neutralize.
+        &::before {
+            content: none !important;
+            display: none !important;
+        }
+    }
+}
+
+/* Pick button — fully reset so WP default button styles can't intrude */
+.ep-gr-block-list-pick {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: row;          // [pin] [body] — pin leads, like search rows
+    gap: 8px;
+    align-items: flex-start;
+    text-align: start;
+
+    // Leading map-pin marker (matches search results + Elementor saved list).
+    .ep-gr-suggestion-pin {
+        flex: 0 0 auto;
+        margin-top: 2px;
+        color: $ep-brand;
+    }
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: $ep-radius-sm !important;
+    box-shadow: none !important;
+    padding: 8px 10px !important;
+    cursor: pointer;
+    color: $ep-text !important;
+    font: inherit;
+    line-height: 1.3;
+    height: auto !important;
+
+    &:hover,
+    &:focus {
+        background: $ep-surface-hov !important;
+        border-color: transparent !important;
+        outline: none;
+        box-shadow: none !important;
+        color: $ep-text !important;
+    }
+    strong {
+        font-size: 13px;
+        font-weight: 600;
+        color: $ep-heading;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    code {
+        font-size: 10px;
+        color: $ep-muted;
+        background: transparent !important;
+        padding: 0 !important;
+        font-family: $ep-mono;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    // Body column (name + meta) when a locked upsell badge is present.
+    .ep-gr-block-list-pick-body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        max-width: 100%;
+    }
+    // Locked saved place (free user past the 1-place allowance) → muted name +
+    // text-only "Upgrade to add" on its own line below.
+    &.is-locked strong { color: $ep-muted; }
+    em.ep-gr-suggestion-pro {
+        margin-top: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 11px;
+        font-weight: 600;
+        font-style: normal;
+        color: #8a6d00;
+        white-space: nowrap;
+        svg { display: block; }
+    }
+}
+
+/* Star button — reset and use brand gold when active */
+.ep-gr-block-list-star {
+    flex: 0 0 28px;
+    width: 28px;
+    min-width: 28px;
+    align-self: center;
+    height: auto;
+    padding: 4px 0 !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: $ep-radius-sm !important;
+    box-shadow: none !important;
+    color: #c5cad6 !important;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    text-align: center;
+
+    &:hover,
+    &:focus {
+        color: $ep-brand-dark !important;
+        background: transparent !important;
+        outline: none;
+        box-shadow: none !important;
+    }
+    &.is-on {
+        color: #f5b400 !important;
+    }
+}
+
+/* Manual entry */
+.ep-gr-block-manual {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid $ep-border;
+
+    // The "Have a Place ID? Enter manually" link button — keep flat, no box.
+    .components-button.is-link {
+        padding: 0;
+        font-size: 12px;
+        color: $ep-brand;
+        text-decoration: none;
+        box-shadow: none;
+        background: transparent;
+
+        &:hover,
+        &:focus {
+            color: $ep-brand-dark;
+            text-decoration: underline;
+            box-shadow: none;
+        }
+    }
+
+    .ep-gr-block-manual-row {
+        margin-top: 8px;
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+
+        .components-base-control {
+            flex: 1;
+            margin-bottom: 0 !important;
+        }
+        .components-base-control__field {
+            margin-bottom: 0 !important;
+        }
+        input[type="text"] {
+            font-family: $ep-mono;
+            font-size: 12px;
+        }
+        .components-button.is-primary {
+            background: $ep-brand;
+            border-color: $ep-brand;
+            box-shadow: none;
+
+            &:hover,
+            &:focus {
+                background: $ep-brand-dark;
+                border-color: $ep-brand-dark;
+                box-shadow: none;
+            }
+        }
+    }
+}
+
+/* ── Shared Pro upsell modal (canonical EmbedPress primitive) ───────────────
+   Injected into <body> by helper.js `isPro()` on first locked-control click.
+   Mirrors the markup/styles the PDF + Custom Player blocks ship so Google
+   Reviews uses the SAME modal, not a bespoke one. */
+.pro__alert__wrap {
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 100000;
+    display: none;
+
+    .pro__alert__card {
+        width: calc(100% - 30px);
+        max-width: 460px;
+        margin: 7% auto 0;
+        background: #fff;
+        border-radius: 16px;
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+
+        h2 {
+            font-size: 26px;
+            font-weight: 500;
+            color: #131f4d;
+            margin: 12px 0;
+        }
+        p {
+            font-size: 14px;
+            color: #7c8db5;
+            margin: 0 0 18px;
+        }
+
+        .pro__alert__btn {
+            display: inline-block;
+            padding: 9px 26px;
+            border-radius: 10px;
+            background: #5b4e96;
+            color: #fff;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .pro__alert__close {
+            margin-top: 14px;
+            padding: 6px 26px;
+            border-radius: 10px;
+        }
+    }
+}
+
+/* Pro panel hint (display-vs-fetch clarification) */
+.ep-gr-pro-hint {
+    margin: 0 0 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #6b7280;
+    background: #f6f7f9;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+/* ── Background-fetch progress (instant-then-background) ─────────────────── */
+.ep-gr-block-wrap {
+    .ep-gr-fetch-progress {
+        margin: 0 0 14px;
+        padding: 12px 14px;
+        border: 1px solid #d7d7ea;
+        border-radius: 8px;
+        background: #faf9ff;
+    }
+    .ep-gr-fetch-progress-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #25396f;
+    }
+    .ep-gr-fetch-progress-text {
+        line-height: 1.3;
+    }
+    .ep-gr-fetch-progress-bar {
+        margin-top: 10px;
+        height: 6px;
+        border-radius: 999px;
+        background: #e6e3f4;
+        overflow: hidden;
+    }
+    .ep-gr-fetch-progress-fill {
+        display: block;
+        height: 100%;
+        width: 40%;
+        border-radius: 999px;
+        background: #5b4e96;
+        animation: ep-gr-indeterminate 1.2s ease-in-out infinite;
+    }
+    .ep-gr-fetch-progress-note {
+        margin: 8px 0 0;
+        font-size: 12px;
+        color: #7f8bb2;
+        line-height: 1.4;
+    }
+    .ep-gr-spinner {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+        border: 2px solid rgba(91, 78, 150, 0.3);
+        border-top-color: #5b4e96;
+        border-radius: 50%;
+        animation: ep-gr-spin 0.7s linear infinite;
+    }
+}
+@keyframes ep-gr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes ep-gr-indeterminate {
+    0% {
+        transform: translateX(-100%);
+        width: 40%;
+    }
+    50% {
+        width: 60%;
+    }
+    100% {
+        transform: translateX(250%);
+        width: 40%;
+    }
+}
+
+/* ── Layout icon-tile picker (replaces the text Layout dropdown) ──────────── */
+.ep-gr-control-label {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: #1e1e1e;
+}
+.ep-gr-layout-picker {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.ep-gr-layout-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #50575e;
+    transition:
+        border-color 0.12s ease,
+        color 0.12s ease,
+        box-shadow 0.12s ease;
+
+    &:hover {
+        border-color: #b4b9be;
+        color: #1e1e1e;
+    }
+    &.is-active {
+        border-color: var(--wp-admin-theme-color, #3858e9);
+        color: var(--wp-admin-theme-color, #3858e9);
+        box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
+    }
+}
+.ep-gr-layout-tile-icon {
+    display: inline-flex;
+    line-height: 0;
+}
+.ep-gr-layout-tile-label {
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+/* ── Locked Pro layout tiles + ProLock wrapper ───────────────────────────── */
+.ep-gr-layout-tile {
+    position: relative;
+}
+.ep-gr-layout-tile.is-locked {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(0.4);
+}
+.ep-gr-layout-tile.is-locked:hover {
+    border-color: #e0e0e0;
+    color: #50575e;
+    box-shadow: none;
+}
+.ep-gr-tile-crown {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+}
+
+/* Pro-locked control — the canonical EmbedPress primitive (identical to the PDF
+   / Custom Player / Branding blocks): the control renders inline + greyed, a
+   transparent `:after` overlay blocks interaction, and a small purple "pro" pill
+   sits in the corner. Clicking anywhere opens the shared `.pro__alert__wrap`
+   modal. No bespoke frame or heading. */
+.pro-control {
+    position: relative;
+    cursor: pointer;
+    margin-bottom: 16px;
+}
+.pro-control:after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 12;
+    background: transparent;
+}
+.pro-control > span.isPro {
+    position: absolute;
+    z-index: 13;
+    top: 0;
+    right: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 18px;
+    border-radius: 20px;
+    background: #5b4e96;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 400;
+    text-transform: uppercase;
+}
+/* Grey the locked control so it visibly reads as inactive (toggle + label). */
+.pro-control .components-toggle-control__label,
+.pro-control label.components-base-control__label {
+    color: #bbacac;
+}
+.pro-control .components-form-toggle .components-form-toggle__track {
+    border: 1px solid #b89d9d;
+}
+.pro-control .components-form-toggle .components-form-toggle__thumb {
+    background-color: #b89d9d;
+    border: 5px solid #b89d9d;
+}

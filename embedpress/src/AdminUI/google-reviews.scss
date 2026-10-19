@@ -1,0 +1,3317 @@
+/* EmbedPress — Google Reviews
+ * Layout: plain page title → stacked full-width cards with internal columns.
+ * Tokens mirror src/Analytics/style.scss so this page sits inside the same
+ * visual system as the Analytics dashboard.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+
+$gr-bg: #f0f3f7;
+$gr-card-bg: #ffffff;
+$gr-radius: 16px;
+$gr-radius-sm: 8px;
+$gr-title: #25396f;
+$gr-heading: #092161;
+$gr-muted: #7f8bb2;
+$gr-text: #2c3e66;
+$gr-border: #d7d7ea;
+$gr-border-soft: #e2e6f1;
+$gr-accent: #5b4e96;
+$gr-accent-hover: #4a3f7d;
+$gr-success: #15803d;
+$gr-error: #b91c1c;
+$gr-info-bg: #eef2fb;
+$gr-info-border: #c8d4ec;
+$gr-input-bg: #ffffff;
+$gr-focus-shadow: 0 0 0 2px rgba(91, 78, 150, 0.10);
+$gr-divider: #eef0f6;
+$gr-container-max: 1000px;
+
+/* Shared select dropdown chevron — bolder, clearly visible caret. */
+$gr-select-chevron: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='14'%20height='14'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%235b4e96'%20stroke-width='2.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
+
+/* Root reset — analytics page omits .wrap so admin notices stack above
+ * the dashboard rather than inside it. We mirror that. */
+#embedpress-google-reviews-root {
+    margin: 0;
+    padding: 0;
+}
+
+.ep-gr-app {
+    padding: 24px;
+    background: $gr-bg;
+    font-family:
+        "DM Sans",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
+    color: $gr-text;
+    min-height: calc(100vh - 32px);
+
+    @media screen and (max-width: 1400px) {
+        padding: 16px;
+    }
+
+    /* Constrain the whole settings UI to a comfortable, compact width. */
+    .ep-gr-page-title,
+    .ep-gr-stack {
+        max-width: $gr-container-max;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    /* --- Page title (plain, no card) --- */
+    .ep-gr-page-title {
+        max-width: $gr-container-max;
+        margin: 0 auto 24px;
+        padding: 0 4px;
+
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+
+        .ep-gr-page-title-main {
+            min-width: 0;
+        }
+
+        /* Documentation link — plain text link (WP blue, arrow ↗), top-right. */
+        .ep-gr-doc-link {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 6px;
+            font-size: 13px;
+            line-height: 1;
+            color: #2271b1;
+            text-decoration: underline;
+            white-space: nowrap;
+
+            svg {
+                flex: none;
+            }
+
+            &:hover,
+            &:focus {
+                color: #135e96;
+            }
+        }
+
+        @media screen and (max-width: 600px) {
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            line-height: 1.2;
+            font-weight: 600;
+            color: $gr-title;
+            margin: 0 0 6px;
+            padding: 0;
+
+            @media screen and (max-width: 1400px) {
+                font-size: 1.25rem;
+            }
+        }
+        p {
+            font-size: 14px;
+            line-height: 1.5;
+            color: $gr-muted;
+            margin: 0;
+            max-width: 760px;
+        }
+    }
+}
+
+/* --- Stacked cards --- */
+.ep-gr-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    @media screen and (max-width: 1400px) {
+        gap: 12px;
+    }
+}
+
+/* --- Card shell --- */
+.ep-gr-card {
+    background: $gr-card-bg;
+    border: 1px solid $gr-border-soft;
+    border-radius: $gr-radius;
+    box-shadow: 0 1px 2px rgba(37, 57, 111, 0.04);
+    // No overflow: hidden — it clips floating popovers (refetch / remove
+    // confirm) that anchor from cells inside the card. The border + radius
+    // already give the visual rounding.
+}
+
+.ep-gr-card-header {
+    padding: 16px 22px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+
+    @media screen and (max-width: 1400px) {
+        padding: 14px 18px 10px;
+    }
+
+    .ep-gr-card-headtext {
+        flex: 1;
+        min-width: 0;
+    }
+
+    h2 {
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+        color: $gr-heading;
+        margin: 0 0 4px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+
+        @media screen and (max-width: 1400px) {
+            font-size: 15px;
+        }
+    }
+    p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: $gr-muted;
+        margin: 0;
+    }
+}
+
+/* Numbered step badge */
+.ep-gr-step-badge {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: $gr-accent;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
+/* Header status pill (in the card <h2>) */
+.ep-gr-hpill {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 11px 3px 9px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.01em;
+
+    .ep-gr-hpill-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+    &--on {
+        color: $gr-success;
+        background: #e6f4ea;
+    }
+    &--off {
+        color: #9aa3bd;
+        background: #eef0f6;
+    }
+}
+
+.ep-gr-card-body {
+    padding: 6px 22px 18px;
+
+    @media screen and (max-width: 1400px) {
+        padding: 4px 18px 16px;
+    }
+}
+
+.ep-gr-card-footer {
+    padding: 12px 22px;
+    background: #fbfcfe;
+    border-top: 1px solid $gr-divider;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    @media screen and (max-width: 1400px) {
+        padding: 14px 24px;
+    }
+}
+
+/* Sub-section heading inside a split pane */
+.ep-gr-card .ep-gr-split-pane h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gr-muted;
+    margin: 0 0 12px;
+    padding: 0;
+}
+
+/* --- Row layouts inside a card --- */
+.ep-gr-row {
+    display: grid;
+    gap: 20px;
+    align-items: start;
+
+    &--two {
+        grid-template-columns: 1.6fr 1fr;
+    }
+    &--three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media screen and (max-width: 1200px) {
+        &--three {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media screen and (max-width: 900px) {
+        &--two,
+        &--three {
+            grid-template-columns: 1fr;
+        }
+    }
+}
+
+/* --- Split (left controls / right preview) inside Shortcode card --- */
+.ep-gr-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 28px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid $gr-divider;
+
+    @media screen and (max-width: 1200px) {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+.ep-gr-split-pane {
+    min-width: 0; /* allow children to shrink */
+}
+
+/* --- Form fields --- */
+.ep-gr-field {
+    margin: 0 0 16px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+    &--grow {
+        flex: 1;
+        min-width: 0;
+    }
+    // &--narrow { max-width: 260px; }
+
+    label {
+        font-size: 13px;
+        font-weight: 500;
+        color: $gr-heading;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        strong {
+            font-weight: 600;
+        }
+    }
+
+    input[type="text"],
+    select,
+    textarea {
+        border: 1px solid $gr-border;
+        border-radius: $gr-radius-sm;
+        padding: 9px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        background: $gr-input-bg;
+        color: $gr-text;
+        max-width: 100%;
+        line-height: 1.4;
+        box-shadow: none;
+        transition:
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+        min-height: 38px;
+        width: 100%;
+
+        &:focus {
+            border-color: $gr-accent;
+            box-shadow: $gr-focus-shadow;
+            outline: none;
+        }
+        &::placeholder {
+            color: lighten($gr-muted, 8%);
+        }
+    }
+    textarea {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+        resize: vertical;
+        min-height: 60px;
+    }
+    select {
+        -webkit-appearance: none;
+        appearance: none;
+        padding-right: 34px;
+        background-image: $gr-select-chevron;
+        background-repeat: no-repeat;
+        background-position: right 11px center;
+        background-size: 14px;
+        font-weight: 500;
+        color: $gr-text;
+        cursor: pointer;
+    }
+    .description {
+        font-size: 12px;
+        line-height: 1.5;
+        color: $gr-muted;
+        margin: 4px 0 0;
+
+        code {
+            background: $gr-info-bg;
+            color: $gr-accent;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11.5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        a {
+            color: $gr-accent;
+            text-decoration: none;
+            font-weight: 500;
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+    .ep-gr-key-status {
+        color: $gr-success;
+        font-weight: 500;
+        font-size: 12px;
+        padding: 2px 8px;
+        background: rgba(21, 128, 61, 0.08);
+        border-radius: 10px;
+    }
+}
+
+/* Generated shortcode — terminal-style single-line field with inline copy.
+   Designed to be the visual anchor of the modal: monospace, dark-tinted
+   surface, prompt glyph, primary copy button that flips to a success check. */
+.ep-gr-shortcode-field {
+    margin-top: 18px;
+
+    .ep-gr-shortcode-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            color: $gr-heading;
+            margin: 0;
+        }
+        .ep-gr-shortcode-hint {
+            font-size: 11.5px;
+            color: $gr-muted;
+        }
+    }
+
+    &.ep-gr-field {
+        margin-bottom: 0;
+    }
+
+    .ep-gr-shortcode-row {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+        background: #f6f7fb;
+        border: 1px solid $gr-border-soft;
+        border-radius: $gr-radius-sm;
+        padding: 0;
+        overflow: hidden;
+        transition:
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+
+        &:focus-within {
+            border-color: $gr-accent;
+            box-shadow: $gr-focus-shadow;
+            background: #fff;
+        }
+        &.is-copied {
+            border-color: rgba(21, 128, 61, 0.45);
+            background: #f3fbf6;
+        }
+
+        .ep-gr-shortcode-prompt {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 10px;
+            font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: $gr-accent;
+            background: rgba(91, 78, 150, 0.08);
+            border-right: 1px solid $gr-border-soft;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        textarea,
+        textarea[readonly] {
+            flex: 1;
+            min-width: 0;
+            height: 36px;
+            min-height: 36px;
+            max-height: 36px;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            padding: 8px 12px;
+            margin: 0;
+            resize: none;
+            font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+            font-size: 12.5px;
+            line-height: 20px;
+            color: $gr-heading;
+            white-space: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            box-shadow: none;
+            outline: none;
+            width: auto;
+
+            &:focus {
+                border: 0;
+                box-shadow: none;
+                outline: none;
+            }
+            &::-webkit-scrollbar {
+                height: 4px;
+            }
+            &::-webkit-scrollbar-thumb {
+                background: $gr-border;
+                border-radius: 4px;
+            }
+        }
+
+        .ep-gr-shortcode-copy {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 14px;
+            border: 0;
+            border-left: 1px solid $gr-border-soft;
+            background: #fff;
+            color: $gr-heading;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition:
+                background 0.15s ease,
+                color 0.15s ease;
+
+            svg {
+                flex-shrink: 0;
+            }
+
+            &:hover:not(:disabled) {
+                background: $gr-accent;
+                color: #fff;
+            }
+            &:focus-visible {
+                outline: none;
+                box-shadow: inset $gr-focus-shadow;
+            }
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        }
+
+        &.is-copied .ep-gr-shortcode-copy {
+            background: $gr-success;
+            color: #fff;
+            animation: ep-gr-copy-pop 0.25s ease;
+        }
+    }
+}
+@keyframes ep-gr-copy-pop {
+    0% {
+        transform: scale(0.94);
+    }
+    60% {
+        transform: scale(1.04);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* --- Toggles --- */
+.ep-gr-toggles {
+    border: 0;
+    padding: 0;
+    margin: 0 0 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+
+    legend {
+        font-weight: 500;
+        font-size: 13px;
+        color: $gr-heading;
+        padding: 0;
+        margin-bottom: 10px;
+        width: 100%;
+    }
+}
+
+/* Pill-chip toggles (Photo / Stars / Date / link).
+   Native checkbox is hidden; the chip itself is the toggle. A small custom
+   "tick box" sits at the start — empty/grey when off, filled accent + check
+   when on. Reads more clearly than the WP native checkbox + accent-color hack. */
+.ep-gr-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .ep-gr-chip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        color: $gr-muted;
+        border: 1px solid $gr-border;
+        background: #fff;
+        padding: 6px 14px 6px 10px;
+        border-radius: 999px;
+        cursor: pointer;
+        -webkit-user-select: none;
+        user-select: none;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease,
+            color 0.15s ease,
+            box-shadow 0.15s ease;
+
+        // Fully neutralize the native checkbox so WP admin's forms.css
+        // (and any active theme) can't paint a second indicator on top of
+        // our custom tick. Keep it in the tab order for a11y, but visually
+        // and dimensionally gone.
+        input[type="checkbox"] {
+            position: absolute !important;
+            opacity: 0 !important;
+            pointer-events: none;
+            width: 1px !important;
+            height: 1px !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            max-width: 1px !important;
+            max-height: 1px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            overflow: hidden;
+
+            &::before,
+            &::after {
+                display: none !important;
+                content: none !important;
+            }
+        }
+        // Custom check indicator drawn from a pseudo — empty box → filled tick.
+        &::before {
+            content: "";
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            border: 1.5px solid $gr-border;
+            border-radius: 4px;
+            background: #fff;
+            transition:
+                border-color 0.15s ease,
+                background 0.15s ease;
+        }
+        &::after {
+            content: "";
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            width: 4px;
+            height: 8px;
+            border: solid #fff;
+            border-width: 0 2px 2px 0;
+            transform: translateY(-65%) rotate(45deg) scale(0);
+            opacity: 0;
+            transition:
+                transform 0.15s ease,
+                opacity 0.15s ease;
+            margin-left: 3px;
+            margin-top: 0px;
+        }
+
+        &:hover {
+            border-color: $gr-accent;
+            color: $gr-heading;
+        }
+        &:focus-within {
+            box-shadow: $gr-focus-shadow;
+        }
+
+        &.is-on {
+            border-color: $gr-accent;
+            background: #f6f5fc;
+            color: $gr-heading;
+            font-weight: 600;
+
+            &::before {
+                background: $gr-accent;
+                border-color: $gr-accent;
+            }
+            &::after {
+                transform: translateY(-65%) rotate(45deg) scale(1);
+                opacity: 1;
+            }
+        }
+        // Pro-gated chip (e.g. Review images in free): greyed, crown, click → upgrade.
+        &.is-locked {
+            opacity: 0.7;
+            cursor: pointer;
+            color: #8a6d00;
+            background: #fffaf0;
+            border-color: #f0e0b8;
+
+            svg {
+                width: 11px;
+                height: 11px;
+            }
+        }
+    }
+}
+
+/* --- Buttons --- */
+.ep-gr-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ep-gr-app {
+    button.button,
+    button.button-primary {
+        appearance: none;
+        border-radius: $gr-radius-sm;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.2;
+        padding: 9px 18px;
+        min-height: 38px;
+        cursor: pointer;
+        transition:
+            background 0.15s ease,
+            border-color 0.15s ease,
+            color 0.15s ease,
+            box-shadow 0.15s ease;
+        text-shadow: none;
+        box-shadow: none;
+
+        &:focus {
+            box-shadow: $gr-focus-shadow;
+            outline: none;
+        }
+        &:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+    }
+    button.button-primary {
+        background: $gr-accent;
+        color: #fff;
+        border: 1px solid $gr-accent;
+
+        &:hover:not(:disabled),
+        &:focus:not(:disabled) {
+            background: $gr-accent-hover;
+            border-color: $gr-accent-hover;
+            color: #fff;
+        }
+    }
+    button.button:not(.button-primary) {
+        background: #fff;
+        color: $gr-accent;
+        border: 1px solid $gr-border;
+
+        &:hover:not(:disabled) {
+            border-color: $gr-accent;
+            color: $gr-accent;
+            background: #fafaff;
+        }
+    }
+    button.button.button-link-delete {
+        color: $gr-error;
+        border-color: #f0d4d4;
+
+        &:hover:not(:disabled) {
+            color: $gr-error;
+            border-color: #e8a9a9;
+            background: #fef2f2;
+        }
+    }
+    .button-link {
+        background: none;
+        border: 0;
+        padding: 0;
+        color: $gr-accent;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+/* --- Status messages --- */
+/* Floating toast — sits at the top-right of the viewport so the user
+   notices it without scrolling, slides in/out, auto-dismisses via the
+   existing 3.5s flash timer. Above the WP admin bar (z >= 100001). */
+.ep-gr-status {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100001;
+    max-width: 360px;
+    padding: 12px 16px 12px 38px;
+    background: #fff;
+    color: $gr-heading;
+    border: 1px solid $gr-border-soft;
+    border-radius: $gr-radius-sm;
+    box-shadow: 0 12px 32px rgba(20, 28, 56, 0.18);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    animation: ep-gr-toast-in 0.2s ease;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: $gr-muted;
+    }
+
+    &--success {
+        color: $gr-heading;
+        border-left: 3px solid $gr-success;
+        &::before { background: $gr-success; }
+    }
+    &--error {
+        color: $gr-heading;
+        border-left: 3px solid $gr-error;
+        &::before { background: $gr-error; }
+    }
+    // Neutral/in-progress toast (e.g. "Fetching reviews…") — blue, distinct
+    // from the green success and red error tones.
+    &--info {
+        color: $gr-heading;
+        border-left: 3px solid #2271b1;
+        &::before { background: #2271b1; }
+    }
+
+    @media screen and (max-width: 600px) {
+        top: 50px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
+}
+@keyframes ep-gr-toast-in {
+    from { transform: translateY(12px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+}
+
+/* --- Inline notes (errors, hints under fields / inside preview) --- */
+.ep-gr-inline-note {
+    margin: 10px 0 0;
+    padding: 10px 14px;
+    border-radius: $gr-radius-sm;
+    font-size: 13px;
+    line-height: 1.5;
+
+    strong {
+        font-weight: 600;
+    }
+
+    &--muted {
+        color: $gr-muted;
+        background: #f5f6fa;
+        border: 1px solid $gr-divider;
+    }
+    &--error {
+        color: $gr-error;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+    }
+    &--info {
+        color: $gr-text;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        margin-bottom: 12px;
+
+        strong { color: #1e40af; }
+    }
+}
+
+/* --- Callout (purpose / instructions banner) --- */
+/* Inline info row — quiet, single-paragraph guidance with a small leading
+   icon. Replaces the heavier filled callout banner. Text flows as one
+   paragraph (inline content), not as flex items. */
+.ep-gr-callout {
+    position: relative;
+    padding: 0 0 0 24px;
+    margin: 0 0 16px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: $gr-muted;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 4px;
+        width: 14px;
+        height: 14px;
+        background: currentColor;
+        opacity: 0.7;
+        -webkit-mask: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E")
+            center / contain no-repeat;
+        mask: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E")
+            center / contain no-repeat;
+    }
+
+    strong {
+        color: $gr-heading;
+        font-weight: 600;
+    }
+    em {
+        color: $gr-accent;
+        font-style: normal;
+        font-weight: 600;
+    }
+}
+
+/* --- Place picker --- */
+.ep-gr-picker {
+    margin: 0 0 4px;
+}
+.ep-gr-picker-field {
+    position: relative;
+}
+
+.ep-gr-searching {
+    position: absolute;
+    right: 12px;
+    top: 36px;
+    font-size: 12px;
+    color: $gr-muted;
+}
+// Block-style picker dropdown (the .ep-gr-picker search). Scoped so it doesn't
+// collide with the table-search dropdown below (.ep-gr-suggestions-panel).
+.ep-gr-picker .ep-gr-suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid $gr-border;
+    border-radius: $gr-radius-sm;
+    margin: 0;
+    padding: 0; // full-bleed rows, like the block picker
+    list-style: none;
+    z-index: 100;
+    box-shadow: 0 4px 14px rgba(9, 33, 97, 0.06);
+
+    li {
+        padding: 9px 12px;
+        cursor: pointer;
+        border-radius: 0; // full-bleed rows
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 9px;
+
+        & + li {
+            margin-top: 0;
+            border-top: 1px solid $gr-border;
+        }
+
+        &:hover,
+        &:focus {
+            background: $gr-info-bg;
+            outline: none;
+        }
+        .ep-gr-suggestion-pin {
+            flex: 0 0 auto;
+            margin-top: 1px;
+            color: $gr-accent;
+        }
+        .ep-gr-suggestion-body {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        strong {
+            font-size: 13px;
+            font-weight: 600;
+            color: $gr-heading;
+            line-height: 1.3;
+        }
+        span {
+            font-size: 11px;
+            color: $gr-muted;
+            line-height: 1.3;
+        }
+    }
+}
+
+// Rating + review-count line shared by all admin place pickers (ShortcodeModal
+// search list + PlacesManager floating panel). ★ 4.5 · 1,167 reviews.
+.ep-gr-suggestion-meta {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin-top: 1px;
+    font-size: 11px;
+    color: $gr-muted;
+
+    .ep-gr-suggestion-rating {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font-weight: 600;
+        color: $gr-heading;
+    }
+    .ep-gr-suggestion-star {
+        color: #fbbf24; // amber star
+        font-size: 12px;
+        line-height: 1;
+    }
+    .ep-gr-suggestion-count::before {
+        content: '·';
+        margin-right: 6px;
+        color: $gr-muted;
+    }
+
+    // Counts arrive after the suggestions (Autocomplete carries names only),
+    // so a row waits here first. A shimmer says "still loading" where the
+    // "Reviews unavailable" label would have wrongly said "this place has no
+    // reviews". Sized to the real ★ 4.5 · 1,234 reviews line so the row does
+    // not shift when the numbers land.
+    &--loading .ep-gr-suggestion-skeleton {
+        position: relative;
+        display: inline-block;
+        vertical-align: middle;
+        width: 96px;
+        height: 10px;
+        background-color: #eef0f6;
+        border-radius: 4px;
+        overflow: hidden;
+
+        &::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(238, 240, 246, 0) 0,
+                rgba(255, 255, 255, 0.85) 50%,
+                rgba(238, 240, 246, 0) 100%
+            );
+            animation: ep-gr-shimmer 1.2s linear infinite;
+            will-change: transform;
+        }
+    }
+
+    // "Reviews unavailable" — the lookup finished without a count for this
+    // place. Stands alone with no rating beside it, so drop the separator dot
+    // and mute it further; an absent count must never read as data.
+    &--unknown {
+        font-style: italic;
+        opacity: 0.75;
+
+        .ep-gr-suggestion-count::before {
+            content: none;
+            margin-right: 0;
+        }
+    }
+}
+
+.ep-gr-selected {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    background: $gr-info-bg;
+    border: 1px solid $gr-info-border;
+    border-radius: $gr-radius-sm;
+
+    .ep-gr-selected-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+        flex: 1;
+
+        strong {
+            font-size: 14px;
+            font-weight: 600;
+            color: $gr-heading;
+        }
+        span {
+            font-size: 12px;
+            color: $gr-muted;
+        }
+        code {
+            font-size: 11px;
+            color: lighten($gr-muted, 4%);
+            margin-top: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            word-break: break-all;
+        }
+    }
+}
+
+/* --- Live preview — a clean, framed "canvas" so it reads as a real preview
+   surface (subtle inset, dotted backdrop, scrolls if tall) instead of a flat box. */
+.ep-gr-preview-wrap {
+    min-height: 260px;
+    max-height: 560px;
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid $gr-border;
+    border-radius: $gr-radius;
+    // Soft dotted backdrop reads as a design canvas; content sits on white cards.
+    background:
+        radial-gradient(circle, #e6eaf3 1px, transparent 1px) 0 0 / 16px 16px,
+        #fcfdff;
+    position: relative;
+
+    // The rendered widget gets a touch of breathing room + its own white surface
+    // so the cards pop against the canvas regardless of theme.
+    > div {
+        background: transparent;
+    }
+    // Tame scrollbar so it doesn't look heavy inside the modal.
+    &::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #d7dbe6;
+        border-radius: 8px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+}
+@keyframes ep-gr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Inline skeleton primitives ──────────────────────────────────────────
+   Reusable shimmer blocks for loading states (places table + preview).
+   Kept lightweight: a single linear-gradient + background-position animation. */
+@keyframes ep-gr-shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+.ep-gr-skel {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+    background-color: #eef0f6;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 12px;
+    width: 100%;
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            90deg,
+            rgba(238, 240, 246, 0) 0,
+            rgba(255, 255, 255, 0.85) 50%,
+            rgba(238, 240, 246, 0) 100%
+        );
+        animation: ep-gr-shimmer 1.2s linear infinite;
+        will-change: transform;
+    }
+
+    &--title {
+        height: 14px;
+        width: 60%;
+        margin-bottom: 6px;
+    }
+    &--sub {
+        height: 10px;
+        width: 40%;
+    }
+    &--num {
+        height: 14px;
+        width: 32px;
+        border-radius: 4px;
+    }
+    &--pill {
+        height: 18px;
+        width: 64px;
+        border-radius: 999px;
+    }
+    &--text {
+        height: 12px;
+        width: 70%;
+    }
+    &--btn {
+        height: 24px;
+        width: 80px;
+        border-radius: 4px;
+    }
+    &--avatar {
+        height: 36px;
+        width: 36px;
+        border-radius: 50%;
+        flex: 0 0 36px;
+    }
+    &--line {
+        display: block;
+        height: 10px;
+        margin-top: 8px;
+    }
+    &--line-short {
+        width: 55%;
+    }
+}
+
+/* Places table skeleton — render real headers + 3 shimmer rows. */
+.ep-gr-places-table--skeleton {
+    tbody tr:hover {
+        background: transparent;
+    }
+    .ep-gr-col-place .ep-gr-skel {
+        display: block;
+    }
+}
+
+/* Configuration card skeleton — gates the provider toggle until /settings
+   resolves, so users never see "Google selected → flip to Apify". */
+.ep-gr-card--skeleton {
+    .ep-gr-card-headtext p .ep-gr-skel {
+        display: block;
+        max-width: 520px;
+    }
+    .ep-gr-card-body > .ep-gr-skel {
+        display: block;
+        max-width: 480px;
+    }
+}
+.ep-gr-boot-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* Preview pane skeleton — header summary + 3 review-card placeholders. */
+.ep-gr-preview-skeleton {
+    .ep-gr-preview-skel-summary,
+    .ep-gr-preview-skel-card-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .ep-gr-preview-skel-summary {
+        padding: 12px 14px;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid $gr-border-soft;
+        margin-bottom: 12px;
+    }
+    .ep-gr-preview-skel-summary-lines,
+    .ep-gr-preview-skel-card-meta {
+        flex: 1;
+        min-width: 0;
+    }
+    .ep-gr-preview-skel-card {
+        background: #fff;
+        border: 1px solid $gr-border-soft;
+        border-radius: 8px;
+        padding: 14px;
+        margin-bottom: 10px;
+    }
+    .ep-gr-preview-skel-card-head {
+        margin-bottom: 10px;
+    }
+}
+.ep-gr-preview-loading {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    z-index: 2;
+    font-size: 11px;
+    font-weight: 600;
+    color: $gr-accent;
+    background: #fff;
+    padding: 3px 12px 3px 9px;
+    border-radius: 999px;
+    border: 1px solid $gr-border-soft;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    &::before {
+        content: "";
+        width: 11px;
+        height: 11px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: ep-gr-spin 0.6s linear infinite;
+    }
+}
+
+/* ── Places manager search dropdown ──────────────────────────────────────
+   Matches the Gutenberg/Elementor block picker's result list
+   (.ep-gr-block-suggestions): full-bleed rows, thin top-border dividers,
+   subtle shadow, full width — so search results look identical across the
+   settings page, the block, and the widget. */
+// Floating panel: holds the results list AND (below it) the upsell note, so the
+// note always sits AFTER the results. Anchored full-width under the input,
+// overlaying the table like a real autocomplete.
+.ep-gr-suggestions-panel {
+    // Anchored to the input on the LEFT; matches the input's right edge so
+    // the popover sits inside the card the same way the Refetch / Remove
+    // popovers do. `min-width: 0` + the row truncation below guarantees that
+    // a freakishly long address can never widen the panel past its anchor.
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    max-height: 340px;
+    overflow: hidden auto;
+    background: #fff;
+    box-shadow: 0 12px 32px rgba(37, 57, 111, 0.16);
+
+    // Default placement: below the input. Attach flush to the input's bottom
+    // edge and round only the bottom corners so the seam reads as a single
+    // connected pill.
+    top: 100%;
+    margin-top: -1px;
+    border: 1px solid $gr-border;
+    border-top-color: transparent; // input's bottom border carries the line
+    border-radius: 0 0 $gr-radius-sm $gr-radius-sm;
+
+    // Flip-up state: when there's no room below, render above the input.
+    // Mirror the radius (round the top, flatten the bottom) so the seam
+    // still reads cleanly against the input.
+    &.is-up {
+        top: auto;
+        bottom: 100%;
+        margin-top: 0;
+        margin-bottom: -1px;
+        border-top-color: $gr-border;
+        border-bottom-color: transparent;
+        border-radius: $gr-radius-sm $gr-radius-sm 0 0;
+        box-shadow: 0 -12px 32px rgba(37, 57, 111, 0.16);
+    }
+
+    // Rendered hidden for one frame so useDropdownFlip can measure height
+    // and decide whether to flip — prevents the bottom→top reposition flash.
+    &.is-measuring {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    // The note rides inside the panel, under the list — quiet, not a result row.
+    .ep-gr-suggestions-note {
+        margin: 0;
+        padding: 9px 12px;
+        border-top: 1px solid $gr-border;
+    }
+}
+
+// Flatten the side of the input that touches the open dropdown so the
+// 8px radius doesn't cut into the panel. Two cases — panel below (default)
+// flattens the input's bottom; panel above flattens the input's top.
+.ep-gr-field:has(.ep-gr-suggestions-panel) input[type="text"] {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.ep-gr-field:has(.ep-gr-suggestions-panel.is-up) input[type="text"] {
+    border-bottom-left-radius: $gr-radius-sm;
+    border-bottom-right-radius: $gr-radius-sm;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.ep-gr-suggestions {
+    list-style: none;
+    margin: 0;
+    padding: 0; // rows are flush; hover spans full width
+    width: 100%;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+
+    li {
+        margin: 0;
+        padding: 0;
+    }
+    li + li {
+        border-top: 1px solid $gr-border;
+    }
+    button {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: left;
+        // Right room for the badge slot (Add / already added) so it never
+        // overlaps the place name + address.
+        padding: 9px 90px 9px 12px;
+        background: none;
+        border: 0;
+        border-radius: 0; // full-bleed rows
+        cursor: pointer;
+        gap: 9px;
+        position: relative;
+        font: inherit;
+        transition: background 0.12s ease;
+
+        &:hover,
+        &:focus,
+        &:focus-visible {
+            background: $gr-info-bg;
+            outline: none;
+            box-shadow: none;
+        }
+        .ep-gr-suggestion-pin {
+            flex: 0 0 auto;
+            margin-top: 1px;
+            color: $gr-accent;
+        }
+        // Stacked name / address / rating column.
+        .ep-gr-suggestion-body {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        // Cap each line to the row width so very long names/addresses get
+        // truncated with an ellipsis instead of widening the dropdown.
+        .ep-gr-suggestion-body > strong,
+        .ep-gr-suggestion-body > span:not(.ep-gr-suggestion-meta) {
+            display: block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        strong {
+            font-size: 13px;
+            font-weight: 600;
+            color: $gr-heading;
+            line-height: 1.3;
+            // Leave room for the right-side "Add" / "already added" badge.
+            padding-right: 4px;
+        }
+        span {
+            font-size: 11px;
+            color: $gr-muted;
+            line-height: 1.3;
+        }
+        em.ep-gr-already {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            font-size: 10.5px;
+            font-weight: 600;
+            font-style: normal;
+            color: $gr-success;
+            background: #e6f4ea;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        // "+ Add" affordance — shown on addable results (the normal case, incl.
+        // Pro active) so each row has a clear call-to-action, not just clickable
+        // text. Sits in the same right slot as the other badges; the whole row is
+        // the click target, but this makes the action obvious.
+        em.ep-gr-suggestion-add {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            font-size: 11px;
+            font-weight: 600;
+            font-style: normal;
+            color: $gr-accent;
+            background: $gr-info-bg;
+            border: 1px solid transparent;
+            padding: 3px 10px;
+            border-radius: 999px;
+            transition:
+                background 0.12s ease,
+                border-color 0.12s ease;
+        }
+        &:hover em.ep-gr-suggestion-add,
+        &:focus em.ep-gr-suggestion-add {
+            background: $gr-accent;
+            color: #fff;
+            border-color: $gr-accent;
+        }
+        // Loading pill — shown on the row being added (spinner + "Adding…").
+        em.ep-gr-suggestion-add--loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: $gr-info-bg;
+            color: $gr-accent;
+            .ep-gr-spinner {
+                width: 11px;
+                height: 11px;
+                border: 2px solid rgba($gr-accent, 0.3);
+                border-top-color: $gr-accent;
+                border-radius: 50%;
+                animation: ep-gr-spin 0.7s linear infinite;
+            }
+        }
+        // Keep the loading pill in its accent state even on hover (don't flip to
+        // the solid-accent hover style mid-request).
+        &:hover em.ep-gr-suggestion-add--loading,
+        &:focus em.ep-gr-suggestion-add--loading {
+            background: $gr-info-bg;
+            color: $gr-accent;
+            border-color: transparent;
+        }
+        // While ANY add is in flight, all rows are non-interactive; the rows that
+        // aren't the one being added dim slightly so the active one stands out.
+        &.is-adding-busy {
+            cursor: default;
+            &:hover, &:focus { background: none; }
+            &[aria-busy="false"] { opacity: 0.55; }
+        }
+        // Crowned upsell pill — shown on net-new results when a free user is at
+        // the 1-place cap. Clicking the row opens the upgrade page (no add).
+        em.ep-gr-suggestion-pro {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10.5px;
+            font-weight: 600;
+            font-style: normal;
+            color: #8a6d00;
+            background: #fff4d1;
+            padding: 2px 8px 2px 6px;
+            border-radius: 999px;
+
+            svg {
+                display: block;
+            }
+        }
+        // Locked rows read as upsell, not a normal add target. Reserve space on
+        // the right so the "Upgrade to add" badge never overlaps the place name.
+        &.is-locked {
+            cursor: pointer;
+            padding-right: 130px;
+
+            strong {
+                color: $gr-muted;
+            }
+            span {
+                color: lighten($gr-muted, 8%);
+            }
+            &:hover,
+            &:focus {
+                background: #fffaf0;
+            }
+        }
+    }
+}
+
+/* ── Refetch popover (choose how many reviews to fetch) ──────────────────── */
+.ep-gr-refetch-wrap {
+    position: relative;
+    display: inline-flex;
+}
+.ep-gr-refetch-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    width: 280px;
+
+    // Flip above the trigger when usePopoverPlacement detects no room below.
+    &.is-up {
+        top: auto;
+        bottom: calc(100% + 6px);
+    }
+    // Rendered into the DOM for size measurement, but hidden from view
+    // (and from screen readers) so the first paint is the FINAL position —
+    // no bottom→top flicker.
+    &.is-measuring {
+        visibility: hidden;
+        pointer-events: none;
+    }
+    box-sizing: border-box;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid $gr-border;
+    border-radius: $gr-radius-sm;
+    box-shadow: 0 12px 32px rgba(37, 57, 111, 0.16);
+    text-align: left;
+    white-space: normal; // the actions cell sets nowrap; reset it here so text wraps
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+    cursor: default;
+
+    .ep-gr-refetch-pop-title {
+        margin: 0 0 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: $gr-heading;
+    }
+    /* Mode picker (Quick check / Full refresh) — stacked, two-line buttons.
+       Replaces the count picker when no mode is chosen yet. */
+    .ep-gr-refetch-modes {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+    .ep-gr-refetch-mode {
+        appearance: none;
+        text-align: left;
+        border: 1px solid $gr-border;
+        background: #fff;
+        font-family: inherit;
+        padding: 8px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease,
+            box-shadow 0.15s ease;
+
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        &:hover {
+            border-color: $gr-accent;
+            background: #faf9ff;
+        }
+        &.is-active {
+            border-color: $gr-accent;
+            background: #f4f2fc;
+            box-shadow: inset 0 0 0 1px $gr-accent;
+        }
+
+        .ep-gr-refetch-mode-title {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: $gr-heading;
+        }
+        .ep-gr-refetch-mode-desc {
+            font-size: 11px;
+            color: $gr-muted;
+            line-height: 1.35;
+        }
+    }
+    .ep-gr-refetch-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 4px;
+    }
+    .ep-gr-refetch-presets {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+    .ep-gr-refetch-preset {
+        flex: 1;
+        appearance: none;
+        border: 1px solid $gr-border;
+        background: #fff;
+        color: $gr-accent;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease;
+
+        &:hover {
+            border-color: $gr-accent;
+            background: #f6f5fc;
+        }
+        &.is-active {
+            border-color: $gr-accent;
+            background: $gr-accent;
+            color: #fff;
+        }
+    }
+    .ep-gr-refetch-custom {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+
+        // Input is type="text" (numeric) — override the global tall field style
+        // so it matches the compact Fetch button height.
+        input {
+            flex: 1;
+            min-width: 0;
+            width: auto;
+            box-sizing: border-box;
+            height: 32px;
+            min-height: 32px;
+            border: 1px solid $gr-border;
+            border-radius: 6px;
+            padding: 0 10px;
+            font-size: 13px;
+            font-family: inherit;
+            line-height: 1.4;
+
+            &:focus {
+                border-color: $gr-accent;
+                box-shadow: $gr-focus-shadow;
+                outline: none;
+            }
+        }
+        // Match the Fetch button to the input height.
+        button.button {
+            flex-shrink: 0;
+            height: 32px;
+            min-height: 32px;
+            padding: 0 14px;
+        }
+    }
+    .ep-gr-refetch-hint {
+        margin: 8px 0 0;
+        font-size: 11px;
+        line-height: 1.4;
+        color: $gr-muted;
+        white-space: normal;
+        overflow-wrap: break-word;
+    }
+}
+
+/* Remove-confirm popover — same shell as the refetch-pop, dangerous CTA. */
+.ep-gr-confirm-pop {
+    width: 260px;
+
+    .ep-gr-confirm-pop-body {
+        margin: 0 0 12px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: $gr-muted;
+
+        strong {
+            color: $gr-heading;
+            font-weight: 600;
+        }
+    }
+    .ep-gr-confirm-pop-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    .ep-gr-app & .ep-gr-confirm-pop-danger,
+    & .ep-gr-confirm-pop-danger {
+        background: $gr-error;
+        border-color: $gr-error;
+        color: #fff;
+
+        &:hover, &:focus {
+            background: darken($gr-error, 6%);
+            border-color: darken($gr-error, 6%);
+            color: #fff;
+        }
+    }
+}
+
+/* Count cell info icon + popover */
+.ep-gr-count-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.ep-gr-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    border: 0;
+    background: transparent;
+    color: $gr-muted;
+    opacity: .4; // quiet by default; full on hover
+    cursor: pointer;
+    transition: opacity .12s ease, color .12s ease;
+
+    &:hover, &:focus {
+        opacity: 1;
+        color: #2271b1;
+        outline: none;
+    }
+}
+.ep-gr-info-pop {
+    width: 260px;
+
+    // Lead line — the count.
+    .ep-gr-info-pop-count {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: $gr-muted;
+        strong { color: $gr-heading; font-weight: 600; }
+    }
+
+    .ep-gr-info-pop-body {
+        margin: 8px 0 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: $gr-muted;
+        strong { color: $gr-heading; font-weight: 600; }
+    }
+    .ep-gr-info-pop-note {
+        margin: 10px 0 0;
+        padding-top: 10px;
+        border-top: 1px solid #eceef1;
+        font-size: 11px;
+        line-height: 1.45;
+        color: $gr-muted;
+        strong { color: $gr-heading; font-weight: 600; }
+    }
+}
+
+/* Upsell block inside the count-info popover (free user, capped place). */
+.ep-gr-upsell {
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid #eceef1;
+
+    .ep-gr-upsell-text {
+        margin: 0 0 8px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: $gr-muted;
+        strong { color: $gr-accent; font-weight: 700; }
+    }
+    .ep-gr-upsell-cta {
+        display: inline-block;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: $gr-accent;
+        text-decoration: none;
+        &:hover { text-decoration: underline; }
+    }
+}
+
+/* Free-cap upsell BANNER — shown after a free user adds a capped place. */
+.ep-gr-upsell-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #f7f4ff 0%, #efe9ff 100%);
+    border: 1px solid #ddd2f7;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: $gr-heading;
+
+    .ep-gr-upsell-crown {
+        flex-shrink: 0;
+        display: inline-flex;
+        color: $gr-accent;
+    }
+    .ep-gr-upsell-banner-body {
+        flex: 1 1 auto;
+        min-width: 0;
+        strong { color: $gr-accent; font-weight: 700; }
+    }
+    .ep-gr-upsell-banner-cta {
+        flex-shrink: 0;
+        display: inline-block;
+        padding: 6px 14px;
+        background: $gr-accent;
+        color: #fff;
+        font-weight: 600;
+        font-size: 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background .12s ease;
+        &:hover { background: darken($gr-accent, 6%); color: #fff; }
+    }
+    .ep-gr-upsell-banner-x {
+        flex-shrink: 0;
+        border: 0;
+        background: transparent;
+        color: $gr-muted;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 2px;
+        &:hover { color: $gr-heading; }
+    }
+}
+
+.ep-gr-places-empty {
+    margin-top: 14px;
+    padding: 24px;
+    text-align: center;
+    background: #fafbfc;
+    border: 1px dashed #d8dce1;
+    border-radius: 8px;
+    p {
+        margin: 0 0 4px;
+    }
+}
+
+/* Places table — mirrors the Analytics dashboard table look. */
+.ep-gr-places-table {
+    margin-top: 14px;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #e2e6f1;
+    border-radius: 8px;
+    // No `overflow: hidden` here — it clips floating popovers (Refetch /
+    // Remove confirm) that anchor off the actions cell. Corner radius
+    // still works because the first/last cells round their own corners.
+    overflow: visible;
+
+    th,
+    td {
+        border: none;
+        padding: 12px;
+        text-align: left;
+        vertical-align: middle;
+        font-size: 14px;
+        line-height: 1.3em;
+        color: #092161;
+
+        @media screen and (max-width: 1400px) {
+            font-size: 12px;
+        }
+    }
+    thead th {
+        font-weight: 600;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: $gr-muted;
+        background: #fbfaff;
+        white-space: nowrap;
+        border-bottom: 1px solid #e2e6f1;
+    }
+    // Re-create rounded corners since the table no longer clips overflow.
+    thead th:first-child { border-top-left-radius: 8px; }
+    thead th:last-child  { border-top-right-radius: 8px; }
+    tbody tr:last-child td:first-child { border-bottom-left-radius: 8px; }
+    tbody tr:last-child td:last-child  { border-bottom-right-radius: 8px; }
+    td {
+        font-weight: 400;
+    }
+    tbody tr + tr td {
+        border-top: 1px solid $gr-divider;
+    }
+    tbody tr:hover {
+        background: #fafaff;
+    }
+    tbody tr.is-running {
+        background: #f4f7ff; // subtle blue "in-progress" tint (was warm yellow)
+    }
+
+    .ep-gr-col-num {
+        text-align: center;
+        width: 90px;
+    }
+    // Live count while a background fetch is importing — accented + subtly
+    // pulsing so the climbing number reads as "in progress", not final.
+    .ep-gr-count-live {
+        color: $gr-accent;
+        animation: ep-gr-count-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes ep-gr-count-pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.55;
+        }
+    }
+    .ep-gr-col-actions {
+        white-space: nowrap;
+        width: 1%;
+        text-align: right;
+
+        // Inner flex row so the shortcode icon, Refetch, and Remove line up on
+        // one baseline. The flex lives on a wrapper, NOT the <td> itself —
+        // display:flex on a table cell breaks width:1% and lets content overflow.
+        .ep-gr-actions-row {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+    }
+    /* Place cell: [pin] [name + id] — pin matches the search/saved pickers. */
+    .ep-gr-place-cell {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 2px 0;
+    }
+    .ep-gr-place-cell .ep-gr-suggestion-pin {
+        flex: 0 0 auto;
+        margin-top: 3px;
+        color: $gr-accent;
+    }
+    .ep-gr-place-cell-body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        max-width: 280px;
+    }
+    .ep-gr-col-place strong {
+        font-weight: 600;
+        color: $gr-heading;
+        line-height: 1.35;
+    }
+    /* Title row: name (wraps) + a ghost copy-id button pinned to the first line. */
+    .ep-gr-place-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .ep-gr-place-title strong {
+        min-width: 0;
+    }
+    .ep-gr-copy-id {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        margin-top: 1px;
+        padding: 0;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        color: $gr-muted;
+        cursor: pointer;
+        flex: 0 0 auto;
+        opacity: 0.65;
+        transition: color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+
+        &:hover {
+            color: $gr-accent;
+            background: #f1eefc;
+            opacity: 1;
+        }
+        &.is-copied {
+            color: #16a34a;
+            background: #ecfdf3;
+            opacity: 1;
+        }
+        svg { display: block; }
+
+        /* Custom tooltip — names the action + shows the masked Place ID, so
+           users know exactly what the button copies. */
+        &[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 7px);
+            left: 50%;
+            transform: translateX(-50%) translateY(3px);
+            white-space: nowrap;
+            background: #1e2430;
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 500;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            padding: 5px 9px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.14s ease, transform 0.14s ease;
+            z-index: 20;
+        }
+        &[data-tip]::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 2px);
+            left: 50%;
+            transform: translateX(-50%) translateY(3px);
+            border: 5px solid transparent;
+            border-top-color: #1e2430;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.14s ease, transform 0.14s ease;
+            z-index: 20;
+        }
+        &:hover[data-tip]::after,
+        &.is-copied[data-tip]::after {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        &:hover[data-tip]::before,
+        &.is-copied[data-tip]::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+    }
+    /* Location + rating/count line under the title — mirrors the search list item. */
+    .ep-gr-place-address {
+        display: block;
+        font-size: 12px;
+        color: $gr-muted;
+        line-height: 1.4;
+    }
+    .ep-gr-place-cell-body .ep-gr-suggestion-meta {
+        margin-top: 0;
+        font-size: 12px;
+    }
+    /* spacing handled by the flex `gap` on .ep-gr-col-actions */
+    .ep-gr-muted {
+        color: #aab2c8;
+    }
+    .ep-gr-rating {
+        font-weight: 600;
+        color: #c77700;
+    }
+    .ep-gr-fetched-at {
+        font-size: 12px;
+        color: #7f8bb2;
+    }
+
+    .ep-gr-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: #eef0f3;
+        color: #50575e;
+        white-space: nowrap;
+
+        &--pro {
+            background: #efe9ff;
+            color: $gr-accent;
+        }
+        &--running {
+            background: #ece8ff; // cool purple "in-progress" (was warm yellow)
+            color: $gr-accent;      // matches the live count colour
+        }
+        &--error {
+            background: #fde8e8;
+            color: #c0392b;
+        }
+    }
+    .ep-gr-spinner {
+        width: 11px;
+        height: 11px;
+        border: 2px solid rgba(98, 67, 240, 0.3);
+        border-top-color: $gr-accent;
+        border-radius: 50%;
+        animation: ep-gr-spin 0.7s linear infinite;
+    }
+}
+@keyframes ep-gr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+/* Status column gets a fixed min-width wide enough for the longest running
+   message ("Opening Google Maps…") so swapping warm-up phrases never resizes
+   the column or shifts the table. The count is NOT shown here (it lives in the
+   Reviews column), so this stays compact. */
+.ep-gr-col-status {
+    min-width: 190px;
+}
+.ep-gr-running-text {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* Inline spinner used inside a small button (Refetch while job is starting).
+   Sized + tinted outside the parent-scoped pill rules; inherits the button's
+   text color so it reads on any button variant. */
+.button.is-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    .ep-gr-spinner {
+        width: 11px;
+        height: 11px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        opacity: 0.75;
+        animation: ep-gr-spin 0.7s linear infinite;
+    }
+}
+
+/* ── Connect-a-provider: segmented toggle + connect row ──────────────────── */
+
+/* Segmented provider toggle (Google | Apify) */
+.ep-gr-seg {
+    display: inline-flex;
+    background: #eef0f6;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+    margin: 0 0 4px;
+
+    button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        color: $gr-muted;
+        padding: 8px 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        transition:
+            background 0.15s ease,
+            color 0.15s ease,
+            box-shadow 0.15s ease;
+
+        .ep-gr-seg-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        &.is-active {
+            background: #fff;
+            color: $gr-accent;
+            box-shadow: 0 1px 2px rgba(37, 57, 111, 0.1);
+            .ep-gr-seg-dot {
+                opacity: 1;
+            }
+        }
+    }
+}
+
+/* Provider summary / help line under the toggle */
+.ep-gr-prov-sum {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: $gr-muted;
+    margin: 8px 0 14px;
+    max-width: 640px;
+
+    strong {
+        color: $gr-heading;
+        font-weight: 600;
+    }
+    code {
+        background: $gr-info-bg;
+        color: $gr-accent;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11.5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    a {
+        color: $gr-accent;
+        text-decoration: none;
+        font-weight: 500;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+/* Connect row: key input + Connect button on one line */
+.ep-gr-connect-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    max-width: 620px;
+
+    input[type="text"] {
+        flex: 1;
+        border: 1px solid $gr-border;
+        border-radius: $gr-radius-sm;
+        padding: 9px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        background: $gr-input-bg;
+        color: $gr-text;
+        min-height: 38px;
+        transition:
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+
+        &:focus {
+            border-color: $gr-accent;
+            box-shadow: $gr-focus-shadow;
+            outline: none;
+        }
+    }
+    .button {
+        flex-shrink: 0;
+    }
+}
+
+/* Per-provider row — Google and Apify are configured INDEPENDENTLY.
+   Stacked card-style rows; each has its own connect/disconnect controls. */
+.ep-gr-prov-row {
+    padding: 14px 16px;
+    border: 1px solid $gr-border-soft;
+    border-radius: $gr-radius-sm;
+    background: #fff;
+    margin-bottom: 10px;
+
+    &:last-of-type { margin-bottom: 0; }
+
+    &.is-connected {
+        background: #fafdfb;
+        border-color: rgba(21, 128, 61, 0.25);
+    }
+    // Used when only a single provider row is rendered — strips the inner
+    // card chrome so it sits flat inside the outer ep-gr-card. Avoids the
+    // "card inside a card" look that reads as extra noise.
+    &--flat {
+        padding: 0;
+        border: 0;
+        background: transparent;
+
+        &.is-connected { background: transparent; }
+    }
+
+    .ep-gr-prov-row-head {
+        margin-bottom: 10px;
+    }
+    .ep-gr-prov-row-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+
+        strong {
+            font-size: 14px;
+            font-weight: 600;
+            color: $gr-heading;
+        }
+    }
+    .ep-gr-prov-row-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: $gr-accent;
+        background: rgba(91, 78, 150, 0.1);
+        padding: 2px 8px;
+        border-radius: 999px;
+    }
+    .ep-gr-prov-row-help {
+        margin: 0;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: $gr-muted;
+
+        a { color: $gr-accent; }
+        code {
+            background: rgba(91, 78, 150, 0.08);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 11.5px;
+        }
+    }
+}
+
+/* Advanced disclosure (cache settings) */
+.ep-gr-advanced {
+    margin-top: 18px;
+    border-top: 1px solid $gr-divider;
+    padding-top: 16px;
+
+    .ep-gr-advanced-body {
+        padding: 16px 18px;
+        background: #fafbfd;
+        border: 1px solid $gr-border-soft;
+        border-radius: $gr-radius;
+    }
+    .ep-gr-advanced-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .ep-gr-advanced-control {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: $gr-muted;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+    }
+    .ep-gr-advanced-inline {
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+
+        select {
+            border: 1px solid $gr-border;
+            border-radius: $gr-radius-sm;
+            padding: 0 34px 0 13px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 500;
+            color: $gr-text;
+            background: #fff;
+            min-width: 130px;
+            min-height: 0;
+            line-height: 1.4;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: $gr-select-chevron;
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+            background-size: 14px;
+            height: 38px;
+
+            &:focus {
+                border-color: $gr-accent;
+                box-shadow: $gr-focus-shadow;
+                outline: none;
+            }
+        }
+        button.button {
+            min-height: 0;
+            padding: 0 18px;
+            height: 38px;
+        }
+    }
+    .ep-gr-clear-cache.button {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 0;
+        height: 38px;
+        padding: 0 16px;
+
+        svg {
+            opacity: 0.8;
+        }
+        &:hover:not(:disabled) {
+            color: $gr-error;
+            border-color: #e8a9a9;
+            background: #fef4f4;
+        }
+    }
+    .ep-gr-advanced-hint {
+        margin: 12px 0 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: $gr-muted;
+    }
+}
+
+/* No card-body override — .ep-gr-status is a fixed-position viewport toast,
+   not an inline status line. The toast styles above are the single source. */
+
+.ep-gr-connected {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 15px;
+    background: linear-gradient(180deg, #f3faf5 0%, #ecf7f0 100%);
+    border: 1px solid #cde9d6;
+    border-radius: $gr-radius;
+    max-width: 620px;
+
+    button.button {
+        flex-shrink: 0;
+        height: 36px;
+        min-height: 36px;
+        padding: 0 16px;
+        background: #fff;
+
+        &:hover:not(:disabled) {
+            color: $gr-error;
+            border-color: #e8a9a9;
+            background: #fef4f4;
+        }
+    }
+}
+.ep-gr-connected-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: #fff;
+    background: $gr-success;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(21, 128, 61, 0.35);
+
+    svg {
+        display: block;
+    }
+}
+.ep-gr-connected-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.ep-gr-connected-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #14692f;
+    line-height: 1.2;
+}
+.ep-gr-connected-key {
+    display: block;
+    font-size: 11.5px;
+    color: #557a64;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: none;
+    padding: 0;
+}
+
+/* ── EmbedPress API connect card ────────────────────────────────────────
+   Vertical layout (header + body) matching the rest of the page, but
+   tighter padding so it doesn't dominate the screen. The CTA in the body
+   is a prominent primary button with a secondary "What we send" link
+   beside it. */
+.ep-gr-card--api {
+    .ep-gr-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    // CTA row — primary action + secondary "What we send" link, aligned
+    // baseline so they read as one related pair.
+    .ep-gr-api-cta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+    // Compact connected state — site_id + Disconnect on one line.
+    .ep-gr-api-status {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        background: $gr-info-bg;
+        border: 1px solid $gr-border;
+        border-radius: $gr-radius-sm;
+    }
+    .ep-gr-api-status-meta {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+    }
+    .ep-gr-api-status-label {
+        color: $gr-muted;
+        font-weight: 500;
+    }
+    .ep-gr-api-status-val {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        background: #fff;
+        border: 1px solid $gr-border;
+        padding: 1px 7px;
+        border-radius: 4px;
+        color: $gr-heading;
+    }
+    // Link-styled "What we send" toggle.
+    .ep-gr-linklike {
+        appearance: none;
+        background: none;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        font-size: 12.5px;
+        color: $gr-accent;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        cursor: pointer;
+
+        &:hover { text-decoration: none; }
+        &:focus-visible {
+            outline: 2px solid $gr-accent;
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+    }
+    // "What we send" disclosure rows — compact, scannable, no flashy chrome.
+    .ep-gr-send-list {
+        list-style: none;
+        margin: 0;
+        padding: 12px 14px;
+        background: $gr-info-bg;
+        border: 1px solid $gr-border;
+        border-radius: $gr-radius-sm;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        li {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 12.5px;
+            margin: 0;
+            flex-wrap: wrap;
+        }
+    }
+    .ep-gr-send-key {
+        flex: 0 0 130px;
+        color: $gr-muted;
+        font-weight: 500;
+    }
+    .ep-gr-send-val {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        color: $gr-heading;
+        background: #fff;
+        border: 1px solid $gr-border;
+        padding: 1px 7px;
+        border-radius: 4px;
+        word-break: break-all;
+        min-width: 0;
+        max-width: 100%;
+    }
+    .ep-gr-send-note {
+        flex: 1 1 100%;
+        margin-left: 138px;
+        color: $gr-muted;
+        font-size: 11.5px;
+        font-style: italic;
+    }
+}
+
+/* ── Shortcode icon button (Places table action) ────────────────────────── */
+.ep-gr-app .ep-gr-icon-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid $gr-border;
+    border-radius: $gr-radius-sm;
+    background: #fff;
+    color: $gr-accent;
+    cursor: pointer;
+    vertical-align: middle;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        color 0.15s ease;
+
+    &:hover:not(:disabled) {
+        border-color: $gr-accent;
+        background: #f6f5fc;
+    }
+    &:focus {
+        outline: none;
+        box-shadow: $gr-focus-shadow;
+    }
+    &:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    svg {
+        display: block;
+    }
+}
+
+/* Match the Refresh / Remove buttons to the 30px icon button height so the
+   row's action group lines up. (Overrides the global 38px button min-height.) */
+.ep-gr-app .ep-gr-col-actions button.button {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 12px;
+    line-height: 1;
+}
+
+/* ── Shortcode modal ────────────────────────────────────────────────────── */
+.ep-gr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000; /* above WP admin bar */
+    background: rgba(20, 28, 56, 0.55);
+    display: flex;
+    align-items: center; // center the capped dialog
+    justify-content: center;
+    padding: 32px 20px;
+    overflow: hidden; // dialog body scrolls, not the overlay
+    font-family:
+        "DM Sans",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
+    animation: ep-gr-fade-in 0.15s ease;
+
+    @media screen and (max-width: 782px) {
+        padding: 16px 12px; // clear the mobile admin bar
+    }
+}
+@keyframes ep-gr-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.ep-gr-modal {
+    background: #fff;
+    border-radius: $gr-radius;
+    width: 100%;
+    max-width: 900px;
+    max-height: calc(100vh - 64px); // never taller than the viewport
+    display: flex;
+    flex-direction: column; // fixed header + scrollable body
+    box-shadow: 0 24px 64px rgba(20, 28, 56, 0.3);
+    overflow: hidden;
+    color: $gr-text;
+    animation: ep-gr-modal-rise 0.18s ease;
+
+    @media screen and (max-width: 782px) {
+        max-height: calc(100vh - 32px);
+    }
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+}
+@keyframes ep-gr-modal-rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ep-gr-modal-header {
+    flex-shrink: 0; // stays pinned while the body scrolls
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px;
+    border-bottom: 1px solid $gr-divider;
+
+    .ep-gr-modal-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+    .ep-gr-modal-title-icon {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: $gr-radius-sm;
+        background: rgba(91, 78, 150, 0.1);
+        color: $gr-accent;
+    }
+    .ep-gr-modal-title h2 {
+        font-size: 17px;
+        font-weight: 600;
+        line-height: 1.2;
+        color: $gr-heading;
+        margin: 0 0 3px;
+        padding: 0;
+    }
+    .ep-gr-modal-title p {
+        font-size: 13px;
+        color: $gr-muted;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 520px;
+    }
+}
+
+.ep-gr-modal-close {
+    appearance: none;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: $gr-radius-sm;
+    background: #f3f4f8;
+    color: $gr-muted;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+
+    &:hover {
+        background: #e7e9f0;
+        color: $gr-heading;
+    }
+    &:focus {
+        outline: none;
+        box-shadow: $gr-focus-shadow;
+    }
+}
+
+.ep-gr-modal-body {
+    flex: 1;
+    min-height: 0; // allow the flex child to shrink…
+    overflow-y: auto; // …and scroll its overflow
+    overscroll-behavior: contain;
+    padding: 16px 20px 20px;
+
+    /* Compact dialog: subtle filled card with icon offset on the left. */
+    .ep-gr-callout {
+        margin: 0 0 14px;
+        padding: 10px 14px 10px 30px;
+        font-size: 12px;
+        line-height: 1.45;
+        background: #f5f6fa;
+        border: 1px solid #eef0f6;
+        border-radius: 8px;
+
+        &::before {
+            left: 12px;
+            top: 12px;
+        }
+    }
+
+    /* Single-column inside the modal: controls on top, preview full-width below.
+       A side-by-side split squeezed the preview to ~400px, where multi-column
+       Pro layouts + the carousel render too narrow (stars/date overlap). Giving
+       the preview the full dialog width (~820px) makes every layout render at a
+       realistic embed size. The control fields stay compact via their own
+       internal --two / --three rows. */
+    .ep-gr-split {
+        grid-template-columns: 1fr;
+        margin-top: 14px;
+        padding-top: 0;
+        border-top: 0;
+        gap: 22px;
+    }
+
+    .ep-gr-split-pane h3 {
+        margin-bottom: 8px;
+    }
+    .ep-gr-split-pane h3.ep-gr-h3-spaced {
+        margin-top: 14px;
+    }
+
+    /* Denser fields/rows inside the dialog. */
+    .ep-gr-field {
+        margin-bottom: 10px;
+        gap: 4px;
+    }
+    .ep-gr-field label {
+        font-size: 12px;
+    }
+    .ep-gr-field input[type="text"],
+    .ep-gr-field select {
+        min-height: 34px;
+        padding: 6px 11px;
+        font-size: 13px;
+    }
+    .ep-gr-field select {
+        padding-right: 30px;
+        height: 34px;
+    }
+    .ep-gr-row {
+        gap: 12px;
+    }
+    .ep-gr-toggles {
+        gap: 12px;
+        margin-bottom: 4px;
+        legend {
+            margin-bottom: 7px;
+            font-size: 12px;
+        }
+    }
+    .ep-gr-chips {
+        gap: 6px;
+        .ep-gr-chip {
+            padding: 4px 10px;
+            font-size: 11.5px;
+        }
+    }
+
+    /* Keep the three display selects on one row inside the modal until it
+       actually goes single-column (the global 1200px breakpoint targets the
+       full-width card, not this 900px dialog). */
+    .ep-gr-row--three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .ep-gr-row--two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media screen and (max-width: 680px) {
+        .ep-gr-split {
+            grid-template-columns: 1fr;
+        }
+        .ep-gr-row--three,
+        .ep-gr-row--two {
+            grid-template-columns: 1fr;
+        }
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Shortcode generator — free/Pro control set (mirrors the Gutenberg block)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* A second sub-heading inside a pane, spaced from the control above it. */
+.ep-gr-split-pane h3.ep-gr-h3-spaced {
+    margin-top: 14px;
+}
+
+/* Layout tile picker — compact icon+label chips (matches the block's
+ * LayoutPicker but denser, sized for the dialog). */
+.ep-gr-layout-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 2px;
+}
+.ep-gr-app .ep-gr-layout-tile {
+    position: relative;
+    appearance: none;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid $gr-border;
+    border-radius: 7px;
+    color: $gr-muted;
+    cursor: pointer;
+    font-family: inherit;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease;
+
+    .ep-gr-layout-tile-icon {
+        display: inline-flex;
+        flex-shrink: 0;
+        color: inherit;
+        svg {
+            width: 15px;
+            height: 15px;
+        }
+    }
+    .ep-gr-layout-tile-label {
+        font-size: 11.5px;
+        font-weight: 600;
+        line-height: 1.15;
+        text-align: left;
+        color: inherit;
+        white-space: nowrap;
+    }
+
+    &:hover:not(:disabled) {
+        border-color: $gr-accent;
+        color: $gr-accent;
+        background: #faf9ff;
+    }
+    &.is-active {
+        border-color: $gr-accent;
+        background: #f4f2fc;
+        color: $gr-accent;
+        box-shadow: inset 0 0 0 1px $gr-accent;
+    }
+    &.is-locked {
+        opacity: 0.72;
+        cursor: pointer; // clicking opens upgrade
+        background: #fbfbfd;
+        padding-right: 18px; // room for the corner crown
+
+        .ep-gr-layout-tile-label,
+        .ep-gr-layout-tile-icon {
+            color: $gr-muted;
+        }
+        &:hover {
+            border-color: #e0c98a;
+            background: #fffdf6;
+        }
+    }
+    .ep-gr-tile-crown {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* Plain section divider (shown when Pro is active — no crown/upsell). */
+.ep-gr-section-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0 12px;
+
+    span {
+        font-size: 11.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: $gr-muted;
+        white-space: nowrap;
+    }
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: $gr-divider;
+    }
+}
+
+/* Pro features divider + note */
+.ep-gr-pro-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 10px;
+    color: #8a6d00;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+
+    span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        background: linear-gradient(180deg, #fff6e0 0%, #fdeec6 100%);
+        border: 1px solid #f0d99a;
+        border-radius: 999px;
+        white-space: nowrap;
+
+        svg {
+            color: #d9a514;
+        }
+    }
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: $gr-divider;
+    }
+}
+.ep-gr-pro-divider-note {
+    margin: -4px 0 12px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: $gr-muted;
+
+    a {
+        color: $gr-accent;
+        text-decoration: none;
+        font-weight: 600;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+/* ProLock — greyed, non-interactive control with a crown badge overlay. */
+.ep-gr-prolock {
+    position: relative;
+    border-radius: $gr-radius-sm;
+    cursor: pointer;
+
+    .ep-gr-prolock-inner {
+        opacity: 0.55;
+        filter: grayscale(0.35);
+        pointer-events: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    // One crown badge pinned to the top-right of the whole Pro region.
+    .ep-gr-prolock-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #8a6d00;
+        background: linear-gradient(180deg, #fff6e0 0%, #fdeec6 100%);
+        border: 1px solid #f0d99a;
+        padding: 2px 7px;
+        border-radius: 999px;
+        box-shadow: 0 1px 2px rgba(138, 109, 0, 0.18);
+
+        svg {
+            color: #d9a514;
+        }
+    }
+    &:hover .ep-gr-prolock-inner {
+        opacity: 0.6;
+    }
+    &:focus {
+        outline: none;
+        box-shadow: $gr-focus-shadow;
+    }
+}
+
+/* When the WHOLE Pro region is locked as one block, give it a soft tinted
+   frame so it reads as a single grouped, upgrade-gated area. */
+.ep-gr-split-pane > .ep-gr-prolock {
+    margin: 0 0 14px;
+    padding: 14px 14px 4px;
+    background: #fcfbf7;
+    border: 1px solid #f0e6cf;
+    border-radius: $gr-radius-sm;
+}
+
+/* Accent color swatch row (Pro) */
+.ep-gr-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.ep-gr-app .ep-gr-swatch {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px $gr-border;
+    cursor: pointer;
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
+
+    &:hover {
+        transform: scale(1.08);
+    }
+    &.is-active {
+        box-shadow: 0 0 0 2px $gr-accent;
+    }
+    &.ep-gr-swatch--none {
+        background: linear-gradient(45deg, transparent 45%, #e0364f 45%, #e0364f 55%, transparent 55%), #fff;
+    }
+}
+
+/* Pill switch toggles for Pro booleans */
+.ep-gr-pro-toggles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+    margin: 15px 0 4px;
+
+    @media screen and (max-width: 680px) {
+        grid-template-columns: 1fr;
+    }
+}
+.ep-gr-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: $gr-heading;
+    cursor: pointer;
+    line-height: 1.3;
+
+    input[type="checkbox"] {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .ep-gr-switch-track {
+        position: relative;
+        flex-shrink: 0;
+        width: 30px;
+        height: 17px;
+        border-radius: 999px;
+        background: #cdd3e3;
+        transition: background 0.15s ease;
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            transition: transform 0.15s ease;
+        }
+    }
+    &.is-on .ep-gr-switch-track {
+        background: $gr-accent;
+        &::after {
+            transform: translateX(13px);
+        }
+    }
+}

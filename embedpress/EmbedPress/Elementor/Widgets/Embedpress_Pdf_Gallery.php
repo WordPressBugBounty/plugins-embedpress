@@ -786,14 +786,14 @@ class Embedpress_Pdf_Gallery extends Widget_Base
 
         $params = [
             'themeMode' => $theme_mode,
-            'toolbar' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? (!empty($settings['pdf_toolbar']) ? 'true' : 'false') : 'true',
+            'toolbar' => 'true',
             'position' => !empty($settings['toolbar_position']) ? $settings['toolbar_position'] : 'top',
             'flipbook_toolbar_position' => !empty($settings['toolbar_position']) ? $settings['toolbar_position'] : 'bottom',
             'presentation' => !empty($settings['presentation']) ? 'true' : 'false',
-            'download' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? (!empty($settings['download']) ? 'true' : 'false') : 'true',
-            'copy_text' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? (!empty($settings['copy_text']) ? 'true' : 'false') : 'true',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => !empty($settings['add_text']) ? 'true' : 'false',
-            'draw' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? (!empty($settings['draw']) ? 'true' : 'false') : 'true',
+            'draw' => 'true',
             'doc_rotation' => !empty($settings['doc_rotation']) ? 'true' : 'false',
             'doc_details' => !empty($settings['doc_details']) ? 'true' : 'false',
             'add_image' => !empty($settings['add_image']) ? 'true' : 'false',
@@ -801,15 +801,19 @@ class Embedpress_Pdf_Gallery extends Widget_Base
             'zoom_out' => !empty($settings['zoom_out']) ? 'true' : 'false',
             'fit_view' => !empty($settings['fit_view']) ? 'true' : 'false',
             'bookmark' => !empty($settings['bookmark']) ? 'true' : 'false',
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['flipbook_rtl']) && $settings['flipbook_rtl'] === 'yes' ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => !empty($settings['flipbook_highlight_links']) && $settings['flipbook_highlight_links'] === 'yes' ? 'true' : 'false',
             'flipbook_highlight_color' => !empty($settings['flipbook_highlight_color']) ? esc_attr($settings['flipbook_highlight_color']) : '',
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['watermark_text']) ? $settings['watermark_text'] : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['watermark_font_size']) ? $settings['watermark_font_size'] : '48',
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['watermark_color']) ? Helper::get_elementor_global_color($settings, 'watermark_color') : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($settings['watermark_opacity']) ? $settings['watermark_opacity'] : '15',
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['watermark_style']) ? $settings['watermark_style'] : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => '48',
+            'watermark_color' => '#000000',
+            'watermark_opacity' => '15',
+            'watermark_style' => 'center',
         ];
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $params = Helper::pdf_viewer_params($params, $settings, 'elementor_gallery');
+        $params['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($params);
 
         if ($theme_mode === 'custom') {
             $params['customColor'] = !empty($settings['custom_color']) ? Helper::get_elementor_global_color($settings, 'custom_color') : '#403A81';
@@ -849,10 +853,8 @@ class Embedpress_Pdf_Gallery extends Widget_Base
 
         $layout = !empty($settings['layout']) ? esc_attr($settings['layout']) : 'grid';
 
-        // Pro gate: bookshelf requires Pro
-        if (($layout === 'bookshelf' || $layout === 'carousel') && !defined('EMBEDPRESS_SL_ITEM_SLUG')) {
-            $layout = 'grid';
-        }
+        // Unknown layouts render as the default grid.
+        $layout = Helper::pdf_gallery_layout($layout);
 
         $columns = !empty($settings['columns']) ? intval($settings['columns']) : 3;
         $columns_tablet = !empty($settings['columns_tablet']) ? intval($settings['columns_tablet']) : 2;
@@ -865,17 +867,7 @@ class Embedpress_Pdf_Gallery extends Widget_Base
         $viewer_params = $this->getParamData($settings);
         $gallery_id = 'ep-gallery-' . $this->get_id();
 
-        $carousel_options = '';
-        if ($layout === 'carousel' || $layout === 'bookshelf') {
-            $carousel_options = wp_json_encode([
-                'autoplay' => !empty($settings['carousel_autoplay']),
-                'autoplaySpeed' => !empty($settings['carousel_speed']) ? intval($settings['carousel_speed']) : 3000,
-                'loop' => $settings['carousel_loop'] !== '',
-                'arrows' => $settings['carousel_arrows'] !== '',
-                'dots' => !empty($settings['carousel_dots']),
-                'slidesPerView' => !empty($settings['slides_per_view']) ? intval($settings['slides_per_view']) : 3,
-            ]);
-        }
+        $layout_markup = Helper::pdf_gallery_layout_markup($layout, $settings, 'elementor_gallery');
 
         // Play button settings
         $show_play_btn = !empty($settings['show_play_button']) && $settings['show_play_button'] === 'yes';
@@ -924,15 +916,10 @@ class Embedpress_Pdf_Gallery extends Widget_Base
              data-viewer-style="<?php echo $viewer_style; ?>"
              data-viewer-params="<?php echo esc_attr($viewer_params); ?>"
              data-gallery-id="<?php echo esc_attr($gallery_id); ?>"
-             <?php if ($carousel_options): ?>data-carousel-options="<?php echo esc_attr($carousel_options); ?>"<?php endif; ?>
+             <?php echo $layout_markup['attributes']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the filter callback ?>
              style="<?php echo esc_attr($style); ?>">
 
-            <?php if ($layout === 'carousel' || $layout === 'bookshelf'): ?>
-            <div class="ep-pdf-gallery__carousel">
-                <div class="ep-pdf-gallery__carousel-track">
-            <?php else: ?>
-            <div class="ep-pdf-gallery__grid">
-            <?php endif; ?>
+            <?php echo $layout_markup['open']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
                 <?php foreach ($pdf_items as $index => $item):
                     $pdf_url = !empty($item['url']) ? esc_url($item['url']) : '';
@@ -966,19 +953,7 @@ class Embedpress_Pdf_Gallery extends Widget_Base
                 </div>
                 <?php endforeach; ?>
 
-            <?php if ($layout === 'carousel' || $layout === 'bookshelf'): ?>
-                </div>
-                <button class="ep-pdf-gallery__carousel-prev" aria-label="Previous">
-                    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                </button>
-                <button class="ep-pdf-gallery__carousel-next" aria-label="Next">
-                    <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-                </button>
-                <div class="ep-pdf-gallery__carousel-dots"></div>
-            </div>
-            <?php else: ?>
-            </div>
-            <?php endif; ?>
+            <?php echo $layout_markup['close']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
         <?php
     }

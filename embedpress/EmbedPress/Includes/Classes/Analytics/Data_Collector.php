@@ -3,7 +3,6 @@
 namespace EmbedPress\Includes\Classes\Analytics;
 
 use EmbedPress\Includes\Classes\Database\Analytics_Schema;
-use EmbedPress\Includes\Classes\Analytics\License_Manager;
 
 defined('ABSPATH') or die("No direct script access allowed.");
 
@@ -20,7 +19,6 @@ defined('ABSPATH') or die("No direct script access allowed.");
  */
 class Data_Collector
 {
-    private $license_manager;
     private $pro_collector;
 
     private static $view_count_cache = [];
@@ -29,12 +27,47 @@ class Data_Collector
 
     private static $download_count_cache = [];
 
+    /**
+     * Whether the Pro collector has been resolved yet. Distinct from
+     * `$pro_collector === null`, which is also the "resolved to nothing"
+     * state on a free install.
+     *
+     * @var bool
+     */
+    private $pro_collector_resolved = false;
+
     public function __construct()
     {
-        $this->license_manager = new License_Manager();
-        if ($this->license_manager->has_pro_license()) {
-            $this->pro_collector = new Pro_Data_Collector();
+    }
+
+    /**
+     * Resolve the Pro analytics collector, if any.
+     *
+     * Pro supplies the implementation by hooking
+     * `embedpress/analytics/pro_collector`; free ships no collector of its
+     * own, so this returns null on a free install and every Pro-only branch
+     * degrades to its free behaviour.
+     *
+     * Resolution is DEFERRED rather than done in the constructor: free
+     * instantiates the analytics stack from embedpress.php at file scope,
+     * which runs before `plugins_loaded` — and therefore before Pro's
+     * Bootstrap has had a chance to register anything. Resolving on first
+     * use instead means Pro is fully booted by the time we ask.
+     *
+     * @return object|null
+     */
+    private function get_pro_collector()
+    {
+        if (!$this->pro_collector_resolved) {
+            $this->pro_collector_resolved = true;
+
+            // No licence check here: whether Pro answered the filter is the
+            // only switch free uses.
+            $collector = apply_filters('embedpress/analytics/pro_collector', null);
+            $this->pro_collector = is_object($collector) ? $collector : null;
         }
+
+        return $this->pro_collector;
     }
 
     /**
@@ -1070,35 +1103,28 @@ class Data_Collector
     }
 
     /**
-     * Get geo data (country and city) from IP address
+     * Get the visitor's country (name) and city.
      *
-     * @return array
+     * Delegates to Geolocation, which reads trusted CDN/proxy headers first and
+     * only sends the visitor IP to a third-party service (HTTPS) when the site
+     * owner has opted in. Returns nulls when the location is unknown.
+     *
+     * @return array{country: string|null, city: string|null}
      */
-    private function get_geo_data_from_ip()
+    public function get_geo_data_from_ip()
     {
-        $ip = $this->get_user_ip();
+        $geo = Geolocation::resolve(Geolocation::PURPOSE_ANALYTICS);
 
-        if (empty($ip) || $ip === '127.0.0.1' || strpos($ip, '192.168.') === 0 || strpos($ip, '10.') === 0) {
+        if ($geo['country_code'] === '') {
             return ['country' => null, 'city' => null];
         }
 
-        // Check cache first
-        $cache_key = 'embedpress_geo_' . md5($ip);
-        $cached_data = get_transient($cache_key);
+        $country = $this->get_country_name_from_code($geo['country_code']);
 
-        if ($cached_data !== false) {
-            return $cached_data;
-        }
-
-        // Try to get geo data from IP using free API
-        $geo_data = $this->fetch_geo_data_from_api($ip);
-
-
-
-        // Cache the result for 24 hours
-        set_transient($cache_key, $geo_data, DAY_IN_SECONDS);
-
-        return $geo_data;
+        return [
+            'country' => $country ?: $geo['country_code'],
+            'city' => $geo['city'] !== '' ? $geo['city'] : null,
+        ];
     }
 
     /**
@@ -1110,105 +1136,6 @@ class Data_Collector
     {
         $geo_data = $this->get_geo_data_from_ip();
         return $geo_data['country'];
-    }
-
-    /**
-     * Fetch geo data (country and city) from geo-location API
-     *
-     * @param string $ip
-     * @return array
-     */
-    private function fetch_geo_data_from_api($ip)
-    {
-        // Try multiple free geo-location services
-        $services = [
-            'ip-api.com' => "http://ip-api.com/json/{$ip}?fields=country,city",
-            'ipapi.co' => "https://ipapi.co/{$ip}/json/",
-            'ipinfo.io' => "https://ipinfo.io/{$ip}/json"
-        ];
-
-        foreach ($services as $service_name => $url) {
-
-
-            $response = wp_remote_get($url, [
-                'timeout' => 10,
-                'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'headers' => [
-                    'Accept' => 'application/json',
-                    'Accept-Language' => 'en-US,en;q=0.9',
-                    'Accept-Encoding' => 'gzip, deflate',
-                    'Connection' => 'keep-alive',
-                    'Upgrade-Insecure-Requests' => '1'
-                ]
-            ]);
-
-            if (is_wp_error($response)) {
-                // Log the error for debugging Firefox issues
-                error_log("EmbedPress Geo API Error for {$service_name}: " . $response->get_error_message());
-                continue;
-            }
-
-            $body = wp_remote_retrieve_body($response);
-
-            if (empty($body)) {
-                error_log("EmbedPress Geo API: Empty response from {$service_name}");
-                continue;
-            }
-
-            $country = null;
-            $city = null;
-
-            $data = json_decode($body, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log("EmbedPress Geo API: JSON decode error for {$service_name}: " . json_last_error_msg());
-                continue;
-            }
-
-            switch ($service_name) {
-                case 'ip-api.com':
-                    if (isset($data['country']) && !empty($data['country']) && $data['country'] !== 'Unknown') {
-                        $country = $data['country'];
-                    }
-                    if (isset($data['city']) && !empty($data['city']) && $data['city'] !== 'Unknown') {
-                        $city = $data['city'];
-                    }
-                    break;
-
-                case 'ipapi.co':
-                    if (isset($data['country_name']) && !empty($data['country_name']) &&
-                        $data['country_name'] !== 'Undefined' && $data['country_name'] !== 'Unknown') {
-                        $country = $data['country_name'];
-                    }
-                    if (isset($data['city']) && !empty($data['city']) &&
-                        $data['city'] !== 'Undefined' && $data['city'] !== 'Unknown') {
-                        $city = $data['city'];
-                    }
-                    break;
-
-                case 'ipinfo.io':
-                    if (isset($data['country']) && !empty($data['country']) && $data['country'] !== 'Unknown') {
-                        if (strlen($data['country']) === 2) {
-                            // Convert country code to country name
-                            $country = $this->get_country_name_from_code($data['country']);
-                        } else {
-                            $country = $data['country'];
-                        }
-                    }
-                    if (isset($data['city']) && !empty($data['city']) && $data['city'] !== 'Unknown') {
-                        $city = $data['city'];
-                    }
-                    break;
-            }
-
-            if (!empty($country) && $country !== 'Unknown') {
-                return [
-                    'country' => $country,
-                    'city' => $city
-                ];
-            }
-        }
-
-        return ['country' => null, 'city' => null];
     }
 
     /**
@@ -1653,8 +1580,9 @@ class Data_Collector
 
         // For pro users, get detailed content analytics
         $top_content = [];
-        if ($this->license_manager->has_pro_license() && $this->pro_collector) {
-            $top_content = $this->pro_collector->get_detailed_content_analytics($args);
+        $pro_collector = $this->get_pro_collector();
+        if ($pro_collector) {
+            $top_content = $pro_collector->get_detailed_content_analytics($args);
         }
 
         return [
@@ -1802,136 +1730,6 @@ class Data_Collector
     }
 
     /**
-     * Get unique viewers per embed (Pro feature)
-     *
-     * @param array $args
-     * @return array
-     */
-    public function get_unique_viewers_per_embed($args = [])
-    {
-        // Check if pro feature is available
-        if (!License_Manager::has_analytics_feature('unique_viewers_per_embed')) {
-            return [];
-        }
-
-        global $wpdb;
-
-        $views_table = $wpdb->prefix . 'embedpress_analytics_views';
-        $content_table = $wpdb->prefix . 'embedpress_analytics_content';
-        $date_condition = $this->build_date_condition($args, 'v.created_at');
-
-        $results = $wpdb->get_results(
-            "SELECT
-                c.content_id,
-                c.title,
-                c.embed_type,
-                COUNT(DISTINCT v.session_id) as unique_viewers,
-                COUNT(CASE WHEN v.interaction_type = 'view' THEN v.id END) as total_views,
-                COUNT(CASE WHEN v.interaction_type = 'click' THEN v.id END) as total_clicks,
-                COUNT(CASE WHEN v.interaction_type = 'impression' THEN v.id END) as total_impressions
-             FROM $content_table c
-             LEFT JOIN $views_table v ON c.content_id = v.content_id
-             WHERE v.interaction_type IN ('view', 'click', 'impression')
-             $date_condition
-             GROUP BY c.content_id
-             ORDER BY unique_viewers DESC
-             LIMIT 20",
-            ARRAY_A
-        );
-
-        // Return only real data, no sample data
-
-        return $results;
-    }
-
-    /**
-     * Get geo-location analytics (Pro feature)
-     *
-     * @param array $args
-     * @return array
-     */
-    public function get_geo_analytics($args = [])
-    {
-        // Check if pro feature is available
-        if (!License_Manager::has_analytics_feature('geo_tracking')) {
-            return [];
-        }
-
-        global $wpdb;
-
-        $browser_table = $wpdb->prefix . 'embedpress_analytics_browser_info';
-        $views_table = $wpdb->prefix . 'embedpress_analytics_views';
-        $date_condition = $this->build_date_condition($args, 'v.created_at');
-
-        // Get country distribution
-        // Updated JOIN to handle new normalized user_id format in browser_info table
-        $countries = $wpdb->get_results(
-            "SELECT
-                COALESCE(b.country, 'Unknown') as country,
-                COUNT(DISTINCT v.session_id) as visitors,
-                COUNT(v.id) as total_interactions
-             FROM $browser_table b
-             INNER JOIN $views_table v ON (
-                b.user_id = CONCAT('user:', v.session_id) OR
-                b.user_id = CONCAT('guest:', v.session_id) OR
-                b.session_id = v.session_id
-             )
-             WHERE 1=1 $date_condition
-             GROUP BY b.country
-             ORDER BY visitors DESC
-             LIMIT 20",
-            ARRAY_A
-        );
-
-        // Get city distribution for top countries
-        // Updated JOIN to handle new normalized user_id format in browser_info table
-        $cities = $wpdb->get_results(
-            "SELECT
-                COALESCE(b.country, 'Unknown') as country,
-                COALESCE(b.city, 'Unknown') as city,
-                COUNT(DISTINCT v.session_id) as visitors
-             FROM $browser_table b
-             INNER JOIN $views_table v ON (
-                b.user_id = CONCAT('user:', v.session_id) OR
-                b.user_id = CONCAT('guest:', v.session_id) OR
-                b.session_id = v.session_id
-             )
-             WHERE 1=1 $date_condition
-             GROUP BY b.country, b.city
-             ORDER BY visitors DESC
-             LIMIT 50",
-            ARRAY_A
-        );
-
-
-        // If no real data, return sample data for testing
-        if (empty($countries)) {
-            $countries = [
-                ['country' => 'United States', 'visitors' => 150, 'total_interactions' => 320],
-                ['country' => 'United Kingdom', 'visitors' => 89, 'total_interactions' => 180],
-                ['country' => 'Canada', 'visitors' => 67, 'total_interactions' => 145],
-                ['country' => 'Germany', 'visitors' => 45, 'total_interactions' => 98],
-                ['country' => 'France', 'visitors' => 38, 'total_interactions' => 82]
-            ];
-        }
-
-        if (empty($cities)) {
-            $cities = [
-                ['country' => 'United States', 'city' => 'New York', 'visitors' => 45],
-                ['country' => 'United States', 'city' => 'Los Angeles', 'visitors' => 38],
-                ['country' => 'United Kingdom', 'city' => 'London', 'visitors' => 52],
-                ['country' => 'Canada', 'city' => 'Toronto', 'visitors' => 28],
-                ['country' => 'Germany', 'city' => 'Berlin', 'visitors' => 22]
-            ];
-        }
-
-        return [
-            'countries' => $countries,
-            'cities' => $cities
-        ];
-    }
-
-    /**
      * Get device analytics (Free version with basic data)
      *
      * @param array $args
@@ -1984,61 +1782,6 @@ class Data_Collector
             'devices' => $devices,
             'resolutions' => $resolutions
         ];
-    }
-
-    /**
-     * Get referral source analytics (Pro feature)
-     *
-     * @param array $args
-     * @return array
-     */
-    public function get_referral_analytics($args = [])
-    {
-        // Check if pro feature is available
-        if (!License_Manager::has_analytics_feature('referral_tracking')) {
-            return [];
-        }
-
-        global $wpdb;
-
-        $views_table = $wpdb->prefix . 'embedpress_analytics_views';
-        $date_condition = $this->build_date_condition($args, 'created_at');
-
-        $referrers = $wpdb->get_results(
-            "SELECT
-                CASE
-                    WHEN referrer_url IS NULL OR referrer_url = '' THEN 'Direct'
-                    WHEN referrer_url LIKE '%google.%' THEN 'Google'
-                    WHEN referrer_url LIKE '%facebook.%' THEN 'Facebook'
-                    WHEN referrer_url LIKE '%twitter.%' THEN 'Twitter'
-                    WHEN referrer_url LIKE '%linkedin.%' THEN 'LinkedIn'
-                    WHEN referrer_url LIKE '%youtube.%' THEN 'YouTube'
-                    ELSE SUBSTRING_INDEX(SUBSTRING_INDEX(referrer_url, '/', 3), '/', -1)
-                END as referrer_source,
-                COUNT(DISTINCT session_id) as visitors,
-                COUNT(*) as total_visits
-             FROM $views_table
-             WHERE interaction_type IN ('view', 'impression')
-             $date_condition
-             GROUP BY referrer_source
-             ORDER BY visitors DESC
-             LIMIT 20",
-            ARRAY_A
-        );
-
-        // If no real data, return sample data for testing
-        if (empty($referrers)) {
-            $referrers = [
-                ['referrer_source' => 'Direct', 'visitors' => 180, 'total_visits' => 320],
-                ['referrer_source' => 'Google', 'visitors' => 145, 'total_visits' => 280],
-                ['referrer_source' => 'Facebook', 'visitors' => 89, 'total_visits' => 165],
-                ['referrer_source' => 'Twitter', 'visitors' => 67, 'total_visits' => 125],
-                ['referrer_source' => 'LinkedIn', 'visitors' => 45, 'total_visits' => 85],
-                ['referrer_source' => 'YouTube', 'visitors' => 38, 'total_visits' => 72]
-            ];
-        }
-
-        return $referrers;
     }
 
     /**
@@ -2277,8 +2020,9 @@ class Data_Collector
         ];
 
         // Add pro features if available
-        if ($this->license_manager->has_pro_license() && $this->pro_collector) {
-            $pro_data = $this->pro_collector->get_pro_analytics_data($args);
+        $pro_collector = $this->get_pro_collector();
+        if ($pro_collector) {
+            $pro_data = $pro_collector->get_pro_analytics_data($args);
             $data = array_merge($data, $pro_data);
         }
 
@@ -2984,136 +2728,5 @@ class Data_Collector
         }
 
         return $referrer_url;
-    }
-
-    /**
-     * Get referrer analytics data
-     *
-     * @param array $args
-     * @return array
-     */
-    public function get_referrer_analytics($args = [])
-    {
-        global $wpdb;
-
-        $referrers_table = $wpdb->prefix . 'embedpress_analytics_referrers';
-
-        // Build date condition
-        $date_condition = $this->build_date_condition($args, 'created_at');
-
-        // Build order by clause
-        $order_by = isset($args['order_by']) ? sanitize_text_field($args['order_by']) : 'total_views';
-        $allowed_order_fields = ['total_views', 'total_clicks', 'unique_visitors', 'last_visit', 'created_at'];
-        if (!in_array($order_by, $allowed_order_fields)) {
-            $order_by = 'total_views';
-        }
-
-        // Build limit clause
-        $limit = isset($args['limit']) ? absint($args['limit']) : 50;
-        $limit = min($limit, 200); // Cap at 200 for performance
-
-        // Get referrer data
-        $referrers = $wpdb->get_results($wpdb->prepare(
-            "SELECT
-                id,
-                referrer_url,
-                referrer_domain,
-                referrer_source,
-                utm_source,
-                utm_medium,
-                utm_campaign,
-                utm_term,
-                utm_content,
-                total_views,
-                total_clicks,
-                unique_visitors,
-                first_visit,
-                last_visit,
-                created_at
-            FROM $referrers_table
-            WHERE 1=1 $date_condition
-            ORDER BY $order_by DESC, id DESC
-            LIMIT %d",
-            $limit
-        ), ARRAY_A);
-
-        // Calculate totals
-        $totals = $wpdb->get_row(
-            "SELECT
-                SUM(total_views) as total_views,
-                SUM(total_clicks) as total_clicks,
-                SUM(unique_visitors) as total_unique_visitors,
-                COUNT(*) as total_referrers
-            FROM $referrers_table
-            WHERE 1=1 $date_condition",
-            ARRAY_A
-        );
-
-        // Get top sources summary
-        $top_sources = $wpdb->get_results(
-            "SELECT
-                referrer_source,
-                SUM(total_views) as total_views,
-                SUM(total_clicks) as total_clicks,
-                SUM(unique_visitors) as total_unique_visitors,
-                COUNT(*) as referrer_count
-            FROM $referrers_table
-            WHERE 1=1 $date_condition
-            GROUP BY referrer_source
-            ORDER BY total_views DESC
-            LIMIT 10",
-            ARRAY_A
-        );
-
-        // Process referrers data
-        $processed_referrers = [];
-        foreach ($referrers as $referrer) {
-            $processed_referrers[] = [
-                'id' => intval($referrer['id']),
-                'referrer_url' => $referrer['referrer_url'],
-                'referrer_domain' => $referrer['referrer_domain'],
-                'referrer_source' => $referrer['referrer_source'],
-                'utm_source' => $referrer['utm_source'],
-                'utm_medium' => $referrer['utm_medium'],
-                'utm_campaign' => $referrer['utm_campaign'],
-                'utm_term' => $referrer['utm_term'],
-                'utm_content' => $referrer['utm_content'],
-                'total_views' => intval($referrer['total_views']),
-                'total_clicks' => intval($referrer['total_clicks']),
-                'unique_visitors' => intval($referrer['unique_visitors']),
-                'click_through_rate' => intval($referrer['total_views']) > 0
-                    ? round((intval($referrer['total_clicks']) / intval($referrer['total_views'])) * 100, 2)
-                    : 0,
-                'first_visit' => $referrer['first_visit'],
-                'last_visit' => $referrer['last_visit'],
-                'created_at' => $referrer['created_at']
-            ];
-        }
-
-        return [
-            'referrers' => $processed_referrers,
-            'totals' => [
-                'total_views' => intval($totals['total_views'] ?: 0),
-                'total_clicks' => intval($totals['total_clicks'] ?: 0),
-                'total_unique_visitors' => intval($totals['total_unique_visitors'] ?: 0),
-                'total_referrers' => intval($totals['total_referrers'] ?: 0),
-                'overall_ctr' => intval($totals['total_views'] ?: 0) > 0
-                    ? round((intval($totals['total_clicks'] ?: 0) / intval($totals['total_views'] ?: 0)) * 100, 2)
-                    : 0
-            ],
-            'top_sources' => array_map(function ($source) {
-                return [
-                    'source' => $source['referrer_source'],
-                    'total_views' => intval($source['total_views']),
-                    'total_clicks' => intval($source['total_clicks']),
-                    'unique_visitors' => intval($source['total_unique_visitors']),
-                    'referrer_count' => intval($source['referrer_count']),
-                    'click_through_rate' => intval($source['total_views']) > 0
-                        ? round((intval($source['total_clicks']) / intval($source['total_views'])) * 100, 2)
-                        : 0
-                ];
-            }, $top_sources),
-            'date_range' => $args
-        ];
     }
 }

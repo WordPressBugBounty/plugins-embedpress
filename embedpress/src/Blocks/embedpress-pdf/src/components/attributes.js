@@ -1,0 +1,417 @@
+/**
+ * EmbedPress PDF Block Attributes
+ *
+ * Defines all the attributes for the EmbedPress PDF block
+ */
+
+const attributes = {
+    // Core attributes
+    id: {
+        type: "string"
+    },
+    clientId: {
+        type: 'string',
+    },
+    href: {
+        type: "string"
+    },
+    fileName: {
+        type: "string",
+    },
+    mime: {
+        type: "string",
+    },
+    powered_by: {
+        type: "boolean",
+        default: typeof embedpressGutenbergData !== 'undefined' && typeof embedpressGutenbergData.embedpress_powered_by !== 'undefined' ? embedpressGutenbergData.embedpress_powered_by : false,
+    },
+
+    // Engagement stats badge (visitor view + download counters). Default OFF so
+    // new embeds don't show the badge unless the user opts in. The global option
+    // remains the master gate; enabling these per embed only renders the badge
+    // when the global toggle is also on.
+    showViewCount: {
+        type: "boolean",
+        default: false,
+    },
+    showDownloadCount: {
+        type: "boolean",
+        default: false,
+    },
+    // Where the view/download count badge sits relative to the embed.
+    // 'below' (default) = the original in-flow placement under the embed, so
+    // existing posts render byte-identically. The six anchor values overlay
+    // the badge on the embed corners/edges.
+    viewCountPosition: {
+        type: "string",
+        default: "below",
+    },
+
+    // PDF Viewer Settings
+    presentation: {
+        type: "boolean",
+        default: true,
+    },
+    lazyLoad: {
+        type: "boolean",
+        default: false,
+    },
+    themeMode: {
+        type: "string",
+        default: 'default',
+    },
+    customColor: {
+        type: "string",
+        default: '#403A81',
+    },
+    position: {
+        type: "string",
+        default: 'top',
+    },
+    flipbook_toolbar_position: {
+        type: "string",
+        default: 'bottom',
+    },
+    flipbookPageFlipRTL: {
+        type: "boolean",
+        default: false,
+    },
+    flipbookHighlightLinks: {
+        type: "boolean",
+        default: false,
+    },
+    flipbookHighlightColor: {
+        type: "string",
+        default: "",
+    },
+
+    // Toolbar Controls
+    download: {
+        type: "boolean",
+        default: true,
+    },
+    open: {
+        type: "boolean",
+        default: false,
+    },
+    copy_text: {
+        type: "boolean",
+        default: true,
+    },
+    add_text: {
+        type: "boolean",
+        default: true,
+    },
+    draw: {
+        type: "boolean",
+        default: true,
+    },
+    add_image: {
+        type: "boolean",
+        default: true,
+    },
+    selection_tool: {
+        type: "string",
+        default: '0',
+    },
+    scrolling: {
+        type: "string",
+        default: '0',
+    },
+    spreads: {
+        type: "string",
+        default: '0',
+    },
+    toolbar: {
+        type: "boolean",
+        default: true,
+    },
+    doc_details: {
+        type: "boolean",
+        default: true,
+    },
+    doc_rotation: {
+        type: 'boolean',
+        default: true,
+    },
+
+    // Dimensions
+    unitoption: {
+        type: 'string',
+        default: 'px',
+    },
+    width: {
+        type: 'string',
+        default: (embedpressGutenbergData?.iframe_width) || '600',
+    },
+    height: {
+        type: 'string',
+        default: (embedpressGutenbergData?.iframe_height) || '600',
+    },
+
+    // Page Number
+    pageNumber: {
+        type: "number",
+        default: 1,
+    },
+
+    // Viewer Style
+    viewerStyle: {
+        type: "string",
+        default: 'modern',
+    },
+    // Display Mode
+    displayMode: {
+        type: "string",
+        default: 'inline',
+    },
+    lightboxThumbnail: {
+        type: "string",
+        default: '',
+    },
+    lightboxAlign: {
+        type: "string",
+        default: 'left',
+    },
+    triggerText: {
+        type: "string",
+        default: 'View PDF',
+    },
+    triggerColor: {
+        type: "string",
+        default: '',
+    },
+    triggerBgColor: {
+        type: "string",
+        default: '',
+    },
+    triggerFontSize: {
+        type: "string",
+        default: '',
+    },
+    triggerBorderRadius: {
+        type: "string",
+        default: '',
+    },
+    zoomIn: {
+        type: "boolean",
+        default: true,
+    },
+    zoomOut: {
+        type: "boolean",
+        default: true,
+    },
+    fitView: {
+        type: "boolean",
+        default: true,
+    },
+    bookmark: {
+        type: "boolean",
+        default: true,
+    },
+
+
+    // Custom Branding
+    customlogo: {
+        type: 'string',
+        default: (embedpressGutenbergData?.brandingLogos?.document) || ''
+    },
+    logoX: {
+        type: 'number',
+        default: 5
+    },
+    logoY: {
+        type: 'number',
+        default: 10
+    },
+    customlogoUrl: {
+        type: 'string',
+    },
+    logoOpacity: {
+        type: 'number',
+        default: 0.6
+    },
+
+    // Social Share
+    contentShare: {
+        type: 'boolean',
+        default: false
+    },
+    sharePosition: {
+        type: 'string',
+        default: 'right'
+    },
+    customTitle: {
+        type: 'string',
+        default: ''
+    },
+    customDescription: {
+        type: 'string',
+        default: ''
+    },
+    customThumbnail: {
+        type: 'string',
+        default: ''
+    },
+    shareFacebook: {
+        type: 'boolean',
+        default: true
+    },
+    shareTwitter: {
+        type: 'boolean',
+        default: true
+    },
+    sharePinterest: {
+        type: 'boolean',
+        default: true
+    },
+    shareLinkedin: {
+        type: 'boolean',
+        default: true
+    },
+
+    // Ad Manager attributes
+    adManager: {
+        type: 'boolean',
+        default: false
+    },
+    adSource: {
+        type: 'string',
+        default: 'video'
+    },
+    adContent: {
+        type: 'object',
+    },
+    adFileUrl: {
+        type: 'string',
+        default: ''
+    },
+    adWidth: {
+        type: 'string',
+        default: '300'
+    },
+    adHeight: {
+        type: 'string',
+        default: '200'
+    },
+    adXPosition: {
+        type: 'number',
+        default: 25
+    },
+    adYPosition: {
+        type: 'number',
+        default: 10
+    },
+    adUrl: {
+        type: 'string',
+        default: ''
+    },
+    adStart: {
+        type: 'string',
+        default: '10'
+    },
+    adSkipButton: {
+        type: 'boolean',
+        default: true
+    },
+    adSkipButtonAfter: {
+        type: 'string',
+        default: '5'
+    },
+
+    // Content Protection
+    lockContent: {
+        type: 'boolean',
+        default: false
+    },
+    protectionType: {
+        type: 'string',
+        default: 'password'
+    },
+    userRole: {
+        type: 'array',
+        default: []
+    },
+    protectionMessage: {
+        type: 'string',
+        default: 'You do not have access to this content. Only users with the following roles can view it: [user_roles]'
+    },
+    contentPassword: {
+        type: 'string',
+        default: ''
+    },
+    lockHeading: {
+        type: 'string',
+        default: 'Content Locked'
+    },
+    lockSubHeading: {
+        type: 'string',
+        default: 'Content is locked and requires password to access it.'
+    },
+    lockErrorMessage: {
+        type: 'string',
+        default: 'Oops, that wasn\'t the right password. Try again.'
+    },
+    passwordPlaceholder: {
+        type: 'string',
+        default: 'Password'
+    },
+    submitButtonText: {
+        type: 'string',
+        default: 'Unlock'
+    },
+    submitUnlockingText: {
+        type: 'string',
+        default: 'Unlocking'
+    },
+    enableFooterMessage: {
+        type: 'boolean',
+        default: false
+    },
+    footerMessage: {
+        type: 'string',
+        default: 'In case you don\'t have the password, kindly reach out to content owner or administrator to request access.'
+    },
+    watermarkText: {
+        type: 'string',
+        default: ''
+    },
+    watermarkFontSize: {
+        type: 'number',
+        default: 48
+    },
+    watermarkColor: {
+        type: 'string',
+        default: '#000000'
+    },
+    watermarkOpacity: {
+        type: 'number',
+        default: 15
+    },
+    watermarkStyle: {
+        type: 'string',
+        default: 'center'
+    },
+
+    // Dynamic source — resolves `href` from a custom field on each post at
+    // render time. Saved iframe HTML is bypassed when these are set.
+    dynamicSource: {
+        type: 'string',
+        default: '',
+    },
+    dynamicField: {
+        type: 'string',
+        default: '',
+    },
+    // Editor-only preview of the resolved dynamic URL. The Dynamic Source
+    // control fetches it from /embedpress/v1/dynamic-resolve so the editor
+    // canvas shows the real custom-field PDF instead of the saved placeholder.
+    // The front-end renderer ignores this and re-resolves from the field.
+    dynamicPreviewUrl: {
+        type: 'string',
+        default: '',
+    },
+
+};
+
+export default attributes;

@@ -113,6 +113,16 @@ class BlockManager
         // AssetManager is initialized in Core/init.php
 
         add_action('init', [$this, 'register_blocks']);
+
+        // PDF blocks are saved as static HTML whose viewer URL is built in JS,
+        // so it never carries the `ext` param the PHP renderers add. Add it at
+        // render time instead — covers existing posts without a save() change.
+        add_filter('render_block_embedpress/embedpress-pdf', ['EmbedPress\Includes\Classes\Helper', 'add_pdf_viewer_extensions']);
+        add_filter('render_block_embedpress/pdf-gallery', ['EmbedPress\Includes\Classes\Helper', 'add_pdf_viewer_extensions']);
+
+        // Lazy loading is Pro: saved lazy-load placeholders render as plain
+        // iframes unless Pro keeps them (see embedpress/lazy_load/block_html).
+        add_filter('render_block', [EmbedPressBlockRenderer::class, 'restore_lazy_load_placeholders'], 10, 2);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_block_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_editor_assets']);
 
@@ -279,6 +289,21 @@ class BlockManager
                 }
             }
         }
+    }
+
+    /**
+     * Default for the blocks' `powered_by` attribute.
+     *
+     * Follows the global "Powered By EmbedPress" setting (off on fresh installs,
+     * WP.org Guideline 10) and the same filter the editor uses for its JS
+     * default (LocalizationManager), so a block saved without an explicit
+     * `powered_by` renders the same on the server as it does in the editor.
+     */
+    private function get_powered_by_default()
+    {
+        $g_settings = (array) get_option(EMBEDPRESS_PLG_NAME, []);
+        $enabled = isset($g_settings['embedpress_document_powered_by']) && 'yes' === $g_settings['embedpress_document_powered_by'];
+        return (bool) apply_filters('embedpress_document_block_powered_by', $enabled);
     }
 
     /**
@@ -565,7 +590,7 @@ class BlockManager
             ],
             'powered_by' => [
                 'type' => 'boolean',
-                'default' => true
+                'default' => $this->get_powered_by_default()
             ],
         ];
 
@@ -741,7 +766,7 @@ class BlockManager
             ],
             'powered_by' => [
                 'type' => 'boolean',
-                'default' => true
+                'default' => $this->get_powered_by_default()
             ],
             'watermarkText' => [
                 'type' => 'string',
@@ -812,7 +837,7 @@ class BlockManager
             'zoomOut' => ['type' => 'boolean', 'default' => true],
             'fitView' => ['type' => 'boolean', 'default' => true],
             'bookmark' => ['type' => 'boolean', 'default' => true],
-            'powered_by' => ['type' => 'boolean', 'default' => true],
+            'powered_by' => ['type' => 'boolean', 'default' => $this->get_powered_by_default()],
             'watermarkText' => ['type' => 'string', 'default' => ''],
             'watermarkFontSize' => ['type' => 'number', 'default' => 48],
             'watermarkColor' => ['type' => 'string', 'default' => '#000000'],
@@ -850,7 +875,7 @@ class BlockManager
             ],
             'powered_by' => [
                 'type' => 'boolean',
-                'default' => true,
+                'default' => $this->get_powered_by_default(),
             ],
             'presentation' => [
                 'type' => 'boolean',

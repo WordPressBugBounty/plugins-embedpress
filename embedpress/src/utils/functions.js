@@ -1,0 +1,161 @@
+const { useState, useEffect } = wp.element;
+const { isShallowEqualObjects } = wp.isShallowEqual;
+
+export const mergeAtts = (defaults, attributes) => {
+    const out = {};
+    Object.keys(defaults).forEach(key => {
+        if (key in attributes) {
+            out[key] = attributes[key];
+        }
+        else {
+            out[key] = defaults[key];
+        }
+    });
+    return out;
+}
+export const getParams = (params, attributes, defaults) => {
+    const atts = mergeAtts(defaults, attributes);
+
+    return { ...params, ...atts };
+}
+
+export const arrToObject = (defaults) => {
+    const defaultsObj = {};
+
+    defaults.forEach(element => {
+        defaultsObj[element] = '';
+    });
+    return defaultsObj;
+}
+
+export const isSelfHostedVideo = (url) => {
+    if (!url) return null;
+    const path = String(url).replace(/[?#].*$/, '');
+    return path.match(/\.(mp4|mov|avi|wmv|flv|mkv|webm|mpeg|mpg|m3u8|mpd)$/i);
+}
+export const isSelfHostedAudio = (url) => {
+    if (!url) return null;
+    const path = String(url).replace(/[?#].*$/, '');
+    return path.match(/\.(mp3|wav|ogg|aac)$/i);
+}
+
+
+export const isTikTok = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const tiktokMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/([\w.-]+)$/i);
+    return tiktokMatch !== null;
+};
+
+export const isSpreakerUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const spreakerPattern = /^https?:\/\/(www\.)?spreaker\.com\/(show|user|podcast|episode)\/[^/]+/;
+    return spreakerPattern.test(url);
+}
+
+export const isGooglePhotosUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const googlePhotosPattern = /^https:\/\/(photos\.app\.goo\.gl|photos\.google\.com)\/.*$/i;
+    return googlePhotosPattern.test(url);
+}
+
+
+export const initCustomPlayer = (clientId, attributes) => {
+
+    const {
+        url,
+        posterThumbnail,
+        customPlayer,
+        playerTooltip,
+        playerHideControls,
+        playerPreset,
+        playerColor,
+        playerPip,
+        playerRestart,
+        playerRewind,
+        playerFastForward,
+        fullscreen,
+        vautopause,
+        vdnt,
+        vstarttime
+    } = attributes;
+
+    const autoPause = vautopause ? true : false;
+    const vDnt = vdnt ? true : false;
+
+    const _isSelfHostedAudio = (isSelfHostedAudio(url));
+    const _isSelfHostedVideo = (isSelfHostedVideo(url));
+
+
+    const intervalId = setInterval(() => {
+
+        let playerElement = document.querySelector(`[data-playerid="${clientId}"] .ose-embedpress-responsive`);
+
+        if (isSelfHostedVideo(url)) {
+            playerElement = document.querySelector(`[data-playerid="${clientId}"] .ose-embedpress-responsive video`);
+        }
+        else if (isSelfHostedAudio(url)) {
+            playerElement = document.querySelector(`[data-playerid="${clientId}"] .ose-embedpress-responsive audio`);
+        }
+
+        if (playerElement) {
+            clearInterval(intervalId);
+
+            let options = document.querySelector(`[data-playerid="${clientId}"]`).getAttribute('data-options');
+            options = JSON.parse(options);
+            document.querySelector(`[data-playerid="${clientId}"]`).style.opacity = '1';
+            const player = new Plyr(playerElement, {
+                // Bundled sprite + blank video (no cdn.plyr.io requests).
+                ...((window.embedpressPlayerData && window.embedpressPlayerData.plyr) || {}),
+                controls: [
+                    'play-large',
+                    'restart',
+                    'rewind',
+                    'play',
+                    'fast-forward',
+                    'progress',
+                    'current-time',
+                    'duration',
+                    'mute',
+                    'volume',
+                    'captions',
+                    'settings',
+                    _isSelfHostedAudio ? '' : 'pip',
+                    'airplay',
+                    options.download ? 'download' : '',
+                    _isSelfHostedAudio ? '' : 'fullscreen',
+                ],
+                hideControls: playerHideControls,
+                tooltips: { controls: playerTooltip, seek: playerTooltip },
+                youtube: {
+                    ...(options.autoplay && { autoplay: options.autoplay }),
+                    ...(options.start && { start: options.start }),
+                    ...(options.end && { end: options.end }),
+                    ...(options.rel && { rel: options.rel }),
+                    ...(options.fullscreen && { fs: options.fullscreen })
+                },
+                vimeo: {
+                    byline: false,
+                    portrait: false,
+                    title: false,
+                    speed: true,
+                    transparent: false,
+                    controls: false,
+                    ...(options.t && { t: options.t }),
+                    ...(options.vautoplay && { autoplay: options.vautoplay }),
+                    ...(options.autopause && { autopause: options.autopause }),
+                    ...(options.dnt && { dnt: options.dnt }),
+                }
+
+            });
+
+
+
+            player.poster = posterThumbnail;
+        }
+    }, 200);
+
+}
+
+
+
+

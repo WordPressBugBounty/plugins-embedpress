@@ -65,8 +65,7 @@
         userId: getOrCreateUserId(),
         sessionId: getOrCreateSessionId(),
         pageUrl: embedpress_analytics?.page_url || window.location.href,
-        postId: embedpress_analytics?.post_id || 0,
-        ipLocationData: null
+        postId: embedpress_analytics?.post_id || 0
     };
 
     const trackedElements = new Map();
@@ -196,7 +195,6 @@
                 embed_type: data.embedType,
                 embed_url: data.embedUrl,
                 viewport_percentage: data.viewportPercentage,
-                location_data: config.ipLocationData,
                 browser_fingerprint: getBrowserFingerprint()
             }
         });
@@ -400,21 +398,6 @@
         });
     }
 
-    async function getIPLocationData() {
-        try {
-            const res = await fetch('https://ipinfo.io/json');
-            const data = await res.json();
-            config.ipLocationData = {
-                country: data.country,
-                city: data.city,
-                timezone: data.timezone,
-                source: 'ip'
-            };
-        } catch {
-            return null;
-        }
-    }
-
     function sendBrowserInfo() {
         const fingerprint = getBrowserFingerprint();
         const info = {
@@ -426,20 +409,17 @@
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             user_agent: navigator.userAgent
         };
-        getIPLocationData().then(() => {
-            if (config.ipLocationData) {
-                info.country = config.ipLocationData.country;
-                info.city = config.ipLocationData.city;
-            }
-            fetch(config.restUrl + 'browser-info', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-WP-Nonce': embedpress_analytics?.nonce || ''
-                },
-                body: JSON.stringify(info),
-                credentials: 'same-origin'
-            });
+        // Country/city are resolved server-side (CDN headers, or an HTTPS
+        // lookup only if the site owner opted in) — the browser never calls
+        // a third-party geolocation service.
+        fetch(config.restUrl + 'browser-info', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-WP-Nonce': embedpress_analytics?.nonce || ''
+            },
+            body: JSON.stringify(info),
+            credentials: 'same-origin'
         });
     }
 

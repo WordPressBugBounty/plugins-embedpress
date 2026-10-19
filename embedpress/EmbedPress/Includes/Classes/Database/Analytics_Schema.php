@@ -20,7 +20,7 @@ class Analytics_Schema
     /**
      * Database version for schema updates
      */
-    const DB_VERSION = '1.0.9';
+    const DB_VERSION = '1.1.1';
 
     /**
      * Create all analytics tables
@@ -52,6 +52,7 @@ class Analytics_Schema
             // configurations. Apply explicit ALTER TABLE for newer columns
             // so upgrades from older installs always pick them up.
             self::ensure_broken_embed_columns();
+            self::ensure_browser_info_columns();
 
             // Clean up old referrer visitor options (no longer needed)
             self::cleanup_old_referrer_visitor_options();
@@ -100,6 +101,51 @@ class Analytics_Schema
         $indexes = $wpdb->get_results("SHOW INDEX FROM `$table` WHERE Key_name = 'idx_last_check_status'", ARRAY_A);
         if (empty($indexes)) {
             $wpdb->query("ALTER TABLE `$table` ADD INDEX idx_last_check_status (last_check_status)");
+        }
+    }
+
+    /**
+     * Add browser_info.user_id and browser_fingerprint on installs whose
+     * table predates them.
+     *
+     * The geo/device queries join on b.user_id; on those older tables they
+     * failed with "Unknown column 'b.user_id'" and returned nothing. Existing
+     * rows keep a NULL user_id and still match through the session_id branch
+     * of the same JOIN, so no backfill is needed.
+     *
+     * store_browser_info() reads and writes browser_fingerprint, and its
+     * INSERT IGNORE relies on unique_user_fingerprint to dedupe. Without them
+     * every visit failed with "Unknown column 'browser_fingerprint'" and no
+     * browser rows were stored. Existing rows get a NULL fingerprint, which the
+     * unique key allows any number of.
+     */
+    private static function ensure_browser_info_columns()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'embedpress_analytics_browser_info';
+
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM `$table`");
+        if (!is_array($columns) || empty($columns)) {
+            return;
+        }
+
+        if (!in_array('user_id', $columns, true)) {
+            $wpdb->query("ALTER TABLE `$table` ADD COLUMN user_id VARCHAR(255) DEFAULT NULL AFTER id");
+        }
+        if (!in_array('browser_fingerprint', $columns, true)) {
+            $wpdb->query("ALTER TABLE `$table` ADD COLUMN browser_fingerprint VARCHAR(64) DEFAULT NULL AFTER session_id");
+        }
+
+        $wanted = [
+            'idx_user_id'             => 'ADD INDEX idx_user_id (user_id(191))',
+            'idx_browser_fingerprint' => 'ADD INDEX idx_browser_fingerprint (browser_fingerprint)',
+            'unique_user_fingerprint' => 'ADD UNIQUE KEY unique_user_fingerprint (user_id(191), browser_fingerprint(50))',
+        ];
+        foreach ($wanted as $key => $clause) {
+            $indexes = $wpdb->get_results($wpdb->prepare("SHOW INDEX FROM `$table` WHERE Key_name = %s", $key), ARRAY_A);
+            if (empty($indexes)) {
+                $wpdb->query("ALTER TABLE `$table` $clause");
+            }
         }
     }
 

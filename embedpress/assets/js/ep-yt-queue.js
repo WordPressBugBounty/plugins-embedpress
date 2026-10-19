@@ -16,6 +16,17 @@
  *
  * No framework dependency — vanilla DOM. Safe to enqueue multiple times;
  * the per-instance `init` guard prevents double-binding.
+ *
+ * Extension point — window.EmbedPressYoutubePlaylist.registerLayout(name, def)
+ * adds a layout rendered by an extension (EmbedPress Pro) for a
+ * `.ep-yt-playlist[data-layout="<name>"]` shell:
+ *   def.selectors   — selector table, same keys as SELECTORS below (iframe,
+ *                     list, item, activeItem, loader, loopBtn, shuffleBtn,
+ *                     posCurrent, scrollAxis) plus any keys of its own
+ *   def.init(root, sel, state, helpers)            — optional, runs once per shell
+ *   def.onItemClick(root, sel, state, item, helpers) — optional, after click-to-swap
+ * `helpers` = { $, $$, playByIndex, visualIndex, setActive, updateCounter }.
+ * Shells whose layout is not registered are left alone until it is.
  */
 (function () {
     'use strict';
@@ -25,7 +36,7 @@
     var INIT_FLAG          = 'epYtPlaylistInit';
 
     // Per-layout selector tables — keep markup contracts in one place.
-    // New Pro layouts plug in here without any other JS change.
+    // Extension layouts are added through registerLayout() (see header).
     var SELECTORS = {
         queue: {
             iframe:     '.ep-yt-queue__iframe',
@@ -50,63 +61,11 @@
             navPrev:    '.ep-yt-theatre__nav--prev',
             navNext:    '.ep-yt-theatre__nav--next',
             scrollAxis: 'x'
-        },
-        // Library: no inline player. Clicking a card opens the modal.
-        library: {
-            iframe:     '.ep-yt-library__modal-iframe',
-            list:       '.ep-yt-library__grid',
-            item:       '.ep-yt-library__card',
-            activeItem: '.ep-yt-library__card.is-active',
-            loader:     '.ep-yt-library__loader',
-            modal:      '.ep-yt-library__modal',
-            modalClose: '.ep-yt-library__modal-close',
-            posCurrent: '.ep-yt-library__position-current',
-            scrollAxis: 'y'
-        },
-        spotlight: {
-            iframe:     '.ep-yt-spotlight__iframe',
-            list:       '.ep-yt-spotlight__rail',
-            item:       '.ep-yt-spotlight__rail-card',
-            activeItem: '.ep-yt-spotlight__rail-card.is-active',
-            loader:     '.ep-yt-spotlight__loader',
-            loopBtn:    '.ep-yt-spotlight__loop',
-            shuffleBtn: '.ep-yt-spotlight__shuffle',
-            posCurrent: '.ep-yt-spotlight__position-current',
-            heroTitle:  '.ep-yt-spotlight__hero-title',
-            heroDesc:   '.ep-yt-spotlight__hero-desc',
-            scrollAxis: 'y'
-        },
-        cinema: {
-            iframe:     '.ep-yt-cinema__iframe',
-            list:       '.ep-yt-cinema__items',
-            item:       '.ep-yt-cinema__item',
-            activeItem: '.ep-yt-cinema__item.is-active',
-            loader:     '.ep-yt-cinema__loader',
-            loopBtn:    '.ep-yt-cinema__loop',
-            shuffleBtn: '.ep-yt-cinema__shuffle',
-            posCurrent: '.ep-yt-cinema__position-current',
-            playPrev:     '.ep-yt-cinema__prev',
-            playNext:     '.ep-yt-cinema__next',
-            overlayOpen:  '.ep-yt-cinema__open-queue',
-            overlayClose: '.ep-yt-cinema__close-queue',
-            overlay:      '.ep-yt-cinema__overlay',
-            scrollAxis: 'y'
-        },
-        magazine: {
-            iframe:     '.ep-yt-magazine__iframe',
-            list:       '.ep-yt-magazine__rail',
-            item:       '.ep-yt-magazine__rail-item',
-            activeItem: '.ep-yt-magazine__rail-item.is-active',
-            loader:     '.ep-yt-magazine__loader',
-            loopBtn:    '.ep-yt-magazine__loop',
-            shuffleBtn: '.ep-yt-magazine__shuffle',
-            posCurrent: '.ep-yt-magazine__position-current',
-            heroTitle:  '.ep-yt-magazine__hero-title',
-            heroDesc:   '.ep-yt-magazine__hero-desc',
-            readMore:   '.ep-yt-magazine__readmore',
-            scrollAxis: 'y'
         }
     };
+
+    // Per-layout hooks ({init, onItemClick}) from registerLayout().
+    var LAYOUT_HOOKS = {};
 
     function ready(fn) {
         if (document.readyState !== 'loading') fn();
@@ -115,9 +74,10 @@
     function $$(root, sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)); }
     function $(root, sel) { return root.querySelector(sel); }
 
+    // Layout of a shell, or null while its (extension) layout is unregistered.
     function getLayout(root) {
         var l = root.getAttribute('data-layout') || 'queue';
-        return SELECTORS[l] ? l : 'queue';
+        return SELECTORS[l] ? l : null;
     }
 
     function swapVideoId(iframe, vid) {
@@ -191,55 +151,11 @@
             event.preventDefault();
             state.cursor = visualIndex(root, sel, item);
             playByIndex(root, sel, state.cursor, state);
-            // Layouts that have a "hero" area (Spotlight, Magazine) promote
-            // the clicked item's title + description into that area.
-            if (sel.heroTitle || sel.heroDesc) {
-                var titleEl = sel.heroTitle ? $(root, sel.heroTitle) : null;
-                var descEl  = sel.heroDesc  ? $(root, sel.heroDesc)  : null;
-                if (titleEl) {
-                    var t = item.getAttribute('data-title') || '';
-                    if (t) titleEl.textContent = t;
-                }
-                if (descEl) {
-                    var d = item.getAttribute('data-description') || '';
-                    if (d !== '') descEl.textContent = d;
-                }
-            }
-            // Library: open the modal player on click.
-            if (sel.modal && state.layout === 'library') {
-                var modal = $(root, sel.modal);
-                if (modal) modal.hidden = false;
+            var hooks = LAYOUT_HOOKS[state.layout];
+            if (hooks && typeof hooks.onItemClick === 'function') {
+                hooks.onItemClick(root, sel, state, item, HELPERS);
             }
         });
-    }
-
-    // Cinema overlay queue + Library modal close wiring.
-    function attachLayoutExtras(root, sel, state) {
-        if (state.layout === 'cinema') {
-            var openBtn  = $(root, sel.overlayOpen);
-            var closeBtn = $(root, sel.overlayClose);
-            var overlay  = $(root, sel.overlay);
-            if (openBtn && overlay) openBtn.addEventListener('click', function () { overlay.classList.add('is-open'); });
-            if (closeBtn && overlay) closeBtn.addEventListener('click', function () { overlay.classList.remove('is-open'); });
-        }
-        if (state.layout === 'library') {
-            var modal = $(root, sel.modal);
-            var close = $(root, sel.modalClose);
-            if (close && modal) close.addEventListener('click', function () { modal.hidden = true; });
-            if (modal) modal.addEventListener('click', function (event) {
-                if (event.target === modal) modal.hidden = true; // backdrop click
-            });
-        }
-        if (state.layout === 'magazine') {
-            var more = $(root, sel.readMore);
-            var desc = $(root, sel.heroDesc);
-            if (more && desc) more.addEventListener('click', function () {
-                desc.classList.toggle('is-expanded');
-                more.textContent = desc.classList.contains('is-expanded')
-                    ? (more.getAttribute('data-collapse-label') || 'Show less')
-                    : (more.getAttribute('data-expand-label')   || 'Read more');
-            });
-        }
     }
 
     function attachLoopShuffle(root, sel, state) {
@@ -326,27 +242,6 @@
         setTimeout(fillUntilScrollable, 50);
     }
 
-    // Playback prev/next buttons (cinema): step the active video backward /
-    // forward through the playlist, reusing the same cursor model as auto-loop.
-    // Distinct from theatre's nav buttons, which scroll the card strip.
-    function attachPlaybackNavButtons(root, sel, state) {
-        var prev = sel.playPrev ? $(root, sel.playPrev) : null;
-        var next = sel.playNext ? $(root, sel.playNext) : null;
-        function step(delta) {
-            var items = $$(root, sel.item);
-            if (!items.length) return;
-            var active = $(root, sel.activeItem);
-            state.cursor = active ? visualIndex(root, sel, active) : state.cursor;
-            var target = state.cursor + delta;
-            if (target >= items.length) target = state.loop ? 0 : items.length - 1;
-            if (target < 0) target = state.loop ? items.length - 1 : 0;
-            state.cursor = target;
-            playByIndex(root, sel, target, state);
-        }
-        if (prev) prev.addEventListener('click', function () { step(-1); });
-        if (next) next.addEventListener('click', function () { step(1); });
-    }
-
     function attachTheatreNavButtons(root, sel) {
         var prev = $(root, sel.navPrev);
         var next = $(root, sel.navNext);
@@ -380,7 +275,8 @@
         var headers = { 'Accept': 'application/json' };
         if (data.rest_nonce) headers['X-WP-Nonce'] = data.rest_nonce;
 
-        return fetch(restUrl + '?' + params.toString(), { headers: headers, credentials: 'same-origin' })
+        // rest_url is `/?rest_route=/` on sites with plain permalinks.
+        return fetch(restUrl + (restUrl.indexOf('?') === -1 ? '?' : '&') + params.toString(), { headers: headers, credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
             .then(function (payload) {
                 if (payload && payload.html) {
@@ -446,7 +342,9 @@
             try { data = JSON.parse(event.data); } catch (e) { return; }
             if (data && data.event === 'onStateChange' && data.info === 0) {
                 $$(document, ROOT_SELECTOR).forEach(function (root) {
-                    var sel = SELECTORS[getLayout(root)];
+                    var layout = getLayout(root);
+                    if (!layout) return;
+                    var sel = SELECTORS[layout];
                     var iframe = $(root, sel.iframe);
                     if (iframe && iframe.contentWindow === event.source) {
                         var state = root[INIT_FLAG + 'State'];
@@ -459,9 +357,10 @@
 
     function initOne(root) {
         if (root[INIT_FLAG]) return;
+        var layout = getLayout(root);
+        if (!layout) return; // extension layout not registered (yet)
         root[INIT_FLAG] = true;
 
-        var layout = getLayout(root);
         var sel    = SELECTORS[layout];
         var active = $(root, sel.activeItem) || $(root, sel.item);
         var state  = {
@@ -484,9 +383,37 @@
         attachLoopShuffle(root, sel, state);
         attachInfiniteScroll(root, sel, state);
         attachEndedListener(root, sel, state);
-        attachLayoutExtras(root, sel, state);
-        attachPlaybackNavButtons(root, sel, state);
+        var hooks = LAYOUT_HOOKS[layout];
+        if (hooks && typeof hooks.init === 'function') {
+            hooks.init(root, sel, state, HELPERS);
+        }
         if (layout === 'theatre') attachTheatreNavButtons(root, sel);
+    }
+
+    var HELPERS = {
+        $:             $,
+        $$:            $$,
+        playByIndex:   playByIndex,
+        visualIndex:   visualIndex,
+        setActive:     setActive,
+        updateCounter: updateCounter
+    };
+
+    var api = window.EmbedPressYoutubePlaylist = window.EmbedPressYoutubePlaylist || {};
+    api.helpers = HELPERS;
+    api.registerLayout = function (name, def) {
+        if (!name || !def || !def.selectors) return;
+        SELECTORS[name] = def.selectors;
+        LAYOUT_HOOKS[name] = def;
+        // Shells already in the DOM were skipped while the layout was unknown.
+        if (document.readyState !== 'loading') {
+            $$(document, ROOT_SELECTOR + '[data-layout="' + name + '"]').forEach(initOne);
+        }
+    };
+    // Layouts queued before this script ran ({name: def}).
+    if (api.pending) {
+        Object.keys(api.pending).forEach(function (name) { api.registerLayout(name, api.pending[name]); });
+        delete api.pending;
     }
 
     function init() {

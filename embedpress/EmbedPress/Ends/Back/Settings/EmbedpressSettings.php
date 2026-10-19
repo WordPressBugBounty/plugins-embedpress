@@ -52,13 +52,10 @@ class EmbedpressSettings {
 		add_action( 'wp_ajax_embedpress_save_onboarding', [$this, 'save_onboarding_settings']);
 		add_action( 'wp_ajax_embedpress_install_site_performance', [$this, 'install_site_performance']);
 
-		// Hide all admin notices on onboarding page
-		add_action( 'in_admin_header', function() {
-			if ( isset( $_GET['page'] ) && $_GET['page'] === 'embedpress-onboarding' ) {
-				remove_all_actions( 'admin_notices' );
-				remove_all_actions( 'all_admin_notices' );
-			}
-		}, 999 );
+		// Admin notices are NOT stripped on the onboarding page: removing every
+		// `admin_notices` callback also hid WordPress core and other plugins'
+		// notices (WP.org guideline 11). EmbedPress's own promo notices are
+		// kept off EmbedPress screens via Shared::is_embedpress_admin_page().
 
 		$g_settings = get_option( EMBEDPRESS_PLG_NAME, [] );
 
@@ -71,9 +68,10 @@ class EmbedpressSettings {
 			update_option(EMBEDPRESS_PLG_NAME, $g_settings);
 		}
 
-		// Set default value for embedpress_document_powered_by to 'yes' on fresh installations
+		// "Powered By EmbedPress" credit is opt-in (WP.org Guideline 10): fresh
+		// installs default to 'no'. Existing installs keep their saved value.
 		if(!isset($g_settings['embedpress_document_powered_by'])){
-			$g_settings['embedpress_document_powered_by'] = 'yes';
+			$g_settings['embedpress_document_powered_by'] = 'no';
 			update_option(EMBEDPRESS_PLG_NAME, $g_settings);
 		}
 		
@@ -387,26 +385,14 @@ class EmbedpressSettings {
 	 * Render the free Player & Engagement landing page on the
 	 * `embedpress-player-engagement` slug — same slug Pro's Admin_Page uses.
 	 *
-	 * The same `custom-player.build.js` React app mounts here. We localize
-	 * `isProActive: false` so the app renders its UpgradePanel in the body
-	 * instead of fetching engagement data from REST endpoints that don't
-	 * exist on free.
+	 * AssetManager enqueues `custom-player.build.js` (src/AdminUI/CustomPlayer.js)
+	 * on this slug: it renders the page header + tabs with an upgrade panel.
+	 * The engagement dashboards themselves ship with Pro.
 	 */
 	public function render_player_engagement_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-
-		// AssetManager auto-enqueues custom-player.build.js + .css on this
-		// page slug. Just feed the React app its localize blob, matching
-		// the keys Pro's Admin_Page::render_page() uses.
-		wp_localize_script( 'embedpress-custom-player', 'embedpressCustomPlayerData', [
-			'restUrl'     => esc_url_raw( rest_url( 'embedpress/v1/' ) ),
-			'nonce'       => wp_create_nonce( 'wp_rest' ),
-			'adminUrl'    => esc_url_raw( admin_url( 'admin.php' ) ),
-			'assetsUrl'   => defined( 'EMBEDPRESS_URL_ASSETS' ) ? EMBEDPRESS_URL_ASSETS : '',
-			'isProActive' => false,
-		] );
 
 		include_once EMBEDPRESS_SETTINGS_PATH . 'templates/player-engagement.php';
 	}
@@ -595,48 +581,9 @@ class EmbedpressSettings {
 		do_action( 'ep_soundcloud_settings_after_save', $settings);
 	}
 
-	public function save_gcalendar_settings() {
-		$epgc_cache_time            = !empty( $_POST['epgc_cache_time'] ) ? absint( $_POST['epgc_cache_time']) : 0;
-		$epgc_selected_calendar_ids = !empty( $_POST['epgc_selected_calendar_ids'] ) ? array_map( 'sanitize_text_field', $_POST['epgc_selected_calendar_ids']) : [];
-
-		// New two-field form: Client ID + Client Secret. Legacy: full JSON pasted
-		// into epgc_client_secret. Accept both so sites upgrading mid-stream still save.
-		$posted_client_id     = isset( $_POST['epgc_client_id'] )           ? sanitize_text_field( wp_unslash( $_POST['epgc_client_id'] ) )     : '';
-		$posted_client_secret = isset( $_POST['epgc_client_secret_value'] ) ? trim( wp_unslash( $_POST['epgc_client_secret_value'] ) )          : '';
-		$posted_legacy_json   = isset( $_POST['epgc_client_secret'] )       ? trim( wp_unslash( $_POST['epgc_client_secret'] ) )                : '';
-
-		$pretty_client_secret = '';
-
-		if ( $posted_client_id !== '' || $posted_client_secret !== '' ) {
-			// Two-field form path. Preserve the existing secret if the field was
-			// left blank (the UI surfaces "Stored — leave blank to keep").
-			$existing = json_decode( get_option( 'epgc_client_secret', '' ), true );
-			$effective_secret = $posted_client_secret !== ''
-				? $posted_client_secret
-				: ( isset( $existing['web']['client_secret'] ) ? $existing['web']['client_secret'] : '' );
-
-			if ( $posted_client_id !== '' && $effective_secret !== '' ) {
-				$pretty_client_secret = $this->get_pretty_json_string( [
-					'web' => [
-						'client_id'     => $posted_client_id,
-						'client_secret' => $effective_secret,
-						'redirect_uris' => [ admin_url( 'admin.php?page=embedpress&page_type=google-calendar' ) ],
-					],
-				] );
-			}
-		} elseif ( $posted_legacy_json !== '' ) {
-			// Legacy full-JSON path (kept for backward compatibility).
-			$decoded = json_decode( $posted_legacy_json, true );
-			if ( !empty( $decoded ) ) {
-				$pretty_client_secret = $this->get_pretty_json_string( $decoded );
-			}
-		}
-
-		update_option( 'epgc_client_secret', $pretty_client_secret);
-		update_option( 'epgc_cache_time', $epgc_cache_time);
-		update_option( 'epgc_selected_calendar_ids', $epgc_selected_calendar_ids);
-
-	}
+	// Google Calendar ("gcalendar") settings have no free save handler: the
+	// private-calendar settings belong to EmbedPress Pro, which saves them on
+	// the `before_save_gcalendar_settings` action fired by save_settings().
 
 	public function save_opensea_settings() {
 		$option_name = EMBEDPRESS_PLG_NAME.':opensea';

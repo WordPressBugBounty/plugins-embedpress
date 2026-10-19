@@ -131,6 +131,27 @@ class OpenSea extends ProviderAdapter implements ProviderInterface {
         return !empty($settings['api_key']) ? $settings['api_key'] : '';
     }
 
+    /**
+     * Shown in place of the embed when no OpenSea API key is saved.
+     *
+     * Admins get a pointer to the setting; visitors get a plain link to the
+     * NFT/collection on OpenSea, so nothing is requested from api.opensea.io.
+     *
+     * @param string $url OpenSea URL being embedded.
+     * @return string
+     */
+    protected static function missing_api_key_html($url) {
+        if (current_user_can('manage_options')) {
+            return '<div class="ep-opensea-missing-key">' . sprintf(
+                /* translators: %s: URL of the EmbedPress OpenSea settings screen. */
+                __("EmbedPress: Please enter your OpenSea API key at <a class='ep-link' href='%s' target='_blank' style='color: #5b4e96; text-decoration: none'>EmbedPress > Platforms > OpenSea</a> to embed OpenSea NFTs.", 'embedpress'),
+                esc_url(admin_url('admin.php?page=embedpress&page_type=opensea'))
+            ) . '</div>';
+        }
+
+        return '<p class="ep-opensea-link"><a href="' . esc_url($url) . '" target="_blank" rel="noopener noreferrer">' . esc_html__('View on OpenSea', 'embedpress') . '</a></p>';
+    }
+
     public function __construct($url, array $config = [])
     {
         parent::__construct($url, $config);
@@ -168,10 +189,14 @@ class OpenSea extends ProviderAdapter implements ProviderInterface {
 
         $params = $this->getParams();
 
-        $api_key = 'e63d36afdf3f424d9adf1a06269d7ee3';
-        
-        if(!empty($opensea_settings['api_key'])){
-            $api_key = $opensea_settings['api_key'];
+        // No built-in key: OpenSea is only called with the site owner's own key.
+
+        $api_key = self::get_api_key();
+
+        if ($api_key === '') {
+
+            return self::missing_api_key_html($url);
+
         }
         
         
@@ -238,15 +263,6 @@ class OpenSea extends ProviderAdapter implements ProviderInterface {
             // wp_send_json($html);
 
             return $html;
-
-            return "
-            <!-- vertical=\"true\" -->
-            <nft-card
-            width=\"{$params['maxwidth']}\"
-            contractAddress=\"{$matches[1]}\"
-            tokenId=\"{$matches[2]}\">
-            </nft-card>
-            <script src=\"https://unpkg.com/embeddable-nfts/dist/nft-card.min.js\"></script>";
         }
 
         return "";
@@ -263,12 +279,17 @@ class OpenSea extends ProviderAdapter implements ProviderInterface {
 
         $opensea_settings = get_option( EMBEDPRESS_PLG_NAME.':opensea');
 
-        $api_key = 'e63d36afdf3f424d9adf1a06269d7ee3';
+        // No built-in key: OpenSea is only called with the site owner's own key.
+
+        $api_key = self::get_api_key();
+
+        if ($api_key === '') {
+
+            return self::missing_api_key_html($url);
+
+        }
         $orderby = 'desc';
 
-        if(!empty($opensea_settings['api_key'])){
-            $api_key = $opensea_settings['api_key'];
-        }
         if(!empty($opensea_settings['orderby'])){
             $orderby = $opensea_settings['orderby'];
         }
@@ -360,7 +381,7 @@ class OpenSea extends ProviderAdapter implements ProviderInterface {
                 }
             }
             else{
-                if(is_array($collection_asset)) : $id = $collection_asset[0]; endif;
+                if(is_array($collection_asset)) : $id = $collection_asset[0] ?? []; endif;
                 if( empty($id['id'])){
                     delete_transient($collection_assets_key);
                 }
@@ -392,7 +413,7 @@ class OpenSea extends ProviderAdapter implements ProviderInterface {
                 
                 <?php $this->openSeaStyle($this->getParams()); ?>
                 <?php else: ?>
-                    <?php if(is_wp_error( $results ) && defined('WP_DEBUG') && WP_DEBUG): ?>
+                    <?php if(isset($results) && is_wp_error( $results ) && defined('WP_DEBUG') && WP_DEBUG): ?>
                         <h4 style="text-align: center"><?php echo esc_html($results->get_error_message()); ?></h4>
                     <?php elseif(isset($jsonResult->errors[0])): ?>
                         <h4 style="text-align: center"><?php echo esc_html($jsonResult->errors[0]); ?></h4>

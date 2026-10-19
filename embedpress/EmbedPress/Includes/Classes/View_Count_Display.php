@@ -331,15 +331,11 @@ class View_Count_Display
             true
         );
 
-        wp_localize_script('embedpress-view-count', 'embedpressViewCount', [
+        $config = [
             'restUrl'           => esc_url_raw(rest_url(self::REST_NAMESPACE . '/analytics/view-count')),
             'trackUrl'          => esc_url_raw(rest_url(self::REST_NAMESPACE . '/analytics/view-count/track')),
             'downloadUrl'       => esc_url_raw(rest_url(self::REST_NAMESPACE . '/analytics/download-count')),
             'downloadTrackUrl'  => esc_url_raw(rest_url(self::REST_NAMESPACE . '/analytics/view-count/download')),
-            // Count-badge positioning is a Pro feature — only the default
-            // ('below') placement is free. The frontend ignores any Pro
-            // position when Pro is inactive so the badge falls back to default.
-            'isPro'             => Helper::is_pro_active(),
             'types'             => array_values(self::get_supported_types()),
             'labels'            => [
                 /* translators: %s: formatted number of views */
@@ -352,6 +348,22 @@ class View_Count_Display
                 /* translators: %s: formatted number of downloads */
                 'downloadPlural'   => __('%s downloads', 'embedpress'),
             ],
-        ]);
+        ];
+
+        /**
+         * Filters the config localized to ep-view-count.js as
+         * `window.embedpressViewCount`.
+         *
+         * Free always places the badge below the embed. Scripts that adjust
+         * badges listen for the `embedpress:view-count:badge` DOM event
+         * (detail: {embed, badge}) or read `window.EmbedPressViewCount.badges`;
+         * this filter lets them pass extra keys to the frontend.
+         *
+         * @param array $config Frontend config (restUrl, trackUrl, downloadUrl,
+         *                      downloadTrackUrl, types, labels).
+         */
+        $config = apply_filters('embedpress/view_count/config', $config);
+
+        wp_localize_script('embedpress-view-count', 'embedpressViewCount', $config);
     }
 }

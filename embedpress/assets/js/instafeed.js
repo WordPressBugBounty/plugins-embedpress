@@ -13,6 +13,31 @@ let instaGlobals = {};
 (function ($) {
     'use strict';
 
+    // Escape a value for use in HTML text or a quoted attribute.
+    const escHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+
+    // Return an escaped absolute http(s) URL, or '' for anything else (javascript:, data:, relative, malformed).
+    const safeUrl = (value) => {
+        try {
+            const url = new URL(String(value ?? ''));
+            return ['https:', 'http:'].includes(url.protocol) ? escHtml(url.href) : '';
+        } catch (e) {
+            return '';
+        }
+    };
+
+    // Escape the caption, linking #hashtags. Split first so tags are matched in the raw
+    // text, never inside the entities produced by escaping.
+    const formatInstaCaption = (caption) => String(caption ?? '').split(/(#\w+)/g).map((part, index) => {
+        if (index % 2 === 0) {
+            return escHtml(part);
+        }
+        const tagUrl = `https://www.instagram.com/explore/tags/${encodeURIComponent(part.substring(1))}`;
+        return `<span class="tag-wrapper"><a target="_blank" href="${escHtml(tagUrl)}">${escHtml(part)}</a></span>`;
+    }).join('');
+
     // Get the insta-gallery container element
     const getPopupTemplate = (instPost) => {
 
@@ -38,16 +63,13 @@ let instaGlobals = {};
         let getTime = new Date(instaPostData.timestamp);
         getTime = getTime.toLocaleString('en-US', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' });
 
-        let captionText = instaPostData.caption ? instaPostData.caption : '';
-        const tagRegex = /(#\w+)/g;
-
-        let tagUrl = 'https://www.instagram.com/explore/tags/$1';
-
-        tagUrl = tagUrl.replace(/#/g, '');
-
-        const wrapTag = `<span class="tag-wrapper"><a target="_blank" href="${tagUrl}">$1</a></span>`;
-
-        captionText = captionText.replace(tagRegex, wrapTag);
+        // Post fields come from the Instagram API (hashtag feeds include other users' posts),
+        // so everything below is escaped before it goes into the innerHTML template.
+        const captionText = formatInstaCaption(instaPostData.caption);
+        const postId = escHtml(instaPostData.id);
+        const permalink = safeUrl(instaPostData.permalink);
+        const sharePermalink = escHtml(encodeURIComponent(permalink ? instaPostData.permalink : ''));
+        const profileUrl = escHtml(`https://www.instagram.com/${encodeURIComponent(instaPostData.username || '')}/`);
 
         let carouselTemplate = '';
         if (instaPostData.media_type === 'CAROUSEL_ALBUM') {
@@ -55,10 +77,10 @@ let instaGlobals = {};
 
             instaPostData.children.data?.map((item) => {
                 if (item.media_type?.toLowerCase() === 'video') {
-                    carouselTemplate += `<video width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" controls src="${item.media_url || ''}" alt="${item.caption || ''}" controlsList="nodownload"></video>`;
+                    carouselTemplate += `<video width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" controls src="${safeUrl(item.media_url)}" alt="${escHtml(item.caption)}" controlsList="nodownload"></video>`;
                 }
                 else {
-                    carouselTemplate += `<img width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" src="${item.media_url || ''}" alt="${item.caption || ''}" />`;
+                    carouselTemplate += `<img width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" src="${safeUrl(item.media_url)}" alt="${escHtml(item.caption)}" />`;
                 }
             });
 
@@ -72,54 +94,63 @@ let instaGlobals = {};
         }
         else {
             if (instaPostData.media_type?.toLowerCase() === 'video') {
-                carouselTemplate += `<video width="630" class="popup-media-image" controls src="${instaPostData.media_url || ''}" alt="${instaPostData.caption || ''}"></video>`;
+                carouselTemplate += `<video width="630" class="popup-media-image" controls src="${safeUrl(instaPostData.media_url)}" alt="${escHtml(instaPostData.caption)}"></video>`;
             }
             else {
-                carouselTemplate += `<img width="630" class="popup-media-image" src="${instaPostData.media_url || ''}" alt="${instaPostData.caption || ''}" />`;
+                carouselTemplate += `<img width="630" class="popup-media-image" src="${safeUrl(instaPostData.media_url)}" alt="${escHtml(instaPostData.caption)}" />`;
             }
         }
 
+
+        // Extension point: EmbedPress Pro registers `popupStats(postData, icons, context)`
+        // on window.EmbedPressInstagram to add the like / comment counts.
+        let popupStats = '';
+        const igExt = window.EmbedPressInstagram;
+        if (igExt && typeof igExt.popupStats === 'function') {
+            // Pro builds HTML from these fields, so hand it escaped copies (#330).
+            const safePost = Object.assign({}, instaPostData, { permalink: permalink, like_count: escHtml(instaPostData.like_count || 0), comments_count: escHtml(instaPostData.comments_count || 0) });
+            popupStats = igExt.popupStats(safePost, { likeIcon: likeIcon, commentsIcon: commentsIcon }, 'instafeed') || '';
+        }
 
         let popupHtml = '';
         popupHtml += `
         <div class="popup-container">
                 <div class="popup-md-9 white">
-                    <div class="embedpress-popup-block embedpress-popup-img" id="post-${instaPostData.id}">
+                    <div class="embedpress-popup-block embedpress-popup-img" id="post-${postId}">
                         ${carouselTemplate}
                     </div>
                 </div>
                 <div class="popup-md-3 red">
                     <div class="embedpress-popup-block embedpress-popup-info">
                         <div class="embedpress-popup-header">
-                            <div class="embedpress-popup-header-img"> <a target="_blank" href="https://www.instagram.com/${instaPostData.username}/"
+                            <div class="embedpress-popup-header-img"> <a target="_blank" href="${profileUrl}"
                                     target="_blank" class="embedpress-href"> <img decoding="async" loading="lazy"
                                         class="embedpress-popup-round"
-                                        src="http://2.gravatar.com/avatar/b642b4217b34b1e8d3bd915fc65c4452?s=150&d=mm&r=g"
-                                        width="30" height="30"> <span class="embedpress-popup-username">${instaPostData.username}</span>
+                                        src="${safeUrl((window.embedpressFrontendData && embedpressFrontendData.default_avatar) || '')}"
+                                        width="30" height="30"> <span class="embedpress-popup-username">${escHtml(instaPostData.username)}</span>
                                 </a>
                             </div>
                             <div class="insta-followbtn">
-                                <a target="_new" href="https://www.instagram.com/${instaPostData.username}/" type="button" class="btn btn-primary">Follow</a>
+                                <a target="_new" href="${profileUrl}" type="button" class="btn btn-primary">Follow</a>
                             </div>
                         </div>
                         <div class="embedpress-popup-text">${captionText}</div>
                         <div class="embedpress-popup-stats">
-                            <div class="embedpress-inline"><a target="_blank" href="${instaPostData.permalink}">${likeIcon} ${instaPostData.like_count || 0}</a></div> <div
-                                class="embedpress-inline"><a target="_blank" href="${instaPostData.permalink}">${commentsIcon} ${instaPostData.comments_count || 0}</a></div><div class="embedpress-inline">
+                            ${popupStats}<div class="embedpress-inline">
                                 <p class="embedpress-popup-share-buttons hidden"> <a
-                                        href="https://www.facebook.com/sharer/sharer.php?u=${instaPostData.permalink}"><span
+                                        href="https://www.facebook.com/sharer/sharer.php?u=${sharePermalink}"><span
                                             class="fa fa-facebook-square shr-btn shr-btn-fcbk"></span></a> <a
-                                        href="https://twitter.com/home?status=${instaPostData.permalink}"
+                                        href="https://twitter.com/home?status=${sharePermalink}"
                                         target="_blank"><span class="fa fa-twitter-square shr-btn"></span></a> <a
-                                        href="https://plus.google.com/share?url=${instaPostData.permalink}"
+                                        href="https://plus.google.com/share?url=${sharePermalink}"
                                         target="_blank"><span class="fa fa-google-plus-square shr-btn"></span></a> <a
-                                        href="https://www.linkedin.com/shareArticle?mini=true&amp;url=${instaPostData.permalink}"
+                                        href="https://www.linkedin.com/shareArticle?mini=true&amp;url=${sharePermalink}"
                                         target="_blank"><span class="fa fa-linkedin-square shr-btn"></span></a> <a
-                                        href="https://pinterest.com/pin/create/button/?url=${instaPostData.permalink}"
+                                        href="https://pinterest.com/pin/create/button/?url=${sharePermalink}"
                                         target="_blank"><span class="fa fa-pinterest-square shr-btn"></span></a></p>
                                 <div class="embedpress-href embedpress-popup-share">${shareIcon}</div>
                             </div><div class="embedpress-inline"><a
-                                    href="${instaPostData.permalink}" target="_blank"
+                                    href="${permalink}" target="_blank"
                                     class="embedpress-href">${instaIcon}</a></div>
                         </div>
                         
@@ -194,45 +225,14 @@ let instaGlobals = {};
 
     const instafeeds = document.querySelectorAll('.instagram-container, .source-provider-InstagramFeed');
 
-    instaGlobals.initializeTabs = (containerEl) => {
-
-        // Initial tab selection
-        showItems('ALL');
-
-        containerEl.addEventListener('click', function (event) {
-            const clickedElement = event.target;
-            if (!clickedElement) {
-                return; // No element clicked, ignore the event
-            }
-
-            // Handle tab click
-            if (clickedElement.matches('.tabs li')) {
-                if (clickedElement.classList.contains('active')) {
-                    return;
-                } else {
-                    const mediaType = clickedElement.getAttribute('data-media-type');
-                    showItems(mediaType);
-
-                    const tabs = containerEl.querySelectorAll('.tabs li');
-                    tabs.forEach(t => t.classList.remove('active'));
-                    clickedElement.classList.add('active');
-                }
-            }
-
-        });
-
-        function showItems(mediaType) {
-            const items = containerEl.getElementsByClassName('insta-gallery-item');
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (mediaType === 'ALL' || item.getAttribute('data-media-type') === mediaType) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            }
-        }
-    }
+    // Neutral extension point (same event as front.js): EmbedPress Pro binds
+    // its media-type tabs when a feed is rendered or receives new items.
+    instaGlobals.feedReady = (feedEl, reason) => {
+        if (!feedEl) return;
+        document.dispatchEvent(new CustomEvent('embedpress:instagram:feed-ready', {
+            detail: { feed: feedEl, reason: reason }
+        }));
+    };
 
     instaGlobals.instaLoadMore = () => {
         $('.insta-load-more-button').on('click', function (e) {
@@ -277,9 +277,9 @@ let instaGlobals = {};
                     loadedPosts = response.next_post_index;
                     loadmoreBtn.data('loaded-posts', loadedPosts);
 
-                    // After loading more items, reinitialize the tabs for the specific container
+                    // Let extensions (Pro tabs) re-apply to the new items
                     const containerEl = loadmoreBtn.closest('.instagram-container, .source-provider-InstagramFeed')[0];
-                    if (containerEl) instaGlobals.initializeTabs(containerEl);
+                    if (containerEl) instaGlobals.feedReady(containerEl, 'loadmore');
 
                     if (response.total_feed_posts == response.next_post_index) {
                         loadmoreBtn.hide();
@@ -294,7 +294,7 @@ let instaGlobals = {};
 
     if (instafeeds.length > 0) {
         instafeeds.forEach(function (feed) {
-            instaGlobals.initializeTabs(feed);
+            instaGlobals.feedReady(feed, 'init');
         });
     }
 
@@ -304,100 +304,17 @@ let instaGlobals = {};
 })(jQuery);
 
 
-document.addEventListener('DOMContentLoaded', function () {
-
-    instaGlobals.initCarousel = (carouselSelector, options, carouselId) => {
-
-        const carouselOptions = {
-            slidesPerView: options.slideshow,
-            spacing: options.spacing,
-            loop: options.loop,
-            autoplay: options.autoplay,
-            transitionSpeed: options.transitionspeed,
-            autoplaySpeed: options.autoplayspeed,
-            arrows: options.arrows,
-            breakpoints: {
-                0: {
-                    slidesPerView: 1
-                },
-                768: {
-                    slidesPerView: Math.max(1, parseInt(options.slideshow, 10) - 1)
-                },
-                1024: {
-                    slidesPerView: Math.max(1, parseInt(options.slideshow, 10))
-                }
-            }
-        };
-
-        // INIT CAROUSEL
-        const carousel = new CgCarousel(carouselSelector, carouselOptions, {});
-
-        // Navigation
-        const next = document.querySelector(`[data-carouselid="${carouselId}"] #js-carousel__next-1`);
-        next.addEventListener('click', () => carousel.next());
-
-        const prev = document.querySelector(`[data-carouselid="${carouselId}"] #js-carousel__prev-1`);
-        prev.addEventListener('click', () => carousel.prev());
-    }
-
-    const instaWrappers = document.querySelectorAll('.ep-embed-content-wraper');
-
-    if (instaWrappers.length > 0) {
-        instaWrappers.forEach((wrapper) => {
-            const carouselId = wrapper.getAttribute('data-carouselid');
-
-            if (!carouselId) return;
-
-            let options = wrapper.getAttribute(`data-carousel-options`);
-
-            options = JSON.parse(options);
-            const carouselSelector = `[data-carouselid="${carouselId}"] .embedpress-insta-container`;
-
-            if (options.arrows) {
-                document.querySelector(`[data-carouselid="${carouselId}"] .cg-carousel__btns`).classList.remove('hidden');
-            }
-
-            instaGlobals.initCarousel(carouselSelector, options, carouselId);
-
-        });
-    }
-
-
-
-});
-
-
+// The Instagram Carousel layout is initialised by EmbedPress Pro
+// (assets/js/instagram-feed-pro.js).
 
 jQuery(window).on("elementor/frontend/init", function () {
 
     var filterableGalleryHandler = function ($scope, $) {
 
-        const instaWrappers = document.querySelectorAll('.ep-embed-content-wraper');
-
-        if (instaWrappers.length > 0) {
-            instaWrappers.forEach((wrapper) => {
-                const carouselId = wrapper.getAttribute('data-carouselid');
-
-                if (!carouselId) return;
-
-                let options = wrapper.getAttribute(`data-carousel-options`);
-
-                options = JSON.parse(options);
-                const carouselSelector = `[data-carouselid="${carouselId}"] .embedpress-insta-container`;
-
-                if (options.arrows) {
-                    document.querySelector(`[data-carouselid="${carouselId}"] .cg-carousel__btns`).classList.remove('hidden');
-                }
-
-                instaGlobals.initCarousel(carouselSelector, options, carouselId);
-
-            });
-        }
-
         const instaFeed = $scope.find('.source-provider-InstagramFeed')[0];
         const instaGallery = $scope.find('.insta-gallery')[0];
         if (instaFeed) {
-            instaGlobals.initializeTabs(instaFeed);
+            instaGlobals.feedReady(instaFeed, 'elementor');
         }
         if (instaFeed) {
             instaGlobals.instaPopup(instaFeed);

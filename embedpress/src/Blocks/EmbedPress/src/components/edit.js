@@ -1,0 +1,724 @@
+/**
+ * WordPress dependencies
+ */
+const { __ } = wp.i18n;
+const { Fragment, useEffect, useRef } = wp.element;
+const { useBlockProps, BlockControls } = wp.blockEditor;
+const { ToolbarButton } = wp.components;
+const { apiFetch } = wp;
+const { applyFilters } = wp.hooks;
+
+/**
+ * Internal dependencies
+ */
+import Inspector from "./inspector.js";
+import EmbedLoading from "../../../GlobalCoponents/embed-loading.js";
+import EmbedPlaceholder from "../../../GlobalCoponents/embed-placeholder.js";
+import EmbedWrap from "../../../GlobalCoponents/embed-wrap.js";
+import DynamicStyles from "./dynamic-styles.js";
+
+import { embedPressIcon } from "./icons.js";
+
+import "../editor.scss"
+import "../style.scss"
+
+import {
+    saveSourceData,
+    getPlayerOptions,
+    getCarouselOptions,
+    // Platform detection functions
+    isYTChannel,
+    isYTPlaylist,
+    isYTVideo,
+    isYTLive,
+    isYTShorts,
+    isVimeoVideo,
+    isWistiaVideo,
+    isSelfHostedVideo,
+    isSelfHostedAudio,
+    isInstagramFeed,
+    isOpensea,
+    isOpenseaSingle,
+    isCalendly,
+    isTikTok,
+    isSpreakerUrl,
+    isTwitchUrl,
+    isGooglePhotosUrl,
+    isMeetupUrl,
+    initCustomPlayer
+} from "./helper";
+import { getEmbedType } from "../../../../utils/helper.js";
+import md5 from "md5";
+import { EPIcon } from "../../../GlobalCoponents/icons.js";
+
+import { useOpensea } from "./InspectorControl/opensea.js";
+import { useYTChannel, useYTVideo, useYoutube } from "./InspectorControl/youtube.js";
+import { useWistiaVideo } from "./InspectorControl/wistia.js";
+import { useVimeoVideo } from "./InspectorControl/vimeo.js";
+import { useInstafeed } from "./InspectorControl/instafeed.js";
+import { useCalendly } from "./InspectorControl/calendly.js";
+import { useSpreaker } from "./InspectorControl/spreaker.js";
+import { useTwitch } from "./InspectorControl/twitch.js";
+import { useGooglePhotos } from "./InspectorControl/google-photos.js";
+import { useMeetup } from "./InspectorControl/meetup.js";
+import { useCustomPlayer } from "./InspectorControl/custom-player-rest";
+import { shareIconsHtml, getIframeTitle } from "../../../GlobalCoponents/helper.js";
+
+export default function Edit(props) {
+    const { attributes, setAttributes, clientId } = props;
+
+    const {
+        url,
+        editingURL,
+        fetching,
+        cannotEmbed,
+        interactive,
+        embedHTML,
+        height,
+        width,
+        contentShare,
+        sharePosition,
+        lockContent,
+        customlogo,
+        logoX,
+        logoY,
+        customlogoUrl,
+        logoOpacity,
+        customPlayer,
+        playerPreset,
+        adManager,
+        adSource,
+        adFileUrl,
+        adWidth,
+        adHeight,
+        adXPosition,
+        adYPosition,
+        shareFacebook,
+        shareTwitter,
+        sharePinterest,
+        shareLinkedin,
+        instaLayout,
+        cEmbedType,
+        cPopupButtonText,
+        cPopupButtonBGColor,
+        cPopupButtonTextColor,
+        coverImageUrl,
+        playlist,
+    } = attributes;
+
+    // Set client ID if not set or if it doesn't match (e.g., after block duplication)
+    useEffect(() => {
+        if (!attributes.clientId || attributes.clientId !== clientId) {
+            setAttributes({ clientId });
+        }
+    }, [clientId, attributes.clientId, setAttributes]);
+
+    // Set provider name when URL changes (fallback for immediate feedback)
+    useEffect(() => {
+        if (url && (!attributes.providerName || attributes.providerName === '')) {
+            let providerName = getEmbedType(url);
+
+            // If getEmbedType doesn't find a match, extract from domain
+            if (!providerName) {
+                const domainMatch = url.match(/https?:\/\/(?:www\.)?([^.\/]+)\.(?:com|net|org|io|tv|co|fm|ly)/i);
+                if (domainMatch?.[1]) {
+                    const domain = domainMatch[1];
+                    providerName = domain.charAt(0).toUpperCase() + domain.slice(1);
+                }
+            }
+
+            if (providerName) {
+                setAttributes({ providerName });
+            }
+        }
+    }, [url, attributes.providerName, setAttributes]);
+
+    // Helper function to check if URL requires dynamic content
+    const isDynamicProvider = (url) => {
+        if (!url) return false;
+        const dynamicProviders = [
+            'photos.app.goo.gl',
+            'photos.google.com',
+            'instagram.com',
+            'opensea.io'
+        ];
+        return dynamicProviders.some(provider => url.includes(provider));
+    };
+
+
+
+    const _md5ClientId = md5(attributes.clientId || clientId);
+
+    // Platform detection
+    const _isSelfHostedVideo = isSelfHostedVideo(url);
+    const _isSelfHostedAudio = isSelfHostedAudio(url);
+    const isYTChannelUrl = isYTChannel(url);
+    const isYTPlaylistUrl = isYTPlaylist(url);
+    const isYTChannelOrPlaylistUrl = isYTChannelUrl || isYTPlaylistUrl;
+    const isYTVideoUrl = isYTVideo(url);
+    const isYTLiveUrl = isYTLive(url);
+    const isYTShortsUrl = isYTShorts(url);
+    const isVimeoVideoUrl = isVimeoVideo(url);
+    const isWistiaVideoUrl = isWistiaVideo(url);
+    const isInstagramFeedUrl = isInstagramFeed(url);
+    const isOpenseaUrl = isOpensea(url);
+    const isOpenseaSingleUrl = isOpenseaSingle(url);
+    const isCalendlyUrl = isCalendly(url);
+    const isTikTokUrl = isTikTok(url);
+    const isSpreakerUrlDetected = isSpreakerUrl(url);
+    const isTwitchUrlDetected = isTwitchUrl(url);
+    const isGooglePhotosUrlDetected = isGooglePhotosUrl(url);
+    const isMeetupUrlDetected = isMeetupUrl(url);
+
+    const openseaParams = useOpensea(attributes);
+    const { youtubeParams } = useYoutube(attributes, url);
+    const wistiaVideoParams = useWistiaVideo(attributes);
+    const youtubeChannelParams = useYTChannel(attributes);
+    const youtubeVideoParams = useYTVideo(attributes);
+    const vimeoVideoParams = useVimeoVideo(attributes);
+    const instafeedParams = useInstafeed(attributes);
+    const calendlyParamns = useCalendly(attributes);
+    const spreakerParams = useSpreaker(attributes);
+    const twitchParams = useTwitch(attributes);
+    const googlePhotosParams = useGooglePhotos(attributes);
+    const meetupParams = useMeetup(attributes);
+    const customPlayerParams = useCustomPlayer(attributes);
+
+    // Dynamic logo setting based on URL (only if no custom logo is already set)
+    useEffect(() => {
+        if (!url) return;
+        if (typeof window.embedpressGutenbergData !== 'undefined' && !customlogo) {
+            const embedpressGutenbergData = window.embedpressGutenbergData;
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                setAttributes({
+                    customlogo: embedpressGutenbergData.youtube_brand_logo_url || ''
+                });
+            } else if (url.includes('vimeo.com')) {
+                setAttributes({
+                    customlogo: embedpressGutenbergData.vimeo_brand_logo_url || ''
+                });
+            } else if (url.includes('wistia.com')) {
+                setAttributes({
+                    customlogo: embedpressGutenbergData.wistia_brand_logo_url || ''
+                });
+            } else if (url.includes('twitch.com')) {
+                setAttributes({
+                    customlogo: embedpressGutenbergData.twitch_brand_logo_url || ''
+                });
+            } else if (url.includes('dailymotion.com')) {
+                setAttributes({
+                    customlogo: embedpressGutenbergData.dailymotion_brand_logo_url || ''
+                });
+            }
+        }
+    }, [url, customlogo]);
+
+    // Platform-specific height adjustments
+    useEffect(() => {
+        if (isSpreakerUrlDetected && !coverImageUrl && !playlist) {
+            setAttributes({ height: '200' });
+        }
+        if (isSpreakerUrlDetected && playlist) {
+            setAttributes({ height: '450' });
+        }
+    }, [url, coverImageUrl, playlist, isSpreakerUrlDetected, setAttributes]);
+
+    useEffect(() => {
+        if ((isYTVideoUrl || isYTLiveUrl || _isSelfHostedVideo || isVimeoVideoUrl || isWistiaVideoUrl) && editingURL) {
+            setAttributes({ height: '340' });
+        }
+    }, [url, editingURL, isYTVideoUrl, isYTLiveUrl, _isSelfHostedVideo, isVimeoVideoUrl, isWistiaVideoUrl, setAttributes]);
+
+    // Content share classes
+    let contentShareClass = '';
+    let sharePositionClass = '';
+    let sharePos = sharePosition || 'right';
+    if (contentShare) {
+        contentShareClass = 'ep-content-share-enabled';
+        sharePositionClass = 'ep-share-position-' + sharePos;
+    }
+
+    // Player preset class
+    let playerPresetClass = '';
+    if (customPlayer) {
+        playerPresetClass = playerPreset || 'preset-default';
+    }
+
+    // YouTube channel / playlist class (same wrapper, same CSS)
+    let ytChannelClass = '';
+    if (isYTChannelOrPlaylistUrl) {
+        ytChannelClass = 'embedded-youtube-channel';
+    }
+
+    // Instagram layout class
+    let instaLayoutClass = '';
+    if (isInstagramFeedUrl) {
+        instaLayoutClass = instaLayout;
+    }
+
+    // Source class for platform identification
+    let sourceClass = '';
+    if (isOpenseaUrl || isOpenseaSingleUrl) {
+        sourceClass = ' source-opensea';
+    }
+
+    // Calendly popup button preview
+    // Normalize legacy popup-button colors saved without a leading '#'.
+    // Was inline during render — that's setState-during-render and React
+    // warns about it ("Cannot update a component while rendering ..."). The
+    // useEffect runs once after mount when the values need fixing up.
+    useEffect(() => {
+        if (cEmbedType !== 'popup_button') return;
+        const patch = {};
+        if (cPopupButtonTextColor && !cPopupButtonTextColor.startsWith('#')) {
+            patch.cPopupButtonTextColor = '#' + cPopupButtonTextColor;
+        }
+        if (cPopupButtonBGColor && !cPopupButtonBGColor.startsWith('#')) {
+            patch.cPopupButtonBGColor = '#' + cPopupButtonBGColor;
+        }
+        if (Object.keys(patch).length) setAttributes(patch);
+    }, [cEmbedType, cPopupButtonTextColor, cPopupButtonBGColor, setAttributes]);
+
+    let cPopupButton = '';
+    if (cEmbedType === 'popup_button') {
+        const textColor = cPopupButtonTextColor && !cPopupButtonTextColor.startsWith('#')
+            ? '#' + cPopupButtonTextColor : cPopupButtonTextColor;
+        const bgColor = cPopupButtonBGColor && !cPopupButtonBGColor.startsWith('#')
+            ? '#' + cPopupButtonBGColor : cPopupButtonBGColor;
+
+        cPopupButton = `
+            <div class="cbutton-preview-wrapper" style="margin-top:-${height}px">
+                <h4 class="cbutton-preview-text">Preview Popup Button</h4>
+                <div style="position: static" class="calendly-badge-widget">
+                    <div class="calendly-badge-content" style="color: ${textColor}; background: ${bgColor};">
+                        ${cPopupButtonText}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Wistia message
+    let epMessage = '';
+    if (isWistiaVideoUrl) {
+        epMessage = `<span class='ep-wistia-message'> Changes will be affected in frontend. </span>`;
+    }
+
+    // Share HTML
+    let shareHtml = '';
+    if (contentShare) {
+        shareHtml = shareIconsHtml(sharePosition, shareFacebook, shareTwitter, sharePinterest, shareLinkedin);
+    }
+
+
+    // Custom logo component
+    const customLogoTemp = applyFilters('embedpress.customLogoComponent', '', attributes);
+
+    function switchBackToURLInput() {
+        setAttributes({ editingURL: true });
+    }
+
+    function onLoad() {
+        setAttributes({ fetching: false });
+    }
+
+    function execScripts() {
+        if (!embedHTML) return;
+
+        let scripts = embedHTML.matchAll(/<script.*?src=["'](.*?)["'].*?><\/script>/g);
+        scripts = [...scripts];
+        for (const script of scripts) {
+            if (script && typeof script[1] !== 'undefined') {
+                const url = script[1];
+                const hash = md5(url);
+                const exist = document.getElementById(hash);
+                if (exist) {
+                    exist.remove();
+                }
+                const s = document.createElement('script');
+                s.type = 'text/javascript';
+                s.setAttribute('id', hash);
+                s.setAttribute('src', url);
+                document.body.appendChild(s);
+            }
+        }
+    }
+
+    function embed(event) {
+        if (event) event.preventDefault();
+
+        if (url) {
+            setAttributes({ fetching: true });
+
+            // API request to get embed HTML
+            const fetchData = async (embedUrl) => {
+                let params = {
+                    url: embedUrl,
+                    width,
+                    height,
+                };
+
+                params = applyFilters('embedpress_block_rest_param', params, attributes);
+
+                // Use apiFetch's `path` so the resolver picks the right REST
+                // base (`/wp-json/...` on pretty permalinks, `?rest_route=...`
+                // on Plain). Hardcoding `/wp-json/` 404s when the site uses
+                // Plain permalinks.
+                const args = {
+                    path: '/embedpress/v1/oembed/embedpress',
+                    method: "POST",
+                    data: params
+                };
+
+                return await apiFetch(args)
+                    .then((res) => res)
+                    .catch((err) => {
+                        console.error('EmbedPress API Error:', err);
+                        return { error: true };
+                    });
+            };
+
+            fetchData(url).then(data => {
+                setAttributes({ fetching: false });
+
+                if ((data.data && data.data.status === 404) || !data.embed || data.error) {
+                    // A failed re-embed must not destroy an already-working block.
+                    // Google Photos scrapes can transiently fail (rate limits,
+                    // network); if we already have embedHTML, keep showing it
+                    // instead of dropping back to the empty URL placeholder.
+                    if (embedHTML) {
+                        setAttributes({ cannotEmbed: false, editingURL: false });
+                    } else {
+                        setAttributes({
+                            cannotEmbed: true,
+                            editingURL: true,
+                        });
+                    }
+                } else {
+                    // Use provider name from backend response, fallback to frontend detection
+                    let providerName = data.provider_name || getEmbedType(url);
+
+                    // If still no provider name, extract from domain
+                    if (!providerName) {
+                        const domainMatch = url.match(/https?:\/\/(?:www\.)?([^.\/]+)\.(?:com|net|org|io|tv|co|fm|ly)/i);
+                        if (domainMatch?.[1]) {
+                            const domain = domainMatch[1];
+                            providerName = domain.charAt(0).toUpperCase() + domain.slice(1);
+                        }
+                    }
+
+                    let embedHTMLWithTitle = data.embed;
+                    if (embedHTMLWithTitle && embedHTMLWithTitle.includes('<iframe') && !embedHTMLWithTitle.includes('title=')) {
+                        const match = embedHTMLWithTitle.match(/src=["'](.*?)["']/);
+                        if (match && match[1]) {
+                             const title = getIframeTitle(match[1]);
+                             if (title) {
+                                 embedHTMLWithTitle = embedHTMLWithTitle.replace('<iframe', `<iframe title="${title}"`);
+                             }
+                        }
+                    }
+
+                    setAttributes({
+                        embedHTML: embedHTMLWithTitle,
+                        cannotEmbed: false,
+                        editingURL: false,
+                        providerName: providerName || '',
+                    });
+                    execScripts();
+                }
+            });
+        } else {
+            setAttributes({
+                cannotEmbed: true,
+                fetching: false,
+                editingURL: true
+            });
+        }
+
+        if (attributes.clientId && url) {
+            saveSourceData(attributes.clientId, url);
+        }
+
+        // Initialize custom player if enabled
+        if (customPlayer) {
+            initCustomPlayer(_md5ClientId, attributes);
+        }
+
+        // Instagram feed preview rendered. Extension point: EmbedPress Pro
+        // hooks this to initialise its Carousel layout in the editor.
+        if (isInstagramFeedUrl && wp.hooks.doAction) {
+            wp.hooks.doAction('embedpress.instagram.previewRendered', _md5ClientId, attributes);
+        }
+    }
+
+    useEffect(() => {
+        if (embedHTML && !editingURL && !fetching) {
+            execScripts();
+        }
+    }, [embedHTML, editingURL, fetching]);
+
+    // Recover a saved block that has a URL but no usable embed in the editor.
+    //
+    // Legacy render_callback blocks (`<!-- wp:embedpress/embedpress {…} /-->`,
+    // no inner HTML) render fine on the frontend via PHP, but when reopened
+    // under the current build WP's block-recovery can drop the saved embedHTML
+    // while keeping the URL — leaving the block showing the empty "Enter URL to
+    // embed here…" placeholder even though the embed clearly resolves. Rather
+    // than fight the deprecation pipeline, just do what the Embed button does:
+    // if we have a URL but no embedHTML, re-fetch it once on mount so the
+    // editor preview matches the frontend (fbs-82574). Skips dynamic providers
+    // (they resolve via their own effects) and never clobbers a working embed.
+    const didAutoEmbed = useRef(false);
+    useEffect(() => {
+        if (didAutoEmbed.current) return;
+        didAutoEmbed.current = true;
+        if (url && !embedHTML && !fetching && !isDynamicProvider(url)) {
+            // Defer one tick so the setAttributes chain from embed() never lands
+            // during another component's render (React setState-in-render warn).
+            const t = setTimeout(() => embed(), 0);
+            return () => clearTimeout(t);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Auto-refresh stale embedHTML for YT playlist URLs: if the saved HTML
+    // predates the queue layout (no .ep-yt-queue marker) and the URL is a
+    // playlist, re-fetch so editor preview matches the new frontend output.
+    // Runs once on mount when stale; skips while editing or fetching.
+    useEffect(() => {
+        if (!url || !embedHTML || editingURL || fetching) return;
+        if (!isYTChannelOrPlaylistUrl) return;
+        if (embedHTML.indexOf('ep-yt-queue') !== -1) return; // already new layout
+        if (embedHTML.indexOf('layout-queue') !== -1) return;
+        // Stale: trigger a refresh.
+        embed();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Reinitialize custom player when clientId changes (e.g., after block
+    // duplication) OR when any player option changes. Plyr's `controls`
+    // array, color, preset, tooltip toggle, etc. are all set at init time —
+    // toggling them in the inspector requires destroying and recreating the
+    // Plyr instance, otherwise the editor preview goes stale (visible on
+    // YouTube/Vimeo, where the iframe URL doesn't change for player-only
+    // options so embedHTML alone wouldn't re-trigger this effect).
+    useEffect(() => {
+        if (embedHTML && !editingURL && !fetching && customPlayer && attributes.clientId) {
+            // Small delay to ensure DOM is updated
+            const timer = setTimeout(() => {
+                initCustomPlayer(_md5ClientId, attributes);
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [_md5ClientId, customPlayer, embedHTML, editingURL, fetching, customPlayerParams]);
+
+    // Toggling Custom Player OFF in the inspector must tear down the existing
+    // Plyr instance — otherwise its injected control bar lingers and the
+    // editor preview looks stuck until reload. Reverts the wrapper to its
+    // bare embed state so the toggle round-trips visibly in real time.
+    useEffect(() => {
+        if (customPlayer) return;
+        if (!window.embedpressPlayers || !window.embedpressPlayers[_md5ClientId]) return;
+        try { window.embedpressPlayers[_md5ClientId].destroy(); } catch (e) {}
+        delete window.embedpressPlayers[_md5ClientId];
+        const wrapper = document.querySelector(`[data-playerid="${_md5ClientId}"]`);
+        if (wrapper) {
+            wrapper.classList.remove('plyr-initialized');
+            wrapper.style.opacity = '';
+        }
+    }, [customPlayer, _md5ClientId]);
+
+    // Re-embed when a provider option actually changes — but NOT on the
+    // initial mount. On reopening a saved post the *Params hooks settle to
+    // their stored values on first render, which used to trip this effect and
+    // fire a live re-embed every time the editor loaded. For dynamic providers
+    // (Google Photos, Instagram, OpenSea) that means a fresh scrape on every
+    // open; if it was slow/rate-limited/failed, the response branch reset
+    // editingURL=true and wiped the working embed back to the URL placeholder
+    // (the "block forgets its album on re-edit" bug). The saved embedHTML is
+    // already correct on load, so skip the first run and only re-embed on a
+    // genuine user-initiated option change.
+    const didMountEmbedEffect = useRef(false);
+    useEffect(() => {
+        if (!didMountEmbedEffect.current) {
+            didMountEmbedEffect.current = true;
+            return;
+        }
+        const delayDebounceFn = setTimeout(() => {
+            if (!((!embedHTML || editingURL) && !fetching)) {
+                embed();
+            }
+        }, 1500)
+        return () => {
+            clearTimeout(delayDebounceFn)
+        }
+    }, [openseaParams, youtubeParams, youtubeChannelParams, youtubeVideoParams, wistiaVideoParams, vimeoVideoParams, instafeedParams, calendlyParamns, contentShare, lockContent, spreakerParams, twitchParams, googlePhotosParams, meetupParams, customPlayerParams]);
+
+
+    const blockProps = useBlockProps();
+
+    return (
+        <Fragment>
+            <Inspector
+                attributes={attributes}
+                setAttributes={setAttributes}
+                isYTChannel={isYTChannelUrl}
+                isYTPlaylist={isYTPlaylistUrl}
+                isYTVideo={isYTVideoUrl}
+                isYTLive={isYTLiveUrl}
+                isYTShorts={isYTShortsUrl}
+                isOpensea={isOpenseaUrl}
+                isOpenseaSingle={isOpenseaSingleUrl}
+                isWistiaVideo={isWistiaVideoUrl}
+                isVimeoVideo={isVimeoVideoUrl}
+                isSelfHostedVideo={_isSelfHostedVideo}
+                isSelfHostedAudio={_isSelfHostedAudio}
+                isCalendly={isCalendlyUrl}
+                isTikTok={isTikTokUrl}
+                isSpreaker={isSpreakerUrlDetected}
+                isTwitch={isTwitchUrlDetected}
+                isMeetup={isMeetupUrlDetected}
+                isGooglePhotos={isGooglePhotosUrlDetected}
+            />
+
+            {((!embedHTML || !!editingURL) && !fetching) && (
+                <div {...blockProps}>
+                    <EmbedPlaceholder
+                        label={__('EmbedPress - Embed anything from 250+ sites', 'embedpress')}
+                        onSubmit={embed}
+                        value={url}
+                        cannotEmbed={cannotEmbed}
+                        onChange={(event) => setAttributes({ url: event.target.value })}
+                        icon={EPIcon}
+                        DocTitle={__('Learn more about EmbedPress', 'embedpress')}
+                        docLink={'https://embedpress.com/docs/'}
+                    />
+                </div>
+            )}
+
+            {/* Loading state with platform-specific conditions */}
+            {(
+                (!isOpenseaUrl || (!!editingURL || editingURL === 0)) &&
+                (!isOpenseaSingleUrl || (!!editingURL || editingURL === 0)) &&
+                ((!isYTVideoUrl && !isYTLiveUrl && !isYTShortsUrl) || (!!editingURL || editingURL === 0)) &&
+                (!isYTChannelOrPlaylistUrl || (!!editingURL || editingURL === 0)) &&
+                (!isWistiaVideoUrl || (!!editingURL || editingURL === 0)) &&
+                (!isVimeoVideoUrl || (!!editingURL || editingURL === 0)) &&
+                (!isCalendlyUrl || (!!editingURL || editingURL === 0)) &&
+                (!isInstagramFeedUrl || (!!editingURL || editingURL === 0)) &&
+                (!isSpreakerUrlDetected || (!!editingURL || editingURL === 0)) &&
+                (!isGooglePhotosUrlDetected || (!!editingURL || editingURL === 0))
+            ) && fetching && (
+                    <div className={blockProps.className}>
+                        <EmbedLoading />
+                    </div>
+                )}
+
+            {/* Main embed content */}
+            {(embedHTML && !editingURL && (!fetching || isOpenseaUrl || isOpenseaSingleUrl || isYTChannelOrPlaylistUrl || isYTVideoUrl || isYTShortsUrl || isWistiaVideoUrl || isVimeoVideoUrl || isCalendlyUrl || isInstagramFeedUrl || isSpreakerUrlDetected || isGooglePhotosUrlDetected)) && (
+                <>
+                    <BlockControls>
+                        <ToolbarButton
+                            className="components-edit-button"
+                            icon="edit"
+                            label={__('Edit URL', 'embedpress')}
+                            onClick={switchBackToURLInput}
+                        />
+                    </BlockControls>
+
+                    <figure {...blockProps} data-source-id={'source-' + attributes.clientId}>
+                        <div className={`gutenberg-block-wraper ${contentShareClass} ${sharePositionClass}${sourceClass}`}>
+                        <EmbedWrap
+                            // Force a fresh DOM subtree on three independent changes:
+                            //  1. customPlayer toggle — Plyr mutates the inner DOM
+                            //     (replaces iframe, injects control bar) and React's
+                            //     dangerouslySetInnerHTML can't undo that without an
+                            //     unmount, so disabling looked stuck until reload.
+                            //  2. any Pro player option (Email Capture, End Screen,
+                            //     Chapters, …) — initplyr.js's MutationObserver only
+                            //     reacts to node additions, not attribute changes, so
+                            //     toggling these on an already-rendered wrapper never
+                            //     reached the Pro-feature dispatch chain.
+                            //  3. embedHTML change — toggling autoplay (and other
+                            //     provider params not tracked in customPlayerParams,
+                            //     e.g. start/end times) re-fetches embedHTML with a
+                            //     new iframe src. Without remounting, Plyr stays
+                            //     attached to the now-stale element and Pro listeners
+                            //     point at orphan nodes, which is why Pro features
+                            //     stopped working after enabling autoplay.
+                            key={`ep-wrap-${customPlayer ? 'cp' : 'raw'}|${(embedHTML || '').length}|${JSON.stringify(customPlayerParams || {})}`}
+                            className={`position-${sharePos}-wraper ep-embed-content-wraper ${ytChannelClass} ${playerPresetClass} ${instaLayoutClass}`}
+                            style={{
+                                display: fetching && !isOpenseaUrl && !isOpenseaSingleUrl && !isYTChannelOrPlaylistUrl && !isYTVideoUrl && !isYTLiveUrl && !isYTShortsUrl && !isWistiaVideoUrl && !isVimeoVideoUrl && !isCalendlyUrl && !isInstagramFeedUrl && !isGooglePhotosUrlDetected ? 'none' : isOpenseaUrl || isOpenseaSingleUrl ? 'block' : 'inline-block',
+                                position: 'relative'
+                            }}
+                            {...(customPlayer ? { 'data-playerid': md5(attributes.clientId) } : {})}
+                            {...(customPlayer ? { 'data-options': getPlayerOptions({ attributes }) } : {})}
+                            {...(instaLayout === 'insta-carousel' ? { 'data-carouselid': md5(attributes.clientId) } : {})}
+                            {...(instaLayout === 'insta-carousel' ? { 'data-carousel-options': getCarouselOptions({ attributes }) } : {})}
+                            dangerouslySetInnerHTML={{
+                                __html: embedHTML + customLogoTemp + epMessage + shareHtml + cPopupButton,
+                            }}
+                        />
+
+                        {/* Ad Manager Template */}
+                        {adManager && (adSource === 'image') && adFileUrl && (
+                            <div className="main-ad-template" style={{
+                                position: 'absolute',
+                                bottom: `${adYPosition}%`,
+                                left: `${adXPosition}%`,
+                                width: `${adWidth}px`,
+                                height: `${adHeight}px`,
+                                backgroundImage: `url(${adFileUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                zIndex: 10
+                            }}>
+                                <div style={{ width: '100%', height: '100%' }}>
+                                    <img src={adFileUrl} alt="Advertisement" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                            </div>
+                        )}
+
+                        {fetching && (
+                            <div style={{ filter: 'grayscale(1)', backgroundColor: '#fffafa', opacity: '0.7' }}
+                                className="block-library-embed__interactive-overlay"
+                                onMouseUp={() => setAttributes({ interactive: true })}
+                            />
+                        )}
+
+                        {!isOpenseaUrl && !isOpenseaSingleUrl && (
+                            <div
+                                className="block-library-embed__interactive-overlay"
+                                onMouseUp={() => setAttributes({ interactive: true })}
+                            />
+                        )}
+
+                    </div>
+                </figure>
+                </>
+            )}
+
+            {/* Dynamic Styles */}
+            <DynamicStyles attributes={attributes} />
+
+
+            {/* Ad Manager Styles */}
+            {adManager && (adSource === 'image') && (
+                <style>
+                    {`
+                        [data-source-id="source-${attributes.clientId}"] .main-ad-template div,
+                        .main-ad-template div img {
+                            height: 100%;
+                        }
+                        [data-source-id="source-${attributes.clientId}"] .main-ad-template {
+                            position: absolute;
+                            bottom: ${adYPosition}%;
+                            left: ${adXPosition}%;
+                        }
+                    `}
+                </style>
+            )}
+        </Fragment>
+    );
+}

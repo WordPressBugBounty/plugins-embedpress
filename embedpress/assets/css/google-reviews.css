@@ -277,36 +277,7 @@
 .ep-gr-body.is-expanded .ep-gr-readmore .ep-gr-readmore-more { display: none; }
 .ep-gr-body.is-expanded .ep-gr-readmore .ep-gr-readmore-less { display: inline; }
 
-/* ── Photo strip (horizontal thumbnails, like Google) ────────────────────── */
-.ep-gr-photos {
-    display: flex;
-    gap: 8px;
-    margin-top: 14px;
-    overflow: hidden;
-    flex-wrap: wrap;
-}
-.ep-gr-photo {
-    position: relative;
-    flex: 0 0 auto;
-    width: 104px;
-    height: 104px;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #e8eaed;
-}
-.ep-gr-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ep-gr-photo--more::after {
-    content: attr(data-more);
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-}
+/* (Review photo strip styles live in EmbedPress Pro — google-reviews-pro.css.) */
 
 /* ── Owner response ──────────────────────────────────────────────────────── */
 .ep-gr-owner {
@@ -445,7 +416,6 @@
 .ep-gr--preset-masonry .ep-gr-text,
 .ep-gr--preset-bubble .ep-gr-text { -webkit-line-clamp: 4; }
 .ep-google-reviews--carousel .ep-gr-text { -webkit-line-clamp: 3; }
-.ep-google-reviews--carousel .ep-gr-photos { max-height: 84px; overflow: hidden; }
 @media (min-width: 700px) {
     .ep-google-reviews--carousel .ep-gr-review {
         flex-basis: calc(100% / var(--ep-gr-columns, 2));
@@ -725,7 +695,6 @@
 }
 .ep-gr--dark .ep-gr-write-review { border-color: #5f6368; }
 .ep-gr--dark .ep-gr-owner { background: #2a2f37; }
-.ep-gr--dark .ep-gr-photo { background: #2a2f37; }
 .ep-gr--dark .ep-gr-avatar--placeholder { background: linear-gradient(135deg, #4285f4, #1a73e8); }
 .ep-gr--dark .ep-gr-carousel-arrow { background: #2a2f37; border-color: #3c4043; color: #e8eaed; }
 .ep-gr--dark .ep-gr-carousel-arrow:hover { background: #353b45; }

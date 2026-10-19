@@ -256,6 +256,17 @@ class EmbedPressBlockRenderer
                     return self::render_embed_html($attributes, $fresh, $protection_data, $should_display_content);
                 }
             }
+            // OpenSea with no API key: the editor fetch (made as an admin) saved
+            // the admin-only "add your key" message. Re-render for the current
+            // viewer so visitors get the plain link, and the real embed shows
+            // once a key is saved.
+            if (strpos($attributes['embedHTML'], 'ep-opensea-missing-key') !== false) {
+                $r = Shortcode::parseContent($url, true, []);
+                $fresh = is_object($r) ? $r->embed : (is_string($r) ? $r : '');
+                if (!empty($fresh)) {
+                    return self::render_embed_html($attributes, $fresh, $protection_data, $should_display_content);
+                }
+            }
             return self::render_embed_html($attributes, $attributes['embedHTML'], $protection_data, $should_display_content);
         }
 
@@ -532,7 +543,10 @@ class EmbedPressBlockRenderer
         }
 
         echo '<div class="ep-embed-content-wraper">';
-        if ($attributes['protectionType'] == 'password') {
+        if (Helper::pro_is_outdated()) {
+            // Outdated Pro cannot render the lock UI — fail closed.
+            echo Helper::protection_paused_notice();
+        } elseif ($attributes['protectionType'] == 'password') {
             echo '<div id="ep-gutenberg-content-' . esc_attr($client_id) . '" class="ep-gutenberg-content">';
             do_action('embedpress/display_password_form', $client_id, $embed, $styling['pass_hash_key'], $attributes);
             echo '</div>';
@@ -688,12 +702,8 @@ class EmbedPressBlockRenderer
     private static function extract_protection_data($attributes, $client_id)
     {
         $content_password = $attributes['contentPassword'] ?? '';
-        $hash_pass = hash('sha256', wp_salt(32) . md5($content_password));
-        $password_correct = $_COOKIE['password_correct_' . $client_id] ?? '';
         return [
             'content_password'    => $content_password,
-            'hash_pass'          => $hash_pass,
-            'password_correct'   => $password_correct,
             'protection_type'    => $attributes['protectionType'] ?? '',
             'lock_content'       => $attributes['lockContent'] ?? '',
             'user_role'          => $attributes['userRole'] ?? '',
@@ -712,16 +722,23 @@ class EmbedPressBlockRenderer
      */
     private static function should_display_content($protection_data)
     {
-        return (
-            !apply_filters('embedpress/is_allow_rander', false) ||
-            empty($protection_data['lock_content']) ||
-            ($protection_data['protection_type'] === 'password' && empty($protection_data['content_password'])) ||
-            ($protection_data['protection_type'] === 'password' &&
-                !empty(Helper::is_password_correct($protection_data['client_id'])) &&
-                ($protection_data['hash_pass'] === $protection_data['password_correct'])) ||
-            ($protection_data['protection_type'] === 'user-role' &&
-                Helper::has_content_allowed_roles($protection_data['user_role']))
-        );
+        /**
+         * Filter `embedpress/content_protection/is_locked` — whether the embed
+         * must stay hidden behind content protection for the current visitor.
+         *
+         * @param bool   $locked          Default false: render the embed.
+         * @param array  $protection_data lock_content, protection_type,
+         *                                content_password, user_role,
+         *                                protection_message, client_id, …
+         *                                (see extract_protection_data()).
+         * @param string $context         'gutenberg'.
+         *
+         * When a callback returns true, the renderer prints the lock UI through
+         * the `embedpress/display_password_form` (password) or
+         * `embedpress/content_protection_content` (role) actions instead of the
+         * embed. Free registers no callback, so the embed always renders.
+         */
+        return !Helper::is_content_locked($protection_data, 'gutenberg');
     }
 
     /**
@@ -963,14 +980,14 @@ class EmbedPressBlockRenderer
     {
         $urlParamData = array(
             'themeMode' => !empty($attributes['themeMode']) ? $attributes['themeMode'] : 'default',
-            'toolbar' => !empty($attributes['toolbar']) ? 'true' : 'false',
+            'toolbar' => 'true',
             'position' => $attributes['position'] ?? 'top',
             'presentation' => !empty($attributes['presentation']) ? 'true' : 'false',
             'lazyLoad' => !empty($attributes['lazyLoad']) ? 'true' : 'false',
-            'download' => !empty($attributes['download']) ? 'true' : 'false',
-            'copy_text' => !empty($attributes['copy_text']) ? 'true' : 'false',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => !empty($attributes['add_text']) ? 'true' : 'false',
-            'draw' => !empty($attributes['draw']) ? 'true' : 'false',
+            'draw' => 'true',
             'doc_rotation' => !empty($attributes['doc_rotation']) ? 'true' : 'false',
             'add_image' => !empty($attributes['add_image']) ? 'true' : 'false',
             'doc_details' => !empty($attributes['doc_details']) ? 'true' : 'false',
@@ -979,18 +996,22 @@ class EmbedPressBlockRenderer
             'fit_view' => !empty($attributes['fitView']) ? 'true' : 'false',
             'bookmark' => !empty($attributes['bookmark']) ? 'true' : 'false',
             'flipbook_toolbar_position' => !empty($attributes['flipbook_toolbar_position']) ? $attributes['flipbook_toolbar_position'] : 'bottom',
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['flipbookPageFlipRTL']) ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => !empty($attributes['flipbookHighlightLinks']) ? 'true' : 'false',
             'flipbook_highlight_color' => isset($attributes['flipbookHighlightColor']) ? esc_attr($attributes['flipbookHighlightColor']) : '',
-            'selection_tool' => isset($attributes['selection_tool']) ? esc_attr($attributes['selection_tool']) : '0',
-            'scrolling' => isset($attributes['scrolling']) ? esc_attr($attributes['scrolling']) : '-1',
+            'selection_tool' => '0',
+            'scrolling' => '-1',
             'spreads' => isset($attributes['spreads']) ? esc_attr($attributes['spreads']) : '-1',
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkText']) ? esc_attr($attributes['watermarkText']) : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkFontSize']) ? esc_attr($attributes['watermarkFontSize']) : '48',
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkColor']) ? esc_attr($attributes['watermarkColor']) : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkOpacity']) ? esc_attr($attributes['watermarkOpacity']) : '15',
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkStyle']) ? esc_attr($attributes['watermarkStyle']) : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => '48',
+            'watermark_color' => '#000000',
+            'watermark_opacity' => '15',
+            'watermark_style' => 'center',
         );
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $urlParamData = Helper::pdf_viewer_params($urlParamData, $attributes, 'gutenberg');
+        $urlParamData['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($urlParamData);
 
         if ($urlParamData['themeMode'] === 'custom') {
             $urlParamData['customColor'] = !empty($attributes['customColor']) ? $attributes['customColor'] : '#403A81';
@@ -1003,14 +1024,14 @@ class EmbedPressBlockRenderer
     {
         $urlParamData = array(
             'themeMode' => !empty($attributes['themeMode']) ? $attributes['themeMode'] : 'default',
-            'toolbar' => !empty($attributes['toolbar']) ? 'true' : 'false',
+            'toolbar' => 'true',
             'position' => $attributes['position'] ?? 'top',
             'presentation' => !empty($attributes['presentation']) ? 'true' : 'false',
             'lazyLoad' => !empty($attributes['lazyLoad']) ? 'true' : 'false',
-            'download' => !empty($attributes['download']) ? 'true' : 'false',
-            'copy_text' => !empty($attributes['copy_text']) ? 'true' : 'false',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => !empty($attributes['add_text']) ? 'true' : 'false',
-            'draw' => !empty($attributes['draw']) ? 'true' : 'false',
+            'draw' => 'true',
             'doc_rotation' => !empty($attributes['doc_rotation']) ? 'true' : 'false',
             'add_image' => !empty($attributes['add_image']) ? 'true' : 'false',
             'doc_details' => !empty($attributes['doc_details']) ? 'true' : 'false',
@@ -1019,18 +1040,22 @@ class EmbedPressBlockRenderer
             'fit_view' => !empty($attributes['fitView']) ? 'true' : 'false',
             'bookmark' => !empty($attributes['bookmark']) ? 'true' : 'false',
             'flipbook_toolbar_position' => !empty($attributes['flipbook_toolbar_position']) ? $attributes['flipbook_toolbar_position'] : 'bottom',
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['flipbookPageFlipRTL']) ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => !empty($attributes['flipbookHighlightLinks']) ? 'true' : 'false',
             'flipbook_highlight_color' => isset($attributes['flipbookHighlightColor']) ? esc_attr($attributes['flipbookHighlightColor']) : '',
-            'selection_tool' => isset($attributes['selection_tool']) ? esc_attr($attributes['selection_tool']) : '0',
-            'scrolling' => isset($attributes['scrolling']) ? esc_attr($attributes['scrolling']) : '-1',
+            'selection_tool' => '0',
+            'scrolling' => '-1',
             'spreads' => isset($attributes['spreads']) ? esc_attr($attributes['spreads']) : '-1',
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkText']) ? esc_attr($attributes['watermarkText']) : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkFontSize']) ? esc_attr($attributes['watermarkFontSize']) : '48',
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkColor']) ? esc_attr($attributes['watermarkColor']) : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkOpacity']) ? esc_attr($attributes['watermarkOpacity']) : '15',
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['watermarkStyle']) ? esc_attr($attributes['watermarkStyle']) : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => '48',
+            'watermark_color' => '#000000',
+            'watermark_opacity' => '15',
+            'watermark_style' => 'center',
         );
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $urlParamData = Helper::pdf_viewer_params($urlParamData, $attributes, 'gutenberg');
+        $urlParamData['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($urlParamData);
 
         // Add custom color for custom theme mode
         if ($urlParamData['themeMode'] === 'custom') {
@@ -1078,7 +1103,7 @@ class EmbedPressBlockRenderer
         return [
             'block_id'      => !empty($attributes['clientId']) ? $attributes['clientId'] : '',
             'custom_player' => !empty($attributes['customPlayer']) ? $attributes['customPlayer'] : 0,
-            'insta_layout'  => !empty($attributes['instaLayout']) ? ' ' . $attributes['instaLayout'] : ' insta-grid',
+            'insta_layout'  => ' ' . \EmbedPress\Providers\InstagramFeed::resolve_layout(!empty($attributes['instaLayout']) ? $attributes['instaLayout'] : ''),
             'mode'          => !empty($attributes['mode']) ? ' ep-google-photos-' . $attributes['mode'] : '',
             'embed_type'    => !empty($attributes['cEmbedType']) ? ' ' . $attributes['cEmbedType'] : '',
             'url'           => $attributes['url'] ?? '',
@@ -1094,33 +1119,13 @@ class EmbedPressBlockRenderer
      */
     private static function build_carousel_config($attributes, $client_id)
     {
-        $carousel_options = '';
-        $carousel_id = '';
-
-        if (!empty($attributes['instaLayout']) && $attributes['instaLayout'] === 'insta-carousel') {
-            $carousel_id = 'data-carouselid="' . esc_attr($client_id) . '"';
-
-            // Every option below is numeric or boolean. Cast rather than pass
-            // through: these values are author-supplied block attributes and are
-            // not constrained by the editor UI when the block markup is posted
-            // directly (REST / code editor).
-            $options = [
-                'layout'          => 'insta-carousel',
-                'slideshow'       => !empty($attributes['slidesShow']) ? absint($attributes['slidesShow']) : 5,
-                'autoplay'        => !empty($attributes['carouselAutoplay']) ? 1 : 0,
-                'autoplayspeed'   => !empty($attributes['autoplaySpeed']) ? absint($attributes['autoplaySpeed']) : 3000,
-                'transitionspeed' => !empty($attributes['transitionSpeed']) ? absint($attributes['transitionSpeed']) : 1000,
-                'loop'            => !empty($attributes['carouselLoop']) ? 1 : 0,
-                'arrows'          => !empty($attributes['carouselArrows']) ? 1 : 0,
-                'spacing'         => !empty($attributes['carouselSpacing']) ? absint($attributes['carouselSpacing']) : 0
-            ];
-
-            $carousel_options = 'data-carousel-options="' . esc_attr(wp_json_encode($options)) . '"';
-        }
+        // Instagram feed wrapper attributes. Free adds none; EmbedPress Pro
+        // supplies the carousel data attributes for its Carousel layout.
+        $layout = \EmbedPress\Providers\InstagramFeed::resolve_layout(isset($attributes['instaLayout']) ? $attributes['instaLayout'] : '');
 
         return [
-            'carousel_id'      => $carousel_id,
-            'carousel_options' => $carousel_options,
+            'carousel_id'      => '',
+            'carousel_options' => \EmbedPress\Providers\InstagramFeed::wrapper_attributes($layout, $attributes, 'gutenberg', $client_id),
         ];
     }
 
@@ -1223,70 +1228,28 @@ class EmbedPressBlockRenderer
      * Adds `Vary: CF-IPCountry` so caches can vary per-country.
      */
     /**
-     * Resolve the visitor's ISO country code. Order:
-     *   1. CDN / reverse-proxy headers (zero-cost when present)
+     * Resolve the visitor's ISO country code (used by Pro's country
+     * restriction). Delegates to Analytics\Geolocation:
+     *   1. CDN / reverse-proxy / server GeoIP headers (no request leaves the site)
      *   2. `embedpress_visitor_country` filter (lets sites inject their own)
-     *   3. Free HTTP GeoIP lookup at ipwho.is, cached per-IP for 12h
+     *   3. HTTPS lookup of the visitor IP (ipapi.co, fallback ipinfo.io,
+     *      cached per IP). Allowed for this 'restriction' purpose regardless of
+     *      the Analytics "Visitor Geolocation" toggle: configuring a country
+     *      restriction on an embed is the site owner's opt-in. Veto with the
+     *      `embedpress/geolocation/allow_remote_lookup` filter.
      *
-     * Returns '' (fail-open) if every source is unavailable so a misconfigured
-     * lookup never silently blocks legitimate visitors.
+     * Returns '' (fail-open) when the country is unknown so a missing source
+     * never silently blocks legitimate visitors. Signature kept stable for Pro.
+     *
+     * @return string
      */
     public static function resolve_visitor_country_public()
     {
-        return self::resolve_visitor_country();
+        $geo = \EmbedPress\Includes\Classes\Analytics\Geolocation::resolve(
+            \EmbedPress\Includes\Classes\Analytics\Geolocation::PURPOSE_RESTRICTION
+        );
+        return $geo['country_code'];
     }
-
-    private static function resolve_visitor_country()
-    {
-        $country = '';
-        foreach (['HTTP_CF_IPCOUNTRY', 'GEOIP_COUNTRY_CODE', 'HTTP_X_COUNTRY_CODE'] as $key) {
-            if (!empty($_SERVER[$key])) {
-                $country = strtoupper(sanitize_text_field($_SERVER[$key]));
-                break;
-            }
-        }
-        $country = apply_filters('embedpress_visitor_country', $country);
-        if ($country) return $country;
-
-        $ip = self::client_ip();
-        if (!$ip) return '';
-
-        $cache_key = 'ep_geo_' . md5($ip);
-        $cached = get_transient($cache_key);
-        if ($cached !== false) {
-            return $cached === '__none__' ? '' : $cached;
-        }
-
-        $resp = wp_remote_get('https://ipwho.is/' . rawurlencode($ip) . '?fields=country_code,success', [
-            'timeout' => 2,
-        ]);
-        if (is_wp_error($resp)) {
-            // Negative-cache briefly so failed lookups don't repeat per-render.
-            set_transient($cache_key, '__none__', 5 * MINUTE_IN_SECONDS);
-            return '';
-        }
-        $body = json_decode(wp_remote_retrieve_body($resp), true);
-        $code = (is_array($body) && !empty($body['country_code'])) ? strtoupper($body['country_code']) : '';
-        set_transient($cache_key, $code ?: '__none__', $code ? 12 * HOUR_IN_SECONDS : 5 * MINUTE_IN_SECONDS);
-        return $code;
-    }
-
-    private static function client_ip()
-    {
-        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'] as $key) {
-            if (empty($_SERVER[$key])) continue;
-            $candidate = trim(explode(',', $_SERVER[$key])[0]);
-            if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                return $candidate;
-            }
-            // Allow private IPs only as last-resort REMOTE_ADDR (dev environments).
-            if ($key === 'REMOTE_ADDR' && filter_var($candidate, FILTER_VALIDATE_IP)) {
-                return $candidate;
-            }
-        }
-        return '';
-    }
-
 
     /**
      * Rewrite self-hosted video / source URLs to the configured CDN URL
@@ -1417,6 +1380,121 @@ class EmbedPressBlockRenderer
      * @param string $client_id  Client ID
      * @return array Custom branding configuration
      */
+    /**
+     * Turn lazy-load placeholders saved in block markup back into iframes.
+     *
+     * Lazy loading is an EmbedPress Pro feature. Posts saved while Pro was
+     * active may hold `.ep-lazy-iframe-placeholder` divs in their static block
+     * markup; without Pro's loader script those would stay empty. Free always
+     * renders the plain iframe, then offers the result to
+     * `embedpress/lazy_load/block_html`, which EmbedPress Pro uses to keep the
+     * placeholders for its loader.
+     *
+     * Hooked to `render_block`.
+     *
+     * @param string $block_content Rendered block HTML.
+     * @param array  $block         Parsed block.
+     * @return string
+     */
+    public static function restore_lazy_load_placeholders($block_content, $block)
+    {
+        if (!is_string($block_content) || strpos($block_content, 'ep-lazy-iframe-placeholder') === false) {
+            return $block_content;
+        }
+
+        $block_name = isset($block['blockName']) ? (string) $block['blockName'] : '';
+        if (strpos($block_name, 'embedpress/') !== 0) {
+            return $block_content;
+        }
+
+        $restored = preg_replace_callback(
+            '#<div\s([^>]*\bep-lazy-iframe-placeholder\b[^>]*)>\s*</div>(\s*</iframe>)?#i',
+            [__CLASS__, 'lazy_placeholder_to_iframe'],
+            $block_content
+        );
+
+        if (!is_string($restored)) {
+            $restored = $block_content;
+        }
+
+        /**
+         * Filters the HTML of an EmbedPress block whose saved markup holds
+         * lazy-load placeholders.
+         *
+         * Lazy loading is an EmbedPress Pro feature. Free passes the HTML with
+         * every placeholder already turned back into a plain iframe; EmbedPress
+         * Pro returns `$original_html` so its loader can fill the placeholders
+         * as they scroll into view.
+         *
+         * @param string $html          Block HTML with plain iframes.
+         * @param string $original_html Block HTML as saved, with placeholders.
+         * @param array  $block         Parsed block.
+         */
+        return apply_filters('embedpress/lazy_load/block_html', $restored, $block_content, $block);
+    }
+
+    /**
+     * Build an iframe from one saved lazy-load placeholder.
+     *
+     * @param array $matches preg match: [1] the placeholder's attribute string.
+     * @return string
+     */
+    private static function lazy_placeholder_to_iframe($matches)
+    {
+        preg_match_all('#([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+)))?#', $matches[1], $pairs, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+
+        $src = '';
+        $style = '';
+        $attrs = [];
+        $iframe_attrs = [];
+
+        foreach ($pairs as $pair) {
+            $name = strtolower($pair[1]);
+            $raw = $pair[2] ?? $pair[3] ?? $pair[4] ?? null;
+            $value = $raw === null ? null : wp_specialchars_decode($raw, ENT_QUOTES);
+
+            if ($name === 'data-ep-lazy-src') {
+                $src = (string) $value;
+            } elseif ($name === 'data-ep-iframe-style') {
+                $style = (string) $value;
+            } elseif (strpos($name, 'data-ep-iframe-') === 0) {
+                $iframe_attrs[substr($name, strlen('data-ep-iframe-'))] = $value;
+            } elseif ($name === 'class') {
+                $class = trim(preg_replace('/\bep-lazy-iframe-placeholder\b/', '', (string) $value));
+                if ($class !== '') {
+                    $attrs['class'] = $class;
+                }
+            } elseif ($name === 'style') {
+                if ($style === '') {
+                    $style = (string) $value;
+                }
+            } else {
+                $attrs[$name] = $value;
+            }
+        }
+
+        if ($src === '') {
+            return $matches[0];
+        }
+
+        // data-ep-iframe-* values describe the iframe itself, so they win over
+        // anything else that was left on the placeholder.
+        $attrs = array_merge($attrs, $iframe_attrs);
+
+        $html = '<iframe src="' . esc_url($src) . '"';
+        if ($style !== '') {
+            $html .= ' style="' . esc_attr($style) . '"';
+        }
+        foreach ($attrs as $name => $value) {
+            if (!preg_match('/^[a-z][a-z0-9_:.-]*$/', $name) || strpos($name, 'on') === 0 || in_array($name, ['src', 'style', 'srcdoc'], true)) {
+                continue;
+            }
+            $html .= $value === null ? ' ' . $name : ' ' . $name . '="' . esc_attr($value) . '"';
+        }
+
+        return $html . '></iframe>';
+    }
+
     private static function build_custom_branding($attributes, $client_id)
     {
         $custom_branding = [
@@ -1424,59 +1502,31 @@ class EmbedPressBlockRenderer
             'styles' => ''
         ];
 
-        // Check if custom logo is enabled
-        if (empty($attributes['customlogo'])) {
-            return $custom_branding;
+        /**
+         * Filters the custom branding (logo + call-to-action link) markup for a
+         * server-rendered EmbedPress block.
+         *
+         * Custom Branding is an EmbedPress Pro feature. Free renders no
+         * branding; EmbedPress Pro hooks this filter and builds the overlay
+         * from the block's `customlogo`, `customlogoUrl`, `logoX`, `logoY`
+         * and `logoOpacity` attributes.
+         *
+         * @param array  $custom_branding {
+         *     @type string $html   Overlay markup appended after the embed. Must be escaped.
+         *     @type string $styles CSS (no <style> wrapper) printed before the block wrapper. Must be escaped.
+         * }
+         * @param array  $attributes Block attributes.
+         * @param array  $context    { @type string $surface 'gutenberg'. @type string $client_id md5 of the block client id. }
+         */
+        $filtered = apply_filters('embedpress/branding/markup', $custom_branding, $attributes, [
+            'surface'   => 'gutenberg',
+            'client_id' => $client_id,
+        ]);
+
+        if (is_array($filtered)) {
+            $custom_branding['html']   = isset($filtered['html']) ? (string) $filtered['html'] : '';
+            $custom_branding['styles'] = isset($filtered['styles']) ? (string) $filtered['styles'] : '';
         }
-
-        $logo_url = $attributes['customlogo'];
-        $logo_x = $attributes['logoX'] ?? 5;
-        $logo_y = $attributes['logoY'] ?? 10;
-        $logo_opacity = $attributes['logoOpacity'] ?? 1;
-        $custom_logo_url = $attributes['customlogoUrl'] ?? '';
-
-        // Generate custom logo styles
-        $custom_branding['styles'] = sprintf(
-            '#ep-gutenberg-content-%s img.watermark {
-                border: 0;
-                position: absolute;
-                bottom: %s%%;
-                right: %s%%;
-                max-width: 150px;
-                max-height: 75px;
-                -o-transition: opacity 0.5s ease-in-out;
-                -moz-transition: opacity 0.5s ease-in-out;
-                -webkit-transition: opacity 0.5s ease-in-out;
-                transition: opacity 0.5s ease-in-out;
-                z-index: 1;
-                opacity: %s;
-            }
-            #ep-gutenberg-content-%s img.watermark:hover {
-                opacity: 1;
-            }',
-            esc_attr($client_id),
-            esc_attr($logo_y),
-            esc_attr($logo_x),
-            esc_attr($logo_opacity),
-            esc_attr($client_id)
-        );
-
-        // Generate custom logo HTML
-        $logo_html = sprintf(
-            '<img decoding="async" src="%s" class="watermark ep-custom-logo" width="auto" height="auto" alt="">',
-            esc_url($logo_url)
-        );
-
-        // Wrap with link if URL is provided
-        if (!empty($custom_logo_url)) {
-            $logo_html = sprintf(
-                '<a href="%s" target="_blank">%s</a>',
-                esc_url($custom_logo_url),
-                $logo_html
-            );
-        }
-
-        $custom_branding['html'] = $logo_html;
 
         return $custom_branding;
     }
@@ -1730,7 +1780,10 @@ class EmbedPressBlockRenderer
             $embed .= Helper::embed_content_share($content_id, $attributes);
         }
 
-        if ($protection_data['protection_type'] === 'password') {
+        if (Helper::pro_is_outdated()) {
+            // Outdated Pro cannot render the lock UI — fail closed.
+            echo Helper::protection_paused_notice();
+        } elseif ($protection_data['protection_type'] === 'password') {
             echo '<div id="ep-gutenberg-content-' . esc_attr($protection_data['client_id']) . '" class="ep-gutenberg-content">';
             do_action('embedpress/display_password_form', $protection_data['client_id'], $embed, $styling['pass_hash_key'], $attributes);
             echo '</div>';
@@ -1911,37 +1964,15 @@ class EmbedPressBlockRenderer
 
         $align_class = 'align' . $align;
 
-        // Private branch: same path Elementor uses — fire the action that Pro
-        // ([Embedpress\Pro\Filters\Calendar]) hooks to emit the epgc-calendar
-        // shortcode markup. Frontend JS then hydrates it via the AJAX endpoint
-        // (which has its own transient cache via epgc_cache_time).
+        // Private branch: the private (OAuth) calendar is not part of free.
+        // Fire the neutral `embedpress_google_helper_shortcode` action (same
+        // one the Elementor widget uses); whatever hooks it is responsible for
+        // its own assets and markup. With nothing hooked, render nothing — the
+        // block editor then shows its "needs EmbedPress Pro" placeholder for
+        // the empty ServerSideRender response.
         if (!$is_public) {
-            if (!apply_filters('embedpress/is_allow_rander', false)) {
+            if (!Helper::has_private_calendar_renderer()) {
                 return '';
-            }
-            // Enqueue the FullCalendar bundle. The Elementor widget gets these
-            // automatically via get_script_depends(); the Gutenberg block needs
-            // an explicit call at render time since block.json has no viewScript.
-            if (class_exists('Embedpress_Google_Helper')) {
-                \Embedpress_Google_Helper::enqueue_scripts(); // ensures registration
-            }
-            wp_enqueue_style('fullcalendar');
-            wp_enqueue_style('fullcalendar_daygrid');
-            wp_enqueue_style('fullcalendar_timegrid');
-            wp_enqueue_style('fullcalendar_list');
-            wp_enqueue_style('epgc');
-            wp_enqueue_style('tippy_light');
-            wp_enqueue_script('fullcalendar_moment_timezone');
-            wp_enqueue_script('fullcalendar_daygrid');
-            wp_enqueue_script('fullcalendar_timegrid');
-            wp_enqueue_script('fullcalendar_list');
-            wp_enqueue_script('fullcalendar_locales');
-            wp_enqueue_script('tippy');
-            wp_enqueue_script('epgc');
-            // Localize the nonce + ajax URL onto the epgc handle. LocalizationManager
-            // handles this on Elementor pages; on Gutenberg frontends we have to.
-            if (class_exists('\\EmbedPress\\Core\\LocalizationManager')) {
-                \EmbedPress\Core\LocalizationManager::setup_elementor_localization();
             }
 
             ob_start();
@@ -2058,10 +2089,8 @@ class EmbedPressBlockRenderer
         $layout = isset($attributes['layout']) ? esc_attr($attributes['layout']) : 'grid';
         $bookshelf_style = isset($attributes['bookshelfStyle']) ? esc_attr($attributes['bookshelfStyle']) : 'dark-wood';
 
-        // Pro gate: bookshelf requires Pro
-        if (($layout === 'bookshelf' || $layout === 'carousel') && !defined('EMBEDPRESS_SL_ITEM_SLUG')) {
-            $layout = 'grid';
-        }
+        // Unknown layouts render as the default grid.
+        $layout = Helper::pdf_gallery_layout($layout);
 
         $columns = isset($attributes['columns']) ? intval($attributes['columns']) : 3;
         $columns_tablet = isset($attributes['columnsTablet']) ? intval($attributes['columnsTablet']) : 2;
@@ -2076,18 +2105,7 @@ class EmbedPressBlockRenderer
         // Build viewer params
         $viewer_params = self::generate_gallery_viewer_params($attributes);
 
-        // Carousel options
-        $carousel_options = '';
-        if ($layout === 'carousel' || $layout === 'bookshelf') {
-            $carousel_options = wp_json_encode([
-                'autoplay' => !empty($attributes['carouselAutoplay']),
-                'autoplaySpeed' => isset($attributes['carouselAutoplaySpeed']) ? intval($attributes['carouselAutoplaySpeed']) : 3000,
-                'loop' => isset($attributes['carouselLoop']) ? (bool)$attributes['carouselLoop'] : true,
-                'arrows' => isset($attributes['carouselArrows']) ? (bool)$attributes['carouselArrows'] : true,
-                'dots' => !empty($attributes['carouselDots']),
-                'slidesPerView' => isset($attributes['slidesPerView']) ? intval($attributes['slidesPerView']) : 3,
-            ]);
-        }
+        $layout_markup = Helper::pdf_gallery_layout_markup($layout, $attributes, 'gutenberg_gallery');
 
         $style = sprintf(
             '--ep-gallery-columns-desktop:%d;--ep-gallery-columns-tablet:%d;--ep-gallery-columns-mobile:%d;--ep-gallery-gap:%dpx;--ep-gallery-radius:%dpx;',
@@ -2107,15 +2125,10 @@ class EmbedPressBlockRenderer
              data-viewer-style="<?php echo $viewer_style; ?>"
              data-viewer-params="<?php echo esc_attr($viewer_params); ?>"
              data-gallery-id="<?php echo esc_attr($gallery_id); ?>"
-             <?php if ($carousel_options): ?>data-carousel-options="<?php echo esc_attr($carousel_options); ?>"<?php endif; ?>
+             <?php echo $layout_markup['attributes']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the filter callback ?>
              style="<?php echo esc_attr($style); ?>">
 
-            <?php if ($layout === 'carousel' || $layout === 'bookshelf'): ?>
-            <div class="ep-pdf-gallery__carousel">
-                <div class="ep-pdf-gallery__carousel-track">
-            <?php else: ?>
-            <div class="ep-pdf-gallery__grid">
-            <?php endif; ?>
+            <?php echo $layout_markup['open']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
                 <?php foreach ($items as $index => $item):
                     $pdf_url = isset($item['url']) ? esc_url($item['url']) : '';
@@ -2144,19 +2157,7 @@ class EmbedPressBlockRenderer
                 </div>
                 <?php endforeach; ?>
 
-            <?php if ($layout === 'carousel' || $layout === 'bookshelf'): ?>
-                </div>
-                <button class="ep-pdf-gallery__carousel-prev" aria-label="Previous">
-                    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                </button>
-                <button class="ep-pdf-gallery__carousel-next" aria-label="Next">
-                    <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-                </button>
-                <div class="ep-pdf-gallery__carousel-dots"></div>
-            </div>
-            <?php else: ?>
-            </div>
-            <?php endif; ?>
+            <?php echo $layout_markup['close']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
         <?php
         return ob_get_clean();
@@ -2171,17 +2172,17 @@ class EmbedPressBlockRenderer
 
         $params = [
             'themeMode' => esc_attr($theme_mode),
-            'toolbar' => !empty($attributes['toolbar']) ? 'true' : 'false',
+            'toolbar' => 'true',
             'position' => isset($attributes['position']) ? esc_attr($attributes['position']) : 'top',
             'flipbook_toolbar_position' => isset($attributes['flipbook_toolbar_position']) ? esc_attr($attributes['flipbook_toolbar_position']) : 'bottom',
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($attributes['flipbookPageFlipRTL']) ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => !empty($attributes['flipbookHighlightLinks']) ? 'true' : 'false',
             'flipbook_highlight_color' => isset($attributes['flipbookHighlightColor']) ? esc_attr($attributes['flipbookHighlightColor']) : '',
             'presentation' => !empty($attributes['presentation']) ? 'true' : 'false',
-            'download' => !empty($attributes['download']) ? 'true' : 'false',
-            'copy_text' => !empty($attributes['copy_text']) ? 'true' : 'false',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => !empty($attributes['add_text']) ? 'true' : 'false',
-            'draw' => !empty($attributes['draw']) ? 'true' : 'false',
+            'draw' => 'true',
             'doc_rotation' => !empty($attributes['doc_rotation']) ? 'true' : 'false',
             'doc_details' => !empty($attributes['doc_details']) ? 'true' : 'false',
             'add_image' => !empty($attributes['add_image']) ? 'true' : 'false',
@@ -2189,12 +2190,16 @@ class EmbedPressBlockRenderer
             'zoom_out' => !empty($attributes['zoomOut']) ? 'true' : 'false',
             'fit_view' => !empty($attributes['fitView']) ? 'true' : 'false',
             'bookmark' => !empty($attributes['bookmark']) ? 'true' : 'false',
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkText']) ? esc_attr($attributes['watermarkText']) : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkFontSize']) ? intval($attributes['watermarkFontSize']) : 48,
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkColor']) ? esc_attr($attributes['watermarkColor']) : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkOpacity']) ? intval($attributes['watermarkOpacity']) : 15,
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($attributes['watermarkStyle']) ? esc_attr($attributes['watermarkStyle']) : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => 48,
+            'watermark_color' => '#000000',
+            'watermark_opacity' => 15,
+            'watermark_style' => 'center',
         ];
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $params = Helper::pdf_viewer_params($params, $attributes, 'gutenberg_gallery');
+        $params['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($params);
 
         if ($theme_mode === 'custom') {
             $params['customColor'] = isset($attributes['customColor']) ? esc_attr($attributes['customColor']) : '#403A81';

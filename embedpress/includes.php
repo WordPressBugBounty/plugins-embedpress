@@ -22,11 +22,26 @@ if ( ! defined('EMBEDPRESS_PLG_NAME')) {
 }
 
 if ( ! defined('EMBEDPRESS_VERSION')) {
-	define('EMBEDPRESS_VERSION', "4.6.8");
+	define('EMBEDPRESS_VERSION', "4.7.0");
 	/**
 	 * @deprecated 2.2.0
 	 */
 	define('EMBEDPRESS_PLG_VERSION', EMBEDPRESS_VERSION);
+}
+
+/**
+ * Version of the free ↔ Pro extension contract this free build provides.
+ *
+ * 2 = the #314 split: Pro features run only through the neutral
+ * `embedpress/*` hooks and JS registries documented in
+ * docs/architecture/free-pro-coupling.md, and free no longer ships the
+ * implementations Pro used to share (Embedpress_Google_Helper, Analytics
+ * Pro services, ...). EmbedPress Pro checks it on boot and, when it is
+ * missing or lower, keeps its pre-split behaviour and asks for an update.
+ * Bump only when the contract changes, never with the release version.
+ */
+if ( ! defined('EMBEDPRESS_PRO_CONTRACT')) {
+	define('EMBEDPRESS_PRO_CONTRACT', 2);
 }
 
 
@@ -97,9 +112,17 @@ function embedpress_schedule_cache_cleanup( ){
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 	require_once __DIR__ . '/vendor/autoload.php';
 }
-if (file_exists(__DIR__ . '/EmbedPress/ThirdParty/Googlecalendar/Embedpress_Google_Helper.php')) {
-	require_once __DIR__ . '/EmbedPress/ThirdParty/Googlecalendar/Embedpress_Google_Helper.php';
-}
+/**
+ * The private Google Calendar (OAuth + FullCalendar) implementation, including
+ * the [embedpress_calendar] shortcode, is provided by EmbedPress Pro. When
+ * nothing registers the shortcode, swallow it so a post that used it doesn't
+ * print the raw shortcode text.
+ */
+add_action('init', function () {
+	if (!shortcode_exists('embedpress_calendar')) {
+		add_shortcode('embedpress_calendar', '__return_empty_string');
+	}
+}, 20);
 function is_embedpress_pro_active() {
 	if ( ! function_exists( 'is_plugin_active') ) {
 		include_once ABSPATH . 'wp-admin/includes/plugin.php';

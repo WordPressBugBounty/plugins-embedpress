@@ -2,8 +2,6 @@
 
 namespace EmbedPress\Includes\Classes\Analytics;
 
-use EmbedPress\Includes\Classes\Analytics\License_Manager;
-use EmbedPress\Includes\Classes\Analytics\Email_Reports;
 use EmbedPress\Includes\Classes\Analytics\Content_Cache_Manager;
 
 use EmbedPress\Includes\Classes\Database\Analytics_Schema;
@@ -45,9 +43,9 @@ class Analytics_Manager
     private $milestone_manager;
 
     /**
-     * Email reports instance
+     * Email reports instance, supplied by Pro. Null on a free install.
      *
-     * @var Email_Reports
+     * @var object|null
      */
     private $email_reports;
 
@@ -93,12 +91,26 @@ class Analytics_Manager
         $this->milestone_manager = new Milestone_Manager();
         $this->cache_manager = new Content_Cache_Manager();
 
-        // Initialize email reports for pro users
-        if (License_Manager::has_analytics_feature('email_reports')) {
-            $this->email_reports = new Email_Reports();
-        } else {
-            $this->email_reports = null;
-        }
+        // Email reports are a Pro feature: Pro supplies the handler by hooking
+        // `embedpress/analytics/email_reports`, and free ships none.
+        //
+        // This runs from embedpress.php at file scope — before `plugins_loaded`
+        // and therefore before Pro's Bootstrap — so the filter is applied on
+        // `plugins_loaded` instead of inline, otherwise Pro would never get the
+        // chance to answer it.
+        //
+        // NOTE: the resolved object is never called from free. The filter is
+        // applied for its side effect — Pro's Email_Reports constructor
+        // registers the report cron and admin hooks. Removing this block
+        // silently stops email reports; keep it even though the property
+        // looks unused.
+        $this->email_reports = null;
+
+        add_action('plugins_loaded', function () {
+            // No licence check in free: only Pro answers this filter.
+            $reports = apply_filters('embedpress/analytics/email_reports', null);
+            $this->email_reports = is_object($reports) ? $reports : null;
+        }, 20);
     }
 
     /**
@@ -314,7 +326,7 @@ class Analytics_Manager
     /**
      * Get email reports instance
      *
-     * @return Email_Reports|null
+     * @return object|null Pro's handler, or null on a free install.
      */
     public function get_email_reports()
     {

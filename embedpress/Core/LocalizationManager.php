@@ -46,9 +46,6 @@ class LocalizationManager
         self::setup_gutenberg_localization();
         self::setup_new_blocks_localization();
         self::setup_preview_localization();
-        // Needed for the Calendar block's editor ServerSideRender preview
-        // to authenticate AJAX requests via the epgc_nonce.
-        self::setup_calendar_widget_localization();
     }
 
     /**
@@ -70,7 +67,6 @@ class LocalizationManager
     public static function setup_elementor_localization()
     {
         self::setup_frontend_script_localization();
-        self::setup_calendar_widget_localization();
         self::setup_analytics_localization();
         self::setup_pdf_gallery_localization();
         self::setup_pdf_lightbox_localization();
@@ -299,7 +295,7 @@ class LocalizationManager
     private static function setup_frontend_script_localization()
     {
         // The embedpressFrontendData variable should be attached to multiple frontend scripts
-        $script_handles = ['embedpress-front', 'embedpress-ads', 'embedpress-yt-queue'];
+        $script_handles = ['embedpress-front', 'embedpress-yt-queue'];
 
         $localization_data = [
             'ajaxurl' => admin_url('admin-ajax.php'),
@@ -307,6 +303,7 @@ class LocalizationManager
             'nonce' => wp_create_nonce('ep_nonce'),
             'rest_url' => esc_url_raw(rest_url()),
             'rest_nonce' => wp_create_nonce('wp_rest'),
+            'default_avatar' => EMBEDPRESS_URL_ASSETS . 'images/default-avatar.svg',
         ];
 
         foreach ($script_handles as $script_handle) {
@@ -314,6 +311,57 @@ class LocalizationManager
                 wp_localize_script($script_handle, 'embedpressFrontendData', $localization_data);
             }
         }
+
+        self::setup_player_localization();
+    }
+
+    /** @var bool Plyr global defaults inline script already attached. */
+    private static $player_defaults_added = false;
+
+    /**
+     * Setup custom player localization (embedpressPlayerData variable).
+     *
+     * WordPress.org Guideline 8 forbids loading third-party code/assets from
+     * public CDNs, so every player asset ships with the plugin and its URL is
+     * handed to JS from here instead of hardcoded:
+     * - hlsUrl / dashUrl: hls.js / dash.js, lazy-loaded by initplyr.js only
+     *   when an HLS/DASH manifest is played (Adaptive Streaming).
+     * - plyr.iconUrl / plyr.blankVideo: Plyr's SVG sprite and blank video,
+     *   which Plyr otherwise fetches from cdn.plyr.io. Also set as Plyr's
+     *   global defaults so any other `new Plyr()` (editor helpers, Pro)
+     *   picks them up too.
+     */
+    private static function setup_player_localization()
+    {
+        $version = defined('EMBEDPRESS_VERSION') ? EMBEDPRESS_VERSION : false;
+        $asset = function ($path) use ($version) {
+            return esc_url_raw(add_query_arg('ver', $version, EMBEDPRESS_URL_ASSETS . $path));
+        };
+
+        $plyr_assets = [
+            'iconUrl'    => $asset('js/vendor/plyr/plyr.svg'),
+            'blankVideo' => $asset('js/vendor/plyr/blank.mp4'),
+        ];
+
+        if (!self::$player_defaults_added && (wp_script_is('embedpress-plyr', 'enqueued') || wp_script_is('embedpress-plyr', 'registered'))) {
+            self::$player_defaults_added = true;
+            wp_add_inline_script(
+                'embedpress-plyr',
+                'if(window.Plyr&&window.Plyr.defaults){Object.assign(window.Plyr.defaults,' . wp_json_encode($plyr_assets) . ');}'
+            );
+        }
+
+        $script_handle = 'embedpress-init-plyr';
+
+        if (!wp_script_is($script_handle, 'enqueued') && !wp_script_is($script_handle, 'registered')) {
+            return;
+        }
+
+        wp_localize_script($script_handle, 'embedpressPlayerData', [
+            'hlsUrl'  => $asset('js/vendor/hls/hls.min.js'),
+            'dashUrl' => $asset('js/vendor/dashjs/dash.all.min.js'),
+            'plyr'    => $plyr_assets,
+        ]);
     }
 
     /**
@@ -460,31 +508,8 @@ class LocalizationManager
         ]);
     }
 
-    /**
-     * Setup Google Calendar widget localization
-     */
-    private static function setup_calendar_widget_localization()
-    {
-        $script_handle = 'epgc';
-
-        if (!wp_script_is($script_handle, 'enqueued') && !wp_script_is($script_handle, 'registered')) {
-            return;
-        }
-
-        $nonce = wp_create_nonce('epgc_nonce');
-        wp_localize_script($script_handle, 'embedpressCalendarData', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce' => $nonce,
-            'translations' => [
-                'allDay' => __('All day', 'embedpress'),
-                'createdBy' => __('Created by', 'embedpress'),
-                'goToEvent' => __('Go to event', 'embedpress'),
-                'unknownError' => __('Unknown error', 'embedpress'),
-                'requestError' => __('Request error', 'embedpress'),
-                'loading' => __('Loading', 'embedpress')
-            ]
-        ]);
-    }
+    // Private Google Calendar (`epgc` handle) localization moved to EmbedPress
+    // Pro together with the rest of the private-calendar implementation.
 
     /**
      * Load plugin text domain for translations

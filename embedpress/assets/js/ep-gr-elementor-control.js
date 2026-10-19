@@ -18,12 +18,7 @@
     var REST  = window.epGoogleReviewsElementor.restUrl;
     var NONCE = window.epGoogleReviewsElementor.nonce;
     var I18N  = window.epGoogleReviewsElementor.i18n || {};
-    var PRO_ACTIVE  = !!window.epGoogleReviewsElementor.proActive;
-    var UPGRADE_URL = window.epGoogleReviewsElementor.upgradeUrl || 'https://wpdeveloper.com/in/upgrade-embedpress';
     function t(k, fb) { return I18N[k] || fb; }
-    // Crown SVG — matches the settings/block "+ Select" upsell badge.
-    var CROWN = '<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path fill="currentColor" d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></svg>';
     // Map-pin SVG — same icon + class as the block/admin pickers (parity).
     var PIN = '<svg class="ep-gr-suggestion-pin" width="14" height="14" viewBox="0 0 24 24" fill="none" ' +
         'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -211,37 +206,19 @@
             renderLists: function () {
                 if (!this._lists) { this.ui.lists.hide(); return; }
                 var savedIds = (this._lists.saved || []).reduce(function (acc, p) { acc[p.place_id] = true; return acc; }, {});
-                // Free/Pro: SAME treatment as the SEARCH results. When a free user
-                // is at the 1-place cap, every place EXCEPT the ONE they're allowed
-                // is LOCKED → pin + "Upgrade to add" (click → upgrade). A free user
-                // must ALWAYS be able to use at least 1 place: the allowed one is
-                // the widget's current selection, or — if nothing is selected yet —
-                // the FIRST saved place. Pro = all pickable.
-                var limit = this.placeLimitReached();
-                var current = this.getValueOrDefault().place_id;
-                var firstSavedId = ((this._lists && this._lists.saved) || [])[0];
-                firstSavedId = firstSavedId ? firstSavedId.place_id : '';
-                var allowedId = current || firstSavedId;
                 // Rows are PICK-ONLY — clicking selects the place. Removing a saved
                 // place only happens from the settings page, never here.
                 var renderRow = function (p, kind) {
-                    var locked = limit && p.place_id !== allowedId;
-                    var badge = locked
-                        ? '<em class="ep-gr-suggestion-pro">' + CROWN + ' ' + escapeHtml(t('upgrade', 'Upgrade to add')) + '</em>'
-                        : '';
                     return '<li>' +
-                        '<button type="button" class="ep-gr-picker__list-pick' + (locked ? ' is-locked' : '') + '"' +
+                        '<button type="button" class="ep-gr-picker__list-pick"' +
                             ' data-id="' + escapeHtml(p.place_id) + '"' +
                             ' data-name="' + escapeHtml(p.place_name || '') + '"' +
-                            ' data-address="' + escapeHtml(p.address || '') + '"' +
-                            ' data-locked="' + (locked ? '1' : '0') + '"' +
-                            (locked ? ' title="' + escapeHtml(t('limitTitle', 'Showing more than one place needs EmbedPress Pro — click to upgrade.')) + '"' : '') + '>' +
+                            ' data-address="' + escapeHtml(p.address || '') + '">' +
                             PIN +
                             '<span class="ep-gr-picker__list-pick-body ep-gr-suggestion-body">' +
                                 '<strong>' + escapeHtml(p.place_name || p.place_id) + '</strong>' +
                                 // Location description (address) — saved with the place.
                                 (p.address ? '<span>' + escapeHtml(p.address) + '</span>' : '') +
-                                badge +
                             '</span>' +
                         '</button>' +
                     '</li>';
@@ -253,18 +230,6 @@
                 this.ui.listRecent.html(recent);
                 this.ui.listSavedBox.prop('hidden', !saved);
                 this.ui.listRecentBox.prop('hidden', !recent);
-                // Upsell note below the lists when at the free cap (mirrors search).
-                var note = this.ui.lists.find('.ep-gr-picker__lists-note');
-                if (limit) {
-                    var noteHtml = escapeHtml(t('limitLead', 'You’ve added your 1 free place.')) + ' ' +
-                        '<a href="' + escapeHtml(UPGRADE_URL) + '" target="_blank" rel="noopener noreferrer">' +
-                        escapeHtml(t('goPro', 'Go Pro')) + '</a> ' +
-                        escapeHtml(t('limitTail', 'to show reviews from multiple businesses at once.'));
-                    if (note.length) { note.html(noteHtml); }
-                    else { this.ui.lists.append('<p class="ep-gr-picker__lists-note ep-gr-inline-note ep-gr-inline-note--muted">' + noteHtml + '</p>'); }
-                } else if (note.length) {
-                    note.remove();
-                }
                 var empty = !saved && !recent;
                 // Toggle BOTH the hidden prop and inline display so this plays
                 // nicely with the .hide()/.show() calls elsewhere.
@@ -313,12 +278,6 @@
             onListPick: function (e) {
                 e.preventDefault();
                 var $b = $(e.currentTarget);
-                // Locked (free user at the 1-place cap, a different place) → send
-                // to the upgrade page instead of selecting. Mirrors search results.
-                if ($b.attr('data-locked') === '1') {
-                    window.open(UPGRADE_URL, '_blank', 'noopener');
-                    return;
-                }
                 this.commitPick($b.attr('data-id') || '', $b.attr('data-name') || '', $b.attr('data-address') || '');
             },
 
@@ -439,21 +398,15 @@
                         return;
                     }
                     // Unified flow (matches settings + Gutenberg pickers): each row
-                    // shows "+ Select" / "already added" / "Upgrade to add", and an
-                    // upsell note sits BELOW the results when at the free 1-place cap.
+                    // shows "+ Select" / "already added".
                     var savedIds = (self._lists && self._lists.saved || []).reduce(function (a, p) { a[p.place_id] = true; return a; }, {});
-                    var limit = self.placeLimitReached();
                     var html = list.map(function (p) {
                         var already = !!savedIds[p.place_id];
-                        var locked  = limit && !already;
                         var badge = already
                             ? '<em class="ep-gr-already">' + escapeHtml(t('added', 'already added')) + '</em>'
-                            : locked
-                                ? '<em class="ep-gr-suggestion-pro">' + CROWN + ' ' + escapeHtml(t('upgrade', 'Upgrade to add')) + '</em>'
-                                : '<em class="ep-gr-suggestion-add">+ ' + escapeHtml(t('select', 'Select')) + '</em>';
+                            : '<em class="ep-gr-suggestion-add">+ ' + escapeHtml(t('select', 'Select')) + '</em>';
                         return '<li role="option" tabindex="0"' +
-                                    ' class="ep-gr-suggestion' + (locked ? ' is-locked' : '') + '"' +
-                                    ' data-locked="' + (locked ? '1' : '') + '"' +
+                                    ' class="ep-gr-suggestion"' +
                                     ' data-id="' + escapeHtml(p.place_id) + '"' +
                                     ' data-address="' + escapeHtml(p.secondary_text || '') + '"' +
                                     ' data-name="' + escapeHtml(p.main_text || p.description || '') + '">' +
@@ -467,18 +420,7 @@
                                 '</li>';
                     }).join('');
                     self.ui.results.html(html);
-                    if (limit) {
-                        // "You’ve added your 1 free place. <a>Go Pro</a> to show
-                        // reviews from multiple businesses at once."
-                        self.ui.resultsNote.html(
-                            escapeHtml(t('limitLead', 'You’ve added your 1 free place.')) + ' ' +
-                            '<a href="' + UPGRADE_URL + '" target="_blank" rel="noopener noreferrer">' +
-                                escapeHtml(t('goPro', 'Go Pro')) + '</a> ' +
-                            escapeHtml(t('limitTail', 'to show reviews from multiple businesses at once.'))
-                        ).prop('hidden', false);
-                    } else {
-                        self.ui.resultsNote.empty().prop('hidden', true);
-                    }
+                    self.ui.resultsNote.empty().prop('hidden', true);
                     self.ui.resultsPanel.prop('hidden', false).show();
                     self.setStatus('');
                 }).fail(function (xhr) {
@@ -496,21 +438,7 @@
 
             onPick: function (e) {
                 var $li = $(e.currentTarget);
-                // Locked row (free user at the 1-place cap, net-new place) → send to
-                // upgrade instead of selecting, mirroring the settings/block pickers.
-                if ($li.attr('data-locked') === '1') {
-                    window.open(UPGRADE_URL, '_blank', 'noopener');
-                    return;
-                }
                 this.commitPick($li.attr('data-id') || '', $li.attr('data-name') || '', $li.attr('data-address') || '');
-            },
-
-            // A free user is at the 1-place cap once the global library has ≥1
-            // saved place. Pro lifts it. Same rule as the settings + block pickers.
-            placeLimitReached: function () {
-                if (PRO_ACTIVE) { return false; }
-                var saved = (this._lists && this._lists.saved) || [];
-                return saved.length >= 1;
             },
 
             // Hide + clear the whole results panel (list + note).

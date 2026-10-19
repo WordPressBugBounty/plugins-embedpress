@@ -381,6 +381,21 @@ class GoogleReviewsStore
     }
 
     /**
+     * Technical safety ceiling on how many reviews one place row may hold.
+     * Applies identically to every site (it bounds the JSON row size and the
+     * render cost); it is not a plan limit. Matches the hosted worker's
+     * MAX_REVIEWS_PER_JOB and GoogleReviewsManaged's request ceiling.
+     *
+     * Filter `embedpress/google_reviews/max_stored_reviews` (int $ceiling,
+     * default 1000) lets a site owner lower or raise it for their own install.
+     */
+    public static function max_stored_reviews(): int
+    {
+        $cap = (int) apply_filters('embedpress/google_reviews/max_stored_reviews', 1000);
+        return $cap > 0 ? $cap : 1000;
+    }
+
+    /**
      * Append a batch of reviews to a place's stored set (deduped by the caller),
      * bumping review_count + fetched_so_far. For incremental background fetch.
      * Pass $final=true with meta/source to finalize the job.
@@ -395,17 +410,13 @@ class GoogleReviewsStore
         $current = is_array($row['reviews']) ? $row['reviews'] : [];
         $merged  = self::dedupe(array_merge($current, array_values($batch)));
 
-        // TIER-AWARE HARD CAP on the stored set. The worker overshoots its soft
-        // `max` target (it scrolls in ~10-card batches), and the merge unions
-        // across fetches — so without a clamp HERE a FREE place ends up storing
-        // more than the free cap, and any place could exceed 1000. Clamp to the
-        // effective tier cap: 10 for free, 1000 for Pro.
+        // Storage SAFETY CEILING on the stored set. The worker overshoots its
+        // soft `max` target (it scrolls in ~10-card batches), and the merge
+        // unions across fetches — so without a clamp HERE a place could grow
+        // without bound. This is a technical ceiling (row size / render cost),
+        // the SAME for every site; it is not a plan limit.
         // Keep the newest (tail = most recently appended).
-        $is_pro   = class_exists('\\EmbedPress\\Includes\\Classes\\Helper')
-            && \EmbedPress\Includes\Classes\Helper::is_pro_active();
-        $free_cap = (int) apply_filters('embedpress/google_reviews/free_max_reviews', 10);
-        $pro_cap  = (int) apply_filters('embedpress/google_reviews/max_stored_reviews', 1000);
-        $cap      = $is_pro ? $pro_cap : $free_cap;
+        $cap = self::max_stored_reviews();
         if (count($merged) > $cap) {
             $merged = array_slice($merged, -$cap);
         }

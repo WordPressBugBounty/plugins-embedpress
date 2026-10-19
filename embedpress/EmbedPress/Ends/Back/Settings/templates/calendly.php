@@ -1,194 +1,147 @@
 <?php
 /*
- * It will be customzed for OpenSea
- *  All undefined vars comes from 'render_settings_page' method
+ * Calendly settings page.
+ * All undefined vars comes from 'render_settings_page' method
+ *
+ * Embedding Calendly (inline widget / popup) is free and needs no account
+ * connection. The Calendly dashboard (connect your Calendly account, sync and
+ * browse event types / scheduled events / invitees) is provided by EmbedPress
+ * Pro through the `embedpress/settings/calendly_dashboard` action:
+ *
+ *     do_action( 'embedpress/settings/calendly_dashboard' );
+ *
+ * When nothing is hooked, free shows a static preview of the dashboard with
+ * sample data under an upgrade overlay. Free makes no Calendly API calls.
  *  */
 
-$authorize_url = 'https://auth.calendly.com/oauth/authorize?client_id=RVIzKSKamm_V88B9Z7yB2fr4JBd7Bqbdi_VQ5rlji2I&response_type=code&redirect_uri=https://api.embedpress.com/calendly.php&state=' . admin_url('admin.php');
-
-
-$user_info = !empty(get_option('calendly_user_info')) ? get_option('calendly_user_info') : [];
-$event_types = !empty(get_option('calendly_event_types')) ? get_option('calendly_event_types') : [];
-$scheduled_events = !empty(get_option('calendly_scheduled_events')) ? get_option('calendly_scheduled_events') : [];
-$invtitees_list = !empty(get_option('calendly_invitees_list')) ? get_option('calendly_invitees_list') : [];
-
-$avatarUrl = !empty($user_info['resource']['avatar_url']) ? esc_url($user_info['resource']['avatar_url']) : '';
-$name = !empty($user_info['resource']['name']) ? sanitize_text_field($user_info['resource']['name']) : ' ';
-$schedulingUrl = !empty($user_info['resource']['scheduling_url']) ? esc_url($user_info['resource']['scheduling_url']) : '';
-
-
-if (!function_exists('getCalendlyUuid')) {
-    function getCalendlyUuid($url)
-    {
-        $pattern = '/\/([0-9a-fA-F-]+)$/';
-        if (preg_match($pattern, $url, $matches)) {
-            $uuid = $matches[1];
-            return $uuid;
-        }
-        return '';
-    }
+if (has_action('embedpress/settings/calendly_dashboard')) {
+    do_action('embedpress/settings/calendly_dashboard');
+    return;
 }
 
-
-
-$calendly_tokens = get_option('calendly_tokens');
-$expirationTime = is_array($calendly_tokens) ? ($calendly_tokens['created_at'] ?? 0) + ($calendly_tokens['expires_in'] ?? 0) : 0;
-$currentTimestamp = time();
-
-
-// Generate nonce
-$nonce = wp_create_nonce('calendly_nonce');
-
-// Add nonce as a parameter to the URL
-$nonce_param = "&_nonce=$nonce";
-
-$calendly_connect_url = $authorize_url . "?calendly_status=connect,_nonce=$nonce";
-$calendly_sync_url = $authorize_url . "?calendly_status=connect,_nonce=$nonce";
-
-$calendly_disconnect_url = '/wp-admin/admin.php?page=embedpress&page_type=calendly&calendly_status=disconnect' . $nonce_param;
-
-if ($currentTimestamp < $expirationTime) {
-    $calendly_connect_url = '/wp-admin/admin.php?page=embedpress&page_type=calendly&calendly_status=connect' . $nonce_param;
-    $calendly_sync_url = '/wp-admin/admin.php?page=embedpress&page_type=calendly&calendly_status=sync' . $nonce_param;
-
-    if (!empty($_GET['_nonce']) && wp_verify_nonce($_GET['_nonce'], 'calendly_nonce') && $_GET['calendly_status'] == 'connect') {
-        update_option('is_calendly_connected', true);
-    }
-}
-
-if (!empty($_GET['_nonce']) && wp_verify_nonce($_GET['_nonce'], 'calendly_nonce') && isset($_GET['calendly_status']) && $_GET['calendly_status'] == 'disconnect') {
-    update_option('is_calendly_connected', '');
-}
-
-$is_calendly_connected = get_option('is_calendly_connected');
-
-if (!$is_calendly_connected) {
-    $invtitees_list = [];
-    $scheduled_events = [];
-    $event_types = [];
-}
-
-if (!apply_filters('embedpress/is_allow_rander', false)) {
-    $invtitees_list = [
-        'e84408fc-d58a-421a-bf65-5efeefa182b0' => [
-            'collection' => [
-                0 => [
-                    'name' => 'John Smith'
-                ]
-            ]
-        ],
-        'caf8a25a-4021-48ef-9322-2487b239bbef' => [
-            'collection' => [
-                0 => [
-                    'name' => 'Emily Johnson'
-                ]
-            ]
-        ],
-        '9756459c-443e-4366-a147-98dc8b5aa09f' => [
-            'collection' => [
-                0 => [
-                    'name' => 'Michael Davis'
-                ]
-            ]
-        ],
-        'ebc4b1fe-2d19-4079-bac9-1988588717f8' => [
-            'collection' => [
-                0 => [
-                    'name' => 'Sarah Wilson'
-                ]
-            ]
-        ],
-        '232ab5df-50fb-4f16-a887-a00a2922c758' => [
-            'collection' => [
-                0 => [
-                    'name' => 'David Brown'
-                ]
-            ]
-        ],
-    ];
-
-    $scheduled_events = [
+// Static sample data for the locked preview.
+$invtitees_list = [
+    'e84408fc-d58a-421a-bf65-5efeefa182b0' => [
         'collection' => [
-            [
-                'uri' => 'https://api.calendly.com/scheduled_events/e84408fc-d58a-421a-bf65-5efeefa182b0',
-                'name' => 'Coffee with John',
-                'start_time' => '2034-08-24T03:30:00.000000Z',
-                'end_time' => '2034-08-24T03:45:00.000000Z',
-                'status' => 'active',
-            ],
-            [
-                'uri' => 'https://api.calendly.com/scheduled_events/caf8a25a-4021-48ef-9322-2487b239bbef',
-                'name' => 'Coffee with John',
-                'start_time' => '2030-08-31T03:00:00.000000Z',
-                'end_time' => '2030-08-31T03:15:00.000000Z',
-                'status' => 'canceled',
-            ],
-            [
-                'uri' => 'https://api.calendly.com/scheduled_events/9756459c-443e-4366-a147-98dc8b5aa09f',
-                'name' => 'Coffee with John',
-                'start_time' => '2024-09-04T09:00:00.000000Z',
-                'end_time' => '2024-09-04T09:15:00.000000Z',
-                'status' => 'active',
-            ],
-            [
-                'uri' => 'https://api.calendly.com/scheduled_events/ebc4b1fe-2d19-4079-bac9-1988588717f8',
-                'name' => 'Coffee with John',
-                'start_time' => '2023-09-05T03:00:00.000000Z',
-                'end_time' => '2023-09-05T03:15:00.000000Z',
-                'status' => 'active',
-            ],
-            [
-                'uri' => 'https://api.calendly.com/scheduled_events/232ab5df-50fb-4f16-a887-a00a2922c758',
-                'name' => 'Town Hall Meeting',
-                'start_time' => '2023-09-06T03:00:00.000000Z',
-                'end_time' => '2023-09-06T03:15:00.000000Z',
-                'status' => 'active',
-            ],
+            0 => [
+                'name' => 'John Smith'
+            ]
         ]
-    ];
-
-    $event_types = [
+    ],
+    'caf8a25a-4021-48ef-9322-2487b239bbef' => [
         'collection' => [
-            [
-                'scheduling_url' => 'https://calendly.com/akash-mia/30min',
-                'name' => '30 Minute Meeting',
-                'active' => true,
-                'color' => '#8247f5'
-            ],
-            [
-                'scheduling_url' => 'https://calendly.com/akash-mia/coffee-with-john-doe',
-                'name' => 'Coffee with John',
-                'active' => true,
-                'color' => '#e55cff'
-            ],
-            [
-                'scheduling_url' => 'https://calendly.com/akash-mia/asia-cup-2023',
-                'name' => 'Asia Cup 2023',
-                'active' => false,
-                'color' => '#ccf000'
-            ],
-            [
-                'scheduling_url' => 'https://calendly.com/akash-mia/dailly-stand-up-meeting',
-                'name' => 'Dailly Stand-up meeting',
-                'active' => false,
-                'color' => '#ffa600'
-            ],
-            [
-                'scheduling_url' => 'https://calendly.com/akash-mia/icc-mega-event',
-                'name' => 'ICC Mega Event',
-                'active' => true,
-                'color' => '#0ae8f0'
-            ],
-            [
-                'scheduling_url' => 'https://calendly.com/akash-mia/wpdeveloper-team-meeting',
-                'name' => 'WPDeveloper Team meeting',
-                'active' => false,
-                'color' => '#8247f5'
-            ],
+            0 => [
+                'name' => 'Emily Johnson'
+            ]
         ]
-    ];
-}
+    ],
+    '9756459c-443e-4366-a147-98dc8b5aa09f' => [
+        'collection' => [
+            0 => [
+                'name' => 'Michael Davis'
+            ]
+        ]
+    ],
+    'ebc4b1fe-2d19-4079-bac9-1988588717f8' => [
+        'collection' => [
+            0 => [
+                'name' => 'Sarah Wilson'
+            ]
+        ]
+    ],
+    '232ab5df-50fb-4f16-a887-a00a2922c758' => [
+        'collection' => [
+            0 => [
+                'name' => 'David Brown'
+            ]
+        ]
+    ],
+];
 
+$scheduled_events = [
+    'collection' => [
+        [
+            'uri' => 'https://api.calendly.com/scheduled_events/e84408fc-d58a-421a-bf65-5efeefa182b0',
+            'name' => 'Coffee with John',
+            'start_time' => '2034-08-24T03:30:00.000000Z',
+            'end_time' => '2034-08-24T03:45:00.000000Z',
+            'status' => 'active',
+        ],
+        [
+            'uri' => 'https://api.calendly.com/scheduled_events/caf8a25a-4021-48ef-9322-2487b239bbef',
+            'name' => 'Coffee with John',
+            'start_time' => '2030-08-31T03:00:00.000000Z',
+            'end_time' => '2030-08-31T03:15:00.000000Z',
+            'status' => 'canceled',
+        ],
+        [
+            'uri' => 'https://api.calendly.com/scheduled_events/9756459c-443e-4366-a147-98dc8b5aa09f',
+            'name' => 'Coffee with John',
+            'start_time' => '2024-09-04T09:00:00.000000Z',
+            'end_time' => '2024-09-04T09:15:00.000000Z',
+            'status' => 'active',
+        ],
+        [
+            'uri' => 'https://api.calendly.com/scheduled_events/ebc4b1fe-2d19-4079-bac9-1988588717f8',
+            'name' => 'Coffee with John',
+            'start_time' => '2023-09-05T03:00:00.000000Z',
+            'end_time' => '2023-09-05T03:15:00.000000Z',
+            'status' => 'active',
+        ],
+        [
+            'uri' => 'https://api.calendly.com/scheduled_events/232ab5df-50fb-4f16-a887-a00a2922c758',
+            'name' => 'Town Hall Meeting',
+            'start_time' => '2023-09-06T03:00:00.000000Z',
+            'end_time' => '2023-09-06T03:15:00.000000Z',
+            'status' => 'active',
+        ],
+    ]
+];
+
+$event_types = [
+    'collection' => [
+        [
+            'scheduling_url' => 'https://calendly.com/akash-mia/30min',
+            'name' => '30 Minute Meeting',
+            'active' => true,
+            'color' => '#8247f5'
+        ],
+        [
+            'scheduling_url' => 'https://calendly.com/akash-mia/coffee-with-john-doe',
+            'name' => 'Coffee with John',
+            'active' => true,
+            'color' => '#e55cff'
+        ],
+        [
+            'scheduling_url' => 'https://calendly.com/akash-mia/asia-cup-2023',
+            'name' => 'Asia Cup 2023',
+            'active' => false,
+            'color' => '#ccf000'
+        ],
+        [
+            'scheduling_url' => 'https://calendly.com/akash-mia/dailly-stand-up-meeting',
+            'name' => 'Dailly Stand-up meeting',
+            'active' => false,
+            'color' => '#ffa600'
+        ],
+        [
+            'scheduling_url' => 'https://calendly.com/akash-mia/icc-mega-event',
+            'name' => 'ICC Mega Event',
+            'active' => true,
+            'color' => '#0ae8f0'
+        ],
+        [
+            'scheduling_url' => 'https://calendly.com/akash-mia/wpdeveloper-team-meeting',
+            'name' => 'WPDeveloper Team meeting',
+            'active' => false,
+            'color' => '#8247f5'
+        ],
+    ]
+];
+
+$calendly_uuid = function ($url) {
+    return preg_match('/\/([0-9a-fA-F-]+)$/', $url, $matches) ? $matches[1] : '';
+};
 
 ?>
 
@@ -199,22 +152,11 @@ if (!apply_filters('embedpress/is_allow_rander', false)) {
         <div class="calendly-connector-container">
             <div class="account-wrap full-width-layout">
 
-                <?php if (!empty($is_calendly_connected)) : ?>
-                    <div title="<?php echo esc_attr__('Calendly already connected', 'embedpress'); ?>">
-                        <a href="<?php echo esc_url($calendly_disconnect_url); ?>" class="calendly-connect-button calendly-connected">
-                            <img class="embedpress-calendly-icon" src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS . 'images/calendly.svg') ?>" alt="calendly">
-                            <?php echo esc_html__('Disconnect', 'embedpress'); ?>
-                        </a>
-                    </div>
-                <?php else : ?>
-                    <a href="<?php echo esc_url($calendly_connect_url); ?>" class="calendly-connect-button" target="_self" title="Connect with Calendly">
-                        <img class="embedpress-calendly-icon" src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS . 'images/calendly.svg') ?>" alt="calendly">
-                        <?php echo esc_html__('Connect with Calendly', 'embedpress'); ?>
-                    </a>
-                <?php endif; ?>
+                <a href="<?php echo esc_url('https://wpdeveloper.com/in/upgrade-embedpress'); ?>" class="calendly-connect-button" target="_blank" rel="noopener noreferrer" title="<?php echo esc_attr__('Connecting your Calendly account is available in EmbedPress Pro', 'embedpress'); ?>">
+                    <img class="embedpress-calendly-icon" src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS . 'images/calendly.svg') ?>" alt="calendly">
+                    <?php echo esc_html__('Connect with Calendly', 'embedpress'); ?> <span class="isPro">PRO</span>
+                </a>
             </div>
-
-            <?php do_action('embedpress/calendly_sync_button', $is_calendly_connected, $calendly_sync_url); ?>
 
         </div>
         <div class="tab-container">
@@ -232,27 +174,9 @@ if (!apply_filters('embedpress/is_allow_rander', false)) {
                 <div class="event-type-group-list-item user-item">
 
                     <div class="list-header">
-                        <?php if ($is_calendly_connected) : ?>
-                            <?php if (!empty($avatarUrl)) : ?>
-                                <div class="calendly-profile-avatar">
-                                    <img src="<?php echo esc_url($avatarUrl); ?>" alt="<?php echo esc_attr($name); ?>">
-                                </div>
-                            <?php endif; ?>
-                            <div class="calendly-user">
-                                <div class="KF8rYwhNst0H6JyJ1_kq">
-                                    <span>
-                                        <p style="color: currentcolor;"><?php echo esc_html($name); ?></p>
-                                    </span>
-                                </div>
-                                <a target="_blank" rel="noopener noreferrer" href="<?php echo esc_url($schedulingUrl); ?>">
-                                    <span><?php echo esc_html($schedulingUrl); ?></span>
-                                </a>
-                            </div>
-                        <?php else : ?>
-                            <?php echo esc_html__('Events', 'embedpress'); ?>
-                        <?php endif; ?>
+                        <?php echo esc_html__('Events', 'embedpress'); ?>
                     </div>
-                    <div class="calendly-data<?php if (!apply_filters('embedpress/is_allow_rander', false)) : echo '-placeholder'; endif; ?>">
+                    <div class="calendly-data-placeholder">
                         <div class="event-type-card-list">
                             <?php
                             if (is_array($event_types) && isset($event_types['collection']) && count($event_types['collection']) > 0) {
@@ -284,19 +208,13 @@ if (!apply_filters('embedpress/is_allow_rander', false)) {
                                     </div>
                             <?php
                                 endforeach;
-                            } else {
-                                if(isset($event_types['collection'])){
-                                    do_action('embedpress/connected_text_label', $is_calendly_connected, $event_types['collection']);
-                                }
                             }
                             ?>
                         </div>
 
-                        <?php if (!apply_filters('embedpress/is_allow_rander', false)) : ?>
-                            <div class="overlay">
-                                <a href="<?php echo esc_url('https://wpdeveloper.com/in/upgrade-embedpress'); ?>" class="overlay-button" target="_blank"><?php echo esc_html__('Get PRO to Unlock', 'embedpress'); ?></a>
-                            </div>
-                        <?php endif; ?>
+                        <div class="overlay">
+                            <a href="<?php echo esc_url('https://wpdeveloper.com/in/upgrade-embedpress'); ?>" class="overlay-button" target="_blank"><?php echo esc_html__('Get PRO to Unlock', 'embedpress'); ?></a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -308,7 +226,7 @@ if (!apply_filters('embedpress/is_allow_rander', false)) {
     <div class="tab-content" id="scheduled-events">
 
         <div class="calendly-day-list">
-            <div class="calendly-data<?php if (!apply_filters('embedpress/is_allow_rander', false)) : echo '-placeholder'; endif; ?>">
+            <div class="calendly-data-placeholder">
                 <table class="rwd-table" cellspacing="0">
                     <tbody>
                         <tr>
@@ -327,7 +245,7 @@ if (!apply_filters('embedpress/is_allow_rander', false)) {
 
                         if (is_array($scheduled_events) && isset($scheduled_events['collection']) && count($scheduled_events) > 0) {
                             foreach ($scheduled_events['collection'] as $event) {
-                                $uuid = getCalendlyUuid($event['uri']);
+                                $uuid = $calendly_uuid($event['uri']);
 
 
                                 $name = isset($invtitees_list[$uuid]['collection'][$index]['name']) ? $invtitees_list[$uuid]['collection'][$index]['name'] : null;
@@ -406,15 +324,9 @@ if (!apply_filters('embedpress/is_allow_rander', false)) {
                     </tbody>
                 </table>
 
-
-                <?php do_action('embedpress/calendly_connect_text_label', $is_calendly_connected, $sorted_events); ?>
-
-
-                <?php if (!apply_filters('embedpress/is_allow_rander', false)) : ?>
-                    <div class="overlay">
-                        <a href="<?php echo esc_url('https://wpdeveloper.com/in/upgrade-embedpress'); ?>" class="overlay-button" target="_blank"><?php echo esc_html__('Get PRO to Unlock', 'embedpress'); ?></a>
-                    </div>
-                <?php endif; ?>
+                <div class="overlay">
+                    <a href="<?php echo esc_url('https://wpdeveloper.com/in/upgrade-embedpress'); ?>" class="overlay-button" target="_blank"><?php echo esc_html__('Get PRO to Unlock', 'embedpress'); ?></a>
+                </div>
             </div>
         </div>
     </div>

@@ -59,17 +59,10 @@ class Embedpress_Pdf extends Widget_Base
 
     public function get_script_depends()
     {
-
-        $handler_keys = get_option('enabled_elementor_scripts', []);
-
 		$handles = [];
 
 		$handles[] = 'embedpress-pdfobject';
 		$handles[] = 'embedpress-front';
-
-		if (isset($handler_keys['enabled_ads']) && $handler_keys['enabled_ads'] === 'yes') {
-			$handles[] = 'embedpress-ads';
-		}
 
 		return $handles;
     }
@@ -203,11 +196,11 @@ class Embedpress_Pdf extends Widget_Base
 		$download = (isset($settings['embedpress_pdf_show_download_count']) && $settings['embedpress_pdf_show_download_count'] === 'yes') ? 'on' : 'off';
 		$attrs = ' data-ep-views="' . $view . '" data-ep-downloads="' . $download . '"';
 
-		// Badge position is Pro-only; free installs always use the default
-		// 'below'. Only emit the marker for a non-default Pro position when Pro
-		// is active, so a free site never renders a gated placement.
+		// Saved badge position marker (same as the block's save() output).
+		// Free's ep-view-count.js always places the badge below the embed;
+		// alternative placements are applied by Pro.
 		$position = isset($settings['embedpress_pdf_count_position']) ? (string) $settings['embedpress_pdf_count_position'] : 'below';
-		if ($position !== 'below' && \EmbedPress\Includes\Classes\Helper::is_pro_active()) {
+		if ($position !== 'below') {
 			$attrs .= ' data-ep-count-position="' . esc_attr($position) . '"';
 		}
 
@@ -1266,14 +1259,14 @@ class Embedpress_Pdf extends Widget_Base
     public function getParamData($settings){
         $urlParamData = array(
             'themeMode' => $settings['embedpress_theme_mode'],
-            'toolbar' => !empty($settings['pdf_toolbar']) ? 'true' : 'false',
+            'toolbar' => 'true',
             'position' =>  $settings['pdf_toolbar_position'],
             'presentation' => !empty($settings['pdf_presentation_mode']) ? 'true' : 'false',
             'lazyLoad' => !empty($settings['pdf_lazyload']) ? 'true' : 'false',
-            'download' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION')? $settings['pdf_print_download'] : 'true',
-            'copy_text' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION')? $settings['pdf_text_copy'] : 'true',
+            'download' => 'true',
+            'copy_text' => 'true',
             'add_text' => !empty($settings['add_text']) ? 'true' : 'false',
-            'draw' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION')? $settings['draw'] : 'true',
+            'draw' => 'true',
             'add_image' => !empty($settings['add_image'])  ? 'true' : 'false',
             'pdf_rotation' => !empty($settings['pdf_rotate_access'])  ? 'true' : 'false',
             'pdf_details' => !empty($settings['pdf_details'])  ? 'true' : 'false',
@@ -1283,21 +1276,24 @@ class Embedpress_Pdf extends Widget_Base
             'bookmark' => !empty($settings['pdf_bookmark'])  ? 'true' : 'false',
             'sound' => !empty($settings['pdf_sound'])  ? 'true' : 'false',
             'flipbook_toolbar_position' => !empty($settings['flipbook_toolbar_position'])  ? $settings['flipbook_toolbar_position'] : 'bottom',
-            'flipbook_rtl' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['pdf_flipbook_rtl']) && $settings['pdf_flipbook_rtl'] === 'yes' ? 'true' : 'false',
+            'flipbook_rtl' => 'false',
             'flipbook_highlight_links' => !empty($settings['pdf_flipbook_highlight_links']) && $settings['pdf_flipbook_highlight_links'] === 'yes' ? 'true' : 'false',
             'flipbook_highlight_color' => !empty($settings['pdf_flipbook_highlight_color']) ? esc_attr($settings['pdf_flipbook_highlight_color']) : '',
-            'selection_tool' => isset($settings['selection_tool']) ? esc_attr($settings['selection_tool']) : '0',
-            'scrolling' => isset($settings['scrolling']) ? esc_attr($settings['scrolling']) : '-1',
+            'selection_tool' => '0',
+            'scrolling' => '-1',
             'spreads' => isset($settings['spreads']) ? esc_attr($settings['spreads']) : '-1',
-            'is_pro_active' => apply_filters('embedpress/is_allow_rander', false),
             'pageNumber' => !empty($settings['embedpress_pdf_page_number']) ? absint($settings['embedpress_pdf_page_number']) : 1,
-            'watermark_text' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['embedpress_watermark_text']) ? $settings['embedpress_watermark_text'] : '',
-            'watermark_font_size' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['embedpress_watermark_font_size']) ? $settings['embedpress_watermark_font_size'] : '48',
-            'watermark_color' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['embedpress_watermark_color']) ? Helper::get_elementor_global_color($settings, 'embedpress_watermark_color') : '#000000',
-            'watermark_opacity' => defined('EMBEDPRESS_SL_ITEM_SLUG') && isset($settings['embedpress_watermark_opacity']) ? $settings['embedpress_watermark_opacity'] : '15',
-            'watermark_style' => defined('EMBEDPRESS_SL_ITEM_SLUG') && !empty($settings['embedpress_watermark_style']) ? $settings['embedpress_watermark_style'] : 'center',
+            'watermark_text' => '',
+            'watermark_font_size' => '48',
+            'watermark_color' => '#000000',
+            'watermark_opacity' => '15',
+            'watermark_style' => 'center',
 
         );
+
+        // Pro-controlled keys above hold their defaults; see Helper::pdf_viewer_params().
+        $urlParamData = Helper::pdf_viewer_params($urlParamData, $settings, 'elementor');
+        $urlParamData['ext'] = \EmbedPress\Includes\Classes\Helper::pdf_viewer_extensions($urlParamData);
 
         $custom_color = Helper::get_elementor_global_color($settings, 'embedpress_pdf_custom_color');
 
@@ -1330,7 +1326,7 @@ class Embedpress_Pdf extends Widget_Base
 
         $password_correct = isset($_COOKIE['password_correct_' . $client_id]) ? sanitize_text_field($_COOKIE['password_correct_' . $client_id]) : '';
 
-        if(empty($settings['embedpress_pdf_lock_content']) || empty($settings['embedpress_pdf_lock_content_password']) || (!empty(Helper::is_password_correct($client_id)) && ($hash_pass === $password_correct))){
+        if(empty($settings['embedpress_pdf_lock_content']) || empty($settings['embedpress_pdf_lock_content_password']) || ($hash_pass === $password_correct)){
             $dimension = "width: {$settings['embedpress_elementor_document_width']['size']}{$settings['embedpress_elementor_document_width']['unit']}!important;height: {$settings['embedpress_elementor_document_height']['size']}px;";
         }
 
@@ -1358,13 +1354,15 @@ class Embedpress_Pdf extends Widget_Base
         // Explicit on/off lets the per-embed toggle win over the global option.
         $pdf_render_attrs['data-ep-views'] = (isset($settings['embedpress_pdf_show_view_count']) && $settings['embedpress_pdf_show_view_count'] === 'yes') ? 'on' : 'off';
         $pdf_render_attrs['data-ep-downloads'] = (isset($settings['embedpress_pdf_show_download_count']) && $settings['embedpress_pdf_show_download_count'] === 'yes') ? 'on' : 'off';
-        // Badge position is Pro-only; only emit a non-default placement when Pro is active.
+        // Saved badge position marker; free always places the badge below,
+        // alternative placements are applied by Pro.
         $pdf_position = isset($settings['embedpress_pdf_count_position']) ? (string) $settings['embedpress_pdf_count_position'] : 'below';
-        if ($pdf_position !== 'below' && \EmbedPress\Includes\Classes\Helper::is_pro_active()) {
+        if ($pdf_position !== 'below') {
             $pdf_render_attrs['data-ep-count-position'] = $pdf_position;
         }
         $this->add_render_attribute('embedpres-pdf-render', $pdf_render_attrs);
-        $this->add_render_attribute('embedpress-document', [
+        // data-download / data-copy hold their defaults; see Helper::pdf_viewer_params().
+        $this->add_render_attribute('embedpress-document', Helper::pdf_viewer_params([
             'class' => ['embedpress-document-embed', 'ep-doc-' . md5($id), 'ose-document', $unitoption, $content_locked_class ],
             'data-thememode' => isset($settings['embedpress_theme_mode']) ? esc_attr($settings['embedpress_theme_mode']) : '',
             'data-customcolor' => isset($custom_color) ? esc_attr($custom_color) : '',
@@ -1372,8 +1370,8 @@ class Embedpress_Pdf extends Widget_Base
             'data-toolbar-position' => isset($settings['pdf_toolbar_position']) ? esc_attr($settings['pdf_toolbar_position']) : 'top',
             'data-open' => 'no', // Assuming 'no' is a static value, no need to sanitize
             'data-presentation-mode' => isset($settings['pdf_presentation_mode']) ? esc_attr($settings['pdf_presentation_mode']) : '',
-            'data-download' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? esc_attr($settings['pdf_print_download']) : 'yes', // Assuming 'yes' is a safe fallback
-            'data-copy' => defined('EMBEDPRESS_PRO_PLUGIN_VERSION') ? esc_attr($settings['pdf_text_copy']) : 'yes', // Assuming 'yes' is a safe fallback
+            'data-download' => 'yes',
+            'data-copy' => 'yes',
             'data-add-image' => isset($settings['add_image']) ? esc_attr($settings['add_image']) : '',
             'data-rotate' => isset($settings['pdf_rotate_access']) ? esc_attr($settings['pdf_rotate_access']) : '',
             'data-details' => isset($settings['pdf_details']) ? esc_attr($settings['pdf_details']) : '',
@@ -1381,7 +1379,7 @@ class Embedpress_Pdf extends Widget_Base
             'data-selection-tool' => isset($settings['selection_tool']) ? esc_attr($settings['selection_tool']) : '0',
             'data-scrolling' => isset($settings['scrolling']) ? esc_attr($settings['scrolling']) : '-1',
             'data-spreads' => isset($settings['spreads']) ? esc_attr($settings['spreads']) : '-1',
-        ]);
+        ], $settings, 'elementor_wrapper'));
 
         $embed_settings =  [];
 		$embed_settings['customThumbnail'] = !empty($settings['embedpress_pdf_content_share_custom_thumbnail']['url']) ? esc_url($settings['embedpress_pdf_content_share_custom_thumbnail']['url']) : '';
@@ -1517,45 +1515,38 @@ class Embedpress_Pdf extends Widget_Base
                     <div id="ep-elementor-content-<?php echo esc_attr( $client_id )?>" class="ep-elementor-content <?php if(!empty($settings['embedpress_pdf_content_share'])) : echo esc_attr( 'position-'.$settings['embedpress_pdf_content_share_position'].'-wraper' ); endif; ?> <?php echo  esc_attr($width_class.' '.$content_share_class.' '.$share_position_class.' '.$content_protection_class);  ?>">
                         <div id="<?php echo esc_attr( $this->get_id() ); ?>" class="ep-embed-content-wraper">
                             <?php
-                                // Apply lazy loading if enabled (but not in editor mode)
-                                if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !$is_editor_view) {
-                                    $embed_content = preg_replace_callback(
-                                        '/<iframe([^>]*)src=["\']([^"\']+)["\']([^>]*)>/i',
-                                        function($matches) {
-                                            $before = $matches[1];
-                                            $src = $matches[2];
-                                            $after = $matches[3];
-
-                                            // Extract style attribute if exists
-                                            $style = '';
-                                            if (preg_match('/style=["\']([^"\']+)["\']/i', $before . $after, $style_match)) {
-                                                $style = $style_match[1];
-                                            }
-
-                                            return sprintf(
-                                                '<div class="ep-lazy-iframe-placeholder" data-ep-lazy-src="%s" data-ep-iframe-style="%s" %s %s style="%s"></div>',
-                                                esc_attr($src),
-                                                esc_attr($style),
-                                                $before,
-                                                $after,
-                                                esc_attr($style)
-                                            );
-                                        },
-                                        $embed_content
-                                    );
-                                }
+                                /**
+                                 * Filters the HTML of an Elementor-rendered embed so its iframes can be lazy loaded.
+                                 *
+                                 * Lazy loading is an EmbedPress Pro feature. Free always renders the
+                                 * plain iframe and ignores the widget's `enable_lazy_load` control;
+                                 * EmbedPress Pro hooks this filter and swaps iframes for placeholders
+                                 * that its own loader script fills in when they scroll into view.
+                                 *
+                                 * @param string $html     Embed HTML.
+                                 * @param array  $settings Elementor widget settings.
+                                 * @param array  $context  {
+                                 *     @type string $surface   'elementor', 'elementor-pdf', 'elementor-document' or 'elementor-calendar'.
+                                 *     @type bool   $is_editor Whether the widget renders inside the Elementor editor.
+                                 * }
+                                 */
+                                $embed_content = apply_filters('embedpress/lazy_load/html', $embed_content, $settings, ['surface' => 'elementor-pdf', 'is_editor' => (bool) $is_editor_view]);
 
                                 $embed = '<div>'.$embed_content.'</div>';
 
                                 $content_id = $client_id;
-                                if(
-
-                                (empty($settings['embedpress_pdf_lock_content']) || ($settings['embedpress_pdf_protection_type'] == 'password' && empty($settings['embedpress_pdf_lock_content_password'])) || $settings['embedpress_pdf_lock_content'] == 'no') ||
-                                ($settings['embedpress_pdf_protection_type'] == 'password' && !empty(Helper::is_password_correct($client_id)) && ($hash_pass === $password_correct) ) ||
-                                !apply_filters('embedpress/is_allow_rander', false) ||
-                                ($settings['embedpress_pdf_protection_type'] == 'user-role' && Helper::has_allowed_roles($embed_settings['userRole']))
-
-                                ){
+                                // Content protection: see `embedpress/content_protection/is_locked`
+                                // in EmbedPressBlockRenderer::should_display_content(). Free
+                                // never locks; the lock UI comes from the actions below.
+                                $is_content_locked = Helper::is_content_locked([
+                                    'lock_content'       => $settings['embedpress_pdf_lock_content'] ?? '',
+                                    'protection_type'    => $settings['embedpress_pdf_protection_type'] ?? '',
+                                    'content_password'   => $settings['embedpress_pdf_lock_content_password'] ?? '',
+                                    'user_role'          => $embed_settings['userRole'],
+                                    'protection_message' => $embed_settings['protectionMessage'],
+                                    'client_id'          => $client_id,
+                                ], 'elementor_pdf');
+                                if (!$is_content_locked) {
                                     if(!empty($settings['embedpress_pdf_content_share'])){
                                         $embed  .= Helper::embed_content_share($content_id, $embed_settings);
                                     }
@@ -1566,7 +1557,10 @@ class Embedpress_Pdf extends Widget_Base
                                         $embed .= Helper::embed_content_share($content_id, $embed_settings);
                                     }
 
-                                    if ($settings['embedpress_pdf_protection_type'] == 'password') {
+                                    if (Helper::pro_is_outdated()) {
+                                        // Outdated Pro cannot render the lock UI — fail closed.
+                                        echo Helper::protection_paused_notice();
+                                    } elseif ($settings['embedpress_pdf_protection_type'] == 'password') {
                                         do_action('embedpress/display_password_form', $client_id, $embed, $pass_hash_key, $embed_settings);
                                     } else {
                                         do_action('embedpress/content_protection_content', $client_id, $embed_settings['protectionMessage'],  $embed_settings['userRole']);
@@ -1581,7 +1575,7 @@ class Embedpress_Pdf extends Widget_Base
                    <?php
                         $isAdEnabled = !empty($settings['adManager']);
 						$isContentUnlocked = empty($settings['embedpress_pdf_lock_content']);
-                        $isPasswordCorrect = Helper::is_password_correct($client_id) && ($hash_pass === $password_correct);
+                        $isPasswordCorrect = ($hash_pass === $password_correct);
 
                         if ($isAdEnabled && ($isContentUnlocked || $isPasswordCorrect)) {
                             $embed_content = apply_filters('embedpress/generate_ad_template', $embed_content, $client_id, $settings, 'elementor');

@@ -5363,7 +5363,7 @@ class BasePreferences {
   #defaults = Object.freeze({
     annotationEditorMode: 0,
     annotationMode: 2,
-    cursorToolOnLoad: parseInt(this.#newParams.get('is_pro_active')) ? parseInt(this.#newParams.get('selection_tool')) : 0, // added by EP developer
+    cursorToolOnLoad: parseInt(this.#newParams.get('selection_tool')) || 0, // added by EP developer
     defaultZoomDelay: 400,
     defaultZoomValue: "",
     disablePageLabels: false,
@@ -5383,7 +5383,7 @@ class BasePreferences {
     pageColorsForeground: "CanvasText",
     pdfBugEnabled: false,
     sidebarViewOnLoad: -1,
-    scrollModeOnLoad: parseInt(this.#newParams.get('is_pro_active')) ? parseInt(this.#newParams.get('scrolling')) : -1, // added by EP developer,
+    scrollModeOnLoad: isNaN(parseInt(this.#newParams.get('scrolling'))) ? -1 : parseInt(this.#newParams.get('scrolling')), // added by EP developer,
     spreadModeOnLoad: parseInt(this.#newParams.get('spreads')), // added by EP developer,
     textLayerMode: 1,
     viewOnLoad: 0,

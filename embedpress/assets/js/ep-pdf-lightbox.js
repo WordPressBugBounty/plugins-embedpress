@@ -104,8 +104,8 @@
             });
         },
 
-        initAll: function () {
-            var canvases = document.querySelectorAll('.ep-pdf-thumbnail-canvas[data-pdf-url]');
+        initAll: function (root) {
+            var canvases = (root || document).querySelectorAll('.ep-pdf-thumbnail-canvas[data-pdf-url]');
             if (!canvases.length) return;
 
             var self = this;
@@ -257,6 +257,16 @@
     } else {
         init();
     }
+
+    // Re-init for thumbnails injected after page load (e.g. content protection unlock in front.js)
+    window.epPdfLightboxInit = function (root) {
+        if (!root || !root.querySelector('.ep-pdf-thumbnail-wrap')) return;
+
+        ThumbnailGenerator.initAll(root);
+        if (!Lightbox.lightboxEl) {
+            Lightbox.init();
+        }
+    };
 
     // Elementor re-init support
     function registerElementorHandler() {

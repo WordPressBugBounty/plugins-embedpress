@@ -91,7 +91,7 @@ $ep_is_pro_active = apply_filters('embedpress/is_allow_rander', false);
 
                         <?php if (is_array($get_data) && count($get_data) > 0) : ?>
                             <?php
-                            $avater_url = 'http://2.gravatar.com/avatar/b642b4217b34b1e8d3bd915fc65c4452?s=150&d=mm&r=g';
+                            $avater_url = EMBEDPRESS_URL_ASSETS . 'images/default-avatar.svg';
 
                             if (!empty($get_data['account_type']) && (strtolower($get_data['account_type'])  === 'business')) {
                                 $avater_url = '';
@@ -103,7 +103,7 @@ $ep_is_pro_active = apply_filters('embedpress/is_allow_rander', false);
                                 <?php if (!empty($feed_data[$data['user_id']]['feed_userinfo']['profile_picture_url'])) :
                                     $avater_url = $feed_data[$data['user_id']]['feed_userinfo']['profile_picture_url'];
                                 else :
-                                    $avater_url = 'http://2.gravatar.com/avatar/b642b4217b34b1e8d3bd915fc65c4452?s=150&d=mm&r=g';
+                                    $avater_url = EMBEDPRESS_URL_ASSETS . 'images/default-avatar.svg';
                                 endif; ?>
 
                                 <tr data-userid="<?php echo esc_attr($data['user_id']); ?>" data-username="<?php echo esc_attr($data['username']); ?>" data-accounttype="<?php echo esc_attr($data['account_type']); ?>">

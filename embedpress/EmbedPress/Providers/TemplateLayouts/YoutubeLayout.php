@@ -422,6 +422,68 @@ class YoutubeLayout
         return ob_get_clean();
     }
 
+    /**
+     * Channel-layout wrapper settings for create_youtube_layout().
+     *
+     * Free layouts (gallery / list) use the defaults. An extension that adds
+     * a channel layout (see Youtube::channel_layouts()) adjusts the wrapper
+     * for it here.
+     *
+     * @param string $layout     Resolved channel layout slug.
+     * @param string $channel_id Channel ID ('' when unknown, e.g. AJAX paging).
+     * @param array  $options    Gallery options (playlistId, pagesize, ...).
+     * @param array  $data       Provider layout data (Youtube::layout_data()).
+     * @return array {
+     *     @type string $content_wrap_class Extra class(es) on `.content__wrap`.
+     *     @type string $block_attributes   Extra, already-escaped attribute markup on `.ep-youtube__content__block`.
+     *     @type bool   $show_pagination    Whether the Prev / page numbers / Next strip renders.
+     *     @type string $after_body_html    Markup printed after `.youtube__content__body`, inside the block.
+     * }
+     */
+    public static function channel_layout_args($layout, $channel_id, $options, $data) {
+        $defaults = [
+            'content_wrap_class' => '',
+            'block_attributes'   => '',
+            'show_pagination'    => true,
+            'after_body_html'    => '',
+        ];
+        /**
+         * Filters the channel-layout wrapper settings (see the return docs above).
+         *
+         * @param array  $args       Defaults: no extra class / attributes / markup, pagination on.
+         * @param string $layout     Resolved channel layout slug.
+         * @param string $channel_id Channel ID, may be ''.
+         * @param array  $options    Gallery options.
+         * @param array  $data       Provider layout data.
+         */
+        $args = apply_filters('embedpress/youtube/channel_layout_args', $defaults, $layout, $channel_id, $options, $data);
+        return wp_parse_args(is_array($args) ? $args : [], $defaults);
+    }
+
+    /**
+     * Print-ready item markup for a channel layout.
+     *
+     * Gallery and list are rendered here. Any other (extension-registered)
+     * layout is rendered by the `embedpress/youtube_{layout}_layout` action,
+     * which echoes its items; if nothing is printed the gallery is used.
+     *
+     * @return string
+     */
+    public static function render_channel_items($layout, $jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb) {
+        if ($layout === 'list') {
+            return self::create_list_layout($jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb);
+        }
+        if ($layout !== 'gallery') {
+            ob_start();
+            do_action('embedpress/youtube_' . $layout . '_layout', $jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb);
+            $rendered = ob_get_clean();
+            if ($rendered !== '') {
+                return $rendered;
+            }
+        }
+        return self::create_gallery_layout($jsonResult, $gallobj, $options, $data, $channelTitle, $channelThumb);
+    }
+
     public static function create_youtube_layout($options, $data, $layout, $url) {
         $nextPageToken = '';
         $prevPageToken = '';
@@ -520,8 +582,7 @@ class YoutubeLayout
             // channel-header / grid wrapper / pagination strip. Each one is
             // isolated under .ep-yt-playlist with its own scoped CSS reset
             // so theme + other plugin styles can't leak in.
-            $playlist_layouts = ['queue', 'theatre', 'library', 'spotlight', 'cinema', 'magazine'];
-            if (in_array($layout, $playlist_layouts, true)) {
+            if (!empty($data['is_playlist'])) {
                 $gallobj->first_vid = Helper::get_id($jsonResult->items[0]);
                 $playlist_info      = !empty($data['playlist_info']) ? $data['playlist_info'] : [];
                 if ($layout === 'theatre') {
@@ -529,11 +590,11 @@ class YoutubeLayout
                 } elseif ($layout === 'queue') {
                     $gallobj->html = self::create_queue_layout($jsonResult, $gallobj, $options, $data, $playlist_info, $gallobj->first_vid, $nextPageToken);
                 } else {
-                    // Pro layouts (library, spotlight, cinema, magazine) — Pro
-                    // plugin handlers register on these actions. Action prints
-                    // the HTML into the ob buffer (mirrors channel grid/carousel
-                    // pattern). Free falls back to queue earlier in the chain
-                    // when Pro is inactive, so this only fires for Pro users.
+                    // Layouts added through `embedpress/youtube/playlist_layouts`
+                    // (Youtube::playlist_layouts()) are rendered by an extension
+                    // on this action, which echoes the complete
+                    // .ep-yt-playlist shell. Free only lets a registered layout
+                    // through, so this never fires without an extension.
                     ob_start();
                     do_action(
                         'embedpress/youtube_' . $layout . '_layout',
@@ -593,44 +654,22 @@ class YoutubeLayout
                         $channel_id = $channel_info['id'];
                     }
 
-                    $carouselWrapperClass = '';
-                    $carouselSelectorId = '';
-                    if($layout == 'carousel') {
-                        $carouselWrapperClass = 'youtube-carousel';
-                        $carouselSelectorId = 'data-youtube-channel-carousel="carousel-'.esc_attr(md5($channel_id)).'"';
-                    }
-                    
+                    $layout_args = self::channel_layout_args($layout, $channel_id, $options, $data);
+
                 ?>
 
-            <div class="ep-youtube__content__block" <?php echo $carouselSelectorId; ?> data-unique-id="<?php echo esc_attr(md5($channel_id)); ?>">
+            <div class="ep-youtube__content__block" <?php echo $layout_args['block_attributes']; ?> data-unique-id="<?php echo esc_attr(md5($channel_id)); ?>">
                 <div class="youtube__content__body youtube-carousel-container">
-                    <div class="content__wrap <?php echo esc_attr($carouselWrapperClass);  ?>" >
+                    <div class="content__wrap <?php echo esc_attr($layout_args['content_wrap_class']);  ?>" >
 
-                        <?php 
-                                if($layout === 'gallery'){
-                                    echo self::create_gallery_layout($jsonResult, $gallobj, $options, $data, $chanelTitle, $channelThumb); 
-                                }
-                          
-                                else if($layout === 'list'){
-                                    echo self::create_list_layout($jsonResult, $gallobj, $options, $data, $chanelTitle, $channelThumb); 
-                                }
-                                else if($layout === 'grid'){
-                                    do_action('embedpress/youtube_grid_layout', $jsonResult, $gallobj, $options, $data, $chanelTitle, $channelThumb);
-
-                                }
-                                else if($layout === 'carousel'){
-                                    do_action('embedpress/youtube_carousel_layout', $jsonResult, $gallobj, $options, $data, $chanelTitle, $channelThumb);
-                                }
-                                else{
-                                    echo self::create_gallery_layout($jsonResult, $gallobj, $options, $data, $chanelTitle, $channelThumb); 
-
-                                }
+                        <?php
+                                echo self::render_channel_items($layout, $jsonResult, $gallobj, $options, $data, $chanelTitle, $channelThumb);
                         ?>
                         <div class="item" style="height: 0"></div>
                     </div>
-                    
+
                     <!-- Pagination and other content remains unchanged -->
-                    <?php if ($totalPages > 1 && $layout !== 'carousel') : ?>
+                    <?php if ($totalPages > 1 && $layout_args['show_pagination']) : ?>
                         <div class="ep-youtube__content__pagination <?php echo (empty($prevPageToken) && empty($nextPageToken)) ? ' hide ' : ''; ?>">
                             <div
                                 class="ep-prev" <?php echo empty($prevPageToken) ? ' style="display:none" ' : ''; ?>
@@ -732,11 +771,7 @@ class YoutubeLayout
                 </div>
 
 
-                <?php  if($layout === 'carousel'): ?>
-                        <div class="carousel-controls">
-                            <button class="preview" type="button" aria-label="<?php esc_attr_e('Previous', 'embedpress'); ?>"><span aria-hidden="true">❮</span></button>
-                            <button class="next" type="button" aria-label="<?php esc_attr_e('Next', 'embedpress'); ?>"><span aria-hidden="true">❯</span></button>
-                     <?php endif; ?>
+                <?php echo $layout_args['after_body_html']; ?>
 
             </div>
 

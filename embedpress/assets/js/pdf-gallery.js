@@ -3,11 +3,20 @@
  *
  * Handles:
  * - PDF.js thumbnail generation (first page render)
- * - Carousel layout initialization
+ * - Grid / Masonry layouts (pure CSS) and the layout registry
  * - Popup/lightbox with prev/next navigation
+ *
+ * Layout registry: `window.EmbedPressPdfGalleryLayouts` maps a layout slug to
+ * an init(galleryEl) function. Free ships no JS layouts; other plugins (e.g.
+ * EmbedPress Pro's Carousel and Bookshelf) add theirs there and dispatch
+ * `embedpress:pdf-gallery-layouts` on document once registered. A gallery
+ * whose layout is neither built in nor registered is shown as a grid.
  */
 (function () {
     'use strict';
+
+    var BUILTIN_LAYOUTS = ['grid', 'masonry'];
+    var layoutRegistry = window.EmbedPressPdfGalleryLayouts = window.EmbedPressPdfGalleryLayouts || {};
 
     // =========================================
     // Module 1: PDF Thumbnail Generator
@@ -155,212 +164,55 @@
     };
 
     // =========================================
-    // Module 2: Carousel
+    // Module 2: Layouts
     // =========================================
-    var Carousel = {
-        init: function (gallery) {
-            var carouselEl = gallery.querySelector('.ep-pdf-gallery__carousel');
-            if (!carouselEl) return;
+    var Layouts = {
+        /**
+         * Show a gallery whose layout nobody implements as a grid: move its
+         * items into a `.ep-pdf-gallery__grid` and drop any other markup the
+         * saved layout carried. The requested layout is remembered so it can
+         * still be applied if its implementation registers later.
+         */
+        fallbackToGrid: function (gallery, requested) {
+            gallery.setAttribute('data-ep-requested-layout', requested);
+            gallery.setAttribute('data-layout', 'grid');
 
-            var track = carouselEl.querySelector('.ep-pdf-gallery__carousel-track');
-            var items = carouselEl.querySelectorAll('.ep-pdf-gallery__item');
-            var prevBtn = carouselEl.querySelector('.ep-pdf-gallery__carousel-prev');
-            var nextBtn = carouselEl.querySelector('.ep-pdf-gallery__carousel-next');
-            var dotsContainer = carouselEl.querySelector('.ep-pdf-gallery__carousel-dots');
+            if (gallery.querySelector('.ep-pdf-gallery__grid')) return;
 
-            if (!track || !items.length) return;
+            var items = Array.prototype.slice.call(gallery.querySelectorAll('.ep-pdf-gallery__item'));
+            var grid = document.createElement('div');
+            grid.className = 'ep-pdf-gallery__grid';
+            items.forEach(function (item) { grid.appendChild(item); });
 
-            var options;
-            try {
-                options = JSON.parse(gallery.dataset.carouselOptions || '{}');
-            } catch (e) {
-                options = {};
+            while (gallery.firstChild) {
+                gallery.removeChild(gallery.firstChild);
+            }
+            gallery.appendChild(grid);
+        },
+
+        apply: function (gallery) {
+            var requested = gallery.getAttribute('data-ep-requested-layout') || gallery.dataset.layout || 'grid';
+            var init = layoutRegistry[requested];
+
+            if (typeof init === 'function') {
+                gallery.removeAttribute('data-ep-requested-layout');
+                gallery.setAttribute('data-layout', requested);
+                init(gallery);
+                return;
             }
 
-            var slidesPerView = options.slidesPerView || 3;
-            var gap = parseInt(gallery.dataset.gap) || 20;
-            var loop = options.loop !== false;
-            var autoplay = options.autoplay || false;
-            var autoplaySpeed = options.autoplaySpeed || 3000;
-            var showDots = options.dots || false;
-            var currentIndex = 0;
-            var totalSlides = items.length;
-            var autoplayTimer = null;
-
-            // Responsive slides per view
-            function getSlidesPerView() {
-                var w = window.innerWidth;
-                if (w <= 767) return 1;
-                if (w <= 1024) return Math.min(slidesPerView, 2);
-                return slidesPerView;
+            if (BUILTIN_LAYOUTS.indexOf(requested) === -1) {
+                this.fallbackToGrid(gallery, requested);
             }
-
-            function updateLayout() {
-                var spv = getSlidesPerView();
-                var containerWidth = carouselEl.offsetWidth;
-                var slideWidth = (containerWidth - gap * (spv - 1)) / spv;
-
-                items.forEach(function (item) {
-                    item.style.width = slideWidth + 'px';
-                    item.style.marginRight = gap + 'px';
-                });
-
-                // Last item no margin
-                if (items.length) {
-                    items[items.length - 1].style.marginRight = '0';
-                }
-
-                goTo(currentIndex, false);
-            }
-
-            function goTo(index, animate) {
-                var spv = getSlidesPerView();
-                var maxIndex = Math.max(0, totalSlides - spv);
-
-                if (loop) {
-                    if (index > maxIndex) index = 0;
-                    if (index < 0) index = maxIndex;
-                } else {
-                    index = Math.max(0, Math.min(index, maxIndex));
-                }
-
-                currentIndex = index;
-
-                var containerWidth = carouselEl.offsetWidth;
-                var slideWidth = (containerWidth - gap * (spv - 1)) / spv;
-                var offset = index * (slideWidth + gap);
-
-                track.style.transition = animate !== false ? 'transform 0.4s ease' : 'none';
-                track.style.transform = 'translateX(-' + offset + 'px)';
-
-                updateDots();
-                updateArrows();
-            }
-
-            function updateArrows() {
-                if (!prevBtn || !nextBtn) return;
-                if (loop) return;
-                var spv = getSlidesPerView();
-                var maxIndex = Math.max(0, totalSlides - spv);
-                prevBtn.classList.toggle('ep-hidden', currentIndex <= 0);
-                nextBtn.classList.toggle('ep-hidden', currentIndex >= maxIndex);
-            }
-
-            function updateDots() {
-                if (!dotsContainer || !showDots) return;
-                var spv = getSlidesPerView();
-                var totalDots = Math.max(1, totalSlides - spv + 1);
-
-                dotsContainer.innerHTML = '';
-                for (var i = 0; i < totalDots; i++) {
-                    var dot = document.createElement('button');
-                    dot.className = 'ep-pdf-gallery__carousel-dot' + (i === currentIndex ? ' active' : '');
-                    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
-                    (function (idx) {
-                        dot.addEventListener('click', function () { goTo(idx, true); });
-                    })(i);
-                    dotsContainer.appendChild(dot);
-                }
-            }
-
-            function startAutoplay() {
-                if (!autoplay) return;
-                stopAutoplay();
-                autoplayTimer = setInterval(function () {
-                    goTo(currentIndex + 1, true);
-                }, autoplaySpeed);
-            }
-
-            function stopAutoplay() {
-                if (autoplayTimer) {
-                    clearInterval(autoplayTimer);
-                    autoplayTimer = null;
-                }
-            }
-
-            // Event listeners
-            if (prevBtn) {
-                prevBtn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    goTo(currentIndex - 1, true);
-                    stopAutoplay();
-                    startAutoplay();
-                });
-            }
-            if (nextBtn) {
-                nextBtn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    goTo(currentIndex + 1, true);
-                    stopAutoplay();
-                    startAutoplay();
-                });
-            }
-
-            // Touch/swipe support
-            var touchStartX = 0;
-            var touchDiff = 0;
-            track.addEventListener('touchstart', function (e) {
-                touchStartX = e.touches[0].clientX;
-                stopAutoplay();
-            }, { passive: true });
-            track.addEventListener('touchmove', function (e) {
-                touchDiff = e.touches[0].clientX - touchStartX;
-            }, { passive: true });
-            track.addEventListener('touchend', function () {
-                if (Math.abs(touchDiff) > 50) {
-                    if (touchDiff < 0) goTo(currentIndex + 1, true);
-                    else goTo(currentIndex - 1, true);
-                }
-                touchDiff = 0;
-                startAutoplay();
-            });
-
-            // Mouse drag support (desktop swipe)
-            var mouseDown = false;
-            var mouseStartX = 0;
-            var mouseDiff = 0;
-            track.addEventListener('mousedown', function (e) {
-                mouseDown = true;
-                mouseStartX = e.clientX;
-                mouseDiff = 0;
-                track.style.cursor = 'grabbing';
-                stopAutoplay();
-                e.preventDefault();
-            });
-            track.addEventListener('mousemove', function (e) {
-                if (!mouseDown) return;
-                mouseDiff = e.clientX - mouseStartX;
-            });
-            track.addEventListener('mouseup', function () {
-                if (!mouseDown) return;
-                mouseDown = false;
-                track.style.cursor = '';
-                if (Math.abs(mouseDiff) > 50) {
-                    if (mouseDiff < 0) goTo(currentIndex + 1, true);
-                    else goTo(currentIndex - 1, true);
-                }
-                mouseDiff = 0;
-                startAutoplay();
-            });
-            track.addEventListener('mouseleave', function () {
-                if (!mouseDown) return;
-                mouseDown = false;
-                track.style.cursor = '';
-                if (Math.abs(mouseDiff) > 50) {
-                    if (mouseDiff < 0) goTo(currentIndex + 1, true);
-                    else goTo(currentIndex - 1, true);
-                }
-                mouseDiff = 0;
-            });
-
-            window.addEventListener('resize', function () { updateLayout(); });
-
-            // Init
-            updateLayout();
-            if (showDots) updateDots();
-            startAutoplay();
         }
     };
+
+    // A layout registered after the galleries were initialised.
+    document.addEventListener('embedpress:pdf-gallery-layouts', function () {
+        document.querySelectorAll('.ep-pdf-gallery[data-ep-requested-layout]').forEach(function (gallery) {
+            Layouts.apply(gallery);
+        });
+    });
 
     // =========================================
     // Module 3: Popup Controller
@@ -548,91 +400,7 @@
     };
 
     // =========================================
-    // Module 4: Bookshelf — multi-row layout
-    // =========================================
-    var Bookshelf = {
-        DEFAULT_BOOKS_PER_SHELF: 5,
-
-        _getPerShelf: function (gallery) {
-            var w = window.innerWidth;
-            if (w <= 767) {
-                return parseInt(gallery.dataset.columnsMobile, 10) || 1;
-            } else if (w <= 1024) {
-                return parseInt(gallery.dataset.columnsTablet, 10) || 2;
-            }
-            return parseInt(gallery.dataset.columns, 10) || this.DEFAULT_BOOKS_PER_SHELF;
-        },
-
-        _buildRows: function (gallery, container, items) {
-            var perShelf = this._getPerShelf(gallery);
-
-            // Store current perShelf to avoid unnecessary rebuilds
-            if (container._lastPerShelf === perShelf) return;
-            container._lastPerShelf = perShelf;
-
-            // Clear existing rows
-            container.innerHTML = '';
-
-            // Chunk items into rows
-            for (var i = 0; i < items.length; i += perShelf) {
-                var row = document.createElement('div');
-                row.className = 'ep-pdf-gallery__shelf-row';
-
-                var chunk = items.slice(i, i + perShelf);
-                for (var j = 0; j < chunk.length; j++) {
-                    row.appendChild(chunk[j]);
-                }
-
-                container.appendChild(row);
-            }
-        },
-
-        init: function (gallery) {
-            var carousel = gallery.querySelector('.ep-pdf-gallery__carousel');
-            var container = gallery.querySelector('.ep-pdf-gallery__bookshelf-container');
-            var items;
-
-            if (carousel) {
-                var track = carousel.querySelector('.ep-pdf-gallery__carousel-track');
-                if (!track) return;
-
-                items = Array.prototype.slice.call(track.querySelectorAll('.ep-pdf-gallery__item'));
-                if (!items.length) return;
-
-                // Create bookshelf container replacing carousel
-                container = document.createElement('div');
-                container.className = 'ep-pdf-gallery__bookshelf-container';
-                carousel.parentNode.replaceChild(container, carousel);
-            } else if (container) {
-                items = Array.prototype.slice.call(container.querySelectorAll('.ep-pdf-gallery__item'));
-                if (!items.length) return;
-            } else {
-                return;
-            }
-
-            // Store items reference for resize rebuilds
-            gallery._bookshelfItems = items;
-            gallery._bookshelfContainer = container;
-
-            var self = this;
-            self._buildRows(gallery, container, items);
-
-            // Rebuild rows on resize for responsive columns
-            if (!gallery._bookshelfResizeListener) {
-                var resizeTimer;
-                gallery._bookshelfResizeListener = function () {
-                    clearTimeout(resizeTimer);
-                    resizeTimer = setTimeout(function () {
-                        self._buildRows(gallery, gallery._bookshelfContainer, gallery._bookshelfItems);
-                    }, 150);
-                };
-                window.addEventListener('resize', gallery._bookshelfResizeListener);
-            }
-        }
-    };
-
-    // =========================================
-    // Module 5: Initialization
+    // Module 4: Initialization
     // =========================================
     function initGalleries() {
         var galleries = document.querySelectorAll('.ep-pdf-gallery');
@@ -643,8 +411,6 @@
 
         // Init layouts
         galleries.forEach(function (gallery) {
-            var layout = gallery.dataset.layout;
-
             // Set CSS custom properties from data attributes
             var columns = gallery.dataset.columns || 3;
             var columnsTablet = gallery.dataset.columnsTablet || 2;
@@ -660,12 +426,7 @@
                 gallery.style.setProperty('--ep-gallery-radius', radius + 'px');
             }
 
-            if (layout === 'carousel') {
-                Carousel.init(gallery);
-            }
-            if (layout === 'bookshelf') {
-                Bookshelf.init(gallery);
-            }
+            Layouts.apply(gallery);
         });
 
         // Init popup
@@ -715,13 +476,8 @@
                             });
                         }
 
-                        // Re-init carousel or bookshelf
-                        var layout = gallery.dataset.layout;
-                        if (layout === 'carousel') {
-                            Carousel.init(gallery);
-                        } else if (layout === 'bookshelf') {
-                            Bookshelf.init(gallery);
-                        }
+                        // Re-init the layout (registered layouts only)
+                        Layouts.apply(gallery);
 
                         // Ensure popup is initialized
                         if (!Popup.popupEl) {

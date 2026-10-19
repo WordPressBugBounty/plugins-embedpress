@@ -71,6 +71,68 @@ class InstagramFeed extends Instagram
     /** inline {@inheritdoc} */
     protected $httpsSupport = true;
 
+    /**
+     * Feed layouts rendered by the free plugin. Other layouts (Masonry,
+     * Carousel) are provided by EmbedPress Pro through
+     * `embedpress/instagram/layout`; without it they fall back to Grid.
+     */
+    const FREE_LAYOUTS = ['insta-grid', 'insta-justify'];
+
+    const DEFAULT_LAYOUT = 'insta-grid';
+
+    /**
+     * Resolve the requested feed layout to one that has a renderer.
+     *
+     * @param string $requested Layout saved on the block / widget / shortcode.
+     * @return string
+     */
+    public static function resolve_layout($requested)
+    {
+        $requested = is_string($requested) ? $requested : '';
+        $layout = in_array($requested, self::FREE_LAYOUTS, true) ? $requested : self::DEFAULT_LAYOUT;
+
+        /**
+         * Filters the Instagram feed layout used for rendering.
+         *
+         * Free resolves every layout it does not implement to Grid. EmbedPress
+         * Pro returns its own layouts (Masonry, Carousel) here.
+         *
+         * @param string $layout    Layout free will render.
+         * @param string $requested Layout the user saved.
+         */
+        return (string) apply_filters('embedpress/instagram/layout', $layout, $requested);
+    }
+
+    /**
+     * Extra attributes for the element that wraps an Instagram feed
+     * (`.ep-embed-content-wraper` / Elementor's `.ep-embed-content-wrapper`).
+     *
+     * @param string $layout   Resolved layout (see resolve_layout()).
+     * @param array  $settings Raw settings of the embed — shortcode attributes
+     *                         (lower-cased keys), block attributes or Elementor
+     *                         widget settings, depending on $context.
+     * @param string $context  'shortcode', 'gutenberg' or 'elementor'.
+     * @param string $id       Unique id of the embed in its context.
+     * @return string Complete, escaped attribute pairs (leading space optional).
+     */
+    public static function wrapper_attributes($layout, $settings, $context, $id = '')
+    {
+        /**
+         * Filters the extra wrapper attributes of an Instagram feed.
+         *
+         * Free adds none. EmbedPress Pro returns the carousel data attributes
+         * (`data-carouselid`, `data-carousel-options`) for its Carousel layout.
+         * The returned string is printed as-is and must be fully escaped.
+         *
+         * @param string $attributes Default ''.
+         * @param string $layout     Resolved layout.
+         * @param array  $settings   Raw embed settings (see above).
+         * @param string $context    'shortcode', 'gutenberg' or 'elementor'.
+         * @param string $id         Unique id of the embed in its context.
+         */
+        return (string) apply_filters('embedpress/instagram/wrapper_attributes', '', $layout, (array) $settings, $context, (string) $id);
+    }
+
     public function getAllowedParams()
     {
         return $this->allowedParams;
@@ -167,80 +229,6 @@ class InstagramFeed extends Instagram
         return '';
     }
 
-    public function getHashTagId($access_token, $hashtag, $user_id)
-    {
-        $transient_key = 'hashtag_id_' . md5($access_token . $hashtag . $user_id);
-        $transient_data = get_transient($transient_key);
-
-        if (false === $transient_data) {
-            $api_url = "https://graph.facebook.com/v17.0/ig_hashtag_search?user_id=$user_id&q=$hashtag&access_token=$access_token";
-
-            // Make a GET request to Instagram's API to retrieve posts
-            $postsResponse = wp_remote_get($api_url);
-
-            // Check if the posts request was successful
-            if (is_wp_error($postsResponse)) {
-                echo 'Error: Unable to retrieve Instagram posts.';
-            } else {
-                $postsBody = wp_remote_retrieve_body($postsResponse);
-                $hashtagId = json_decode($postsBody, true);
-
-                if (empty($hashtagId['data'])) {
-                    $transient_data = 'Please add Instagram Access Token';
-                } elseif (isset($hashtagId['data'][0]['id'])) {
-                    $transient_data = $hashtagId['data'][0]['id'];
-                } else {
-                    $transient_data = '';
-                }
-
-                // Set the transient with a 30-day expiration
-                set_transient($transient_key, $transient_data, 30 * DAY_IN_SECONDS);
-            }
-        }
-
-        return $transient_data;
-    }
-
-
-    public function getHashTagPosts($access_token, $hashtag, $user_id)
-    {
-        // Check if the data is already cached in a transient
-        $hashtag_id = $this->getHashTagId($access_token, $hashtag, $user_id);
-
-
-        $transient_key = 'hashtag_posts_' . $hashtag_id;
-
-        $cached_posts = get_transient($transient_key);
-
-        if (isset($cached_posts[$hashtag_id])) {
-            return $cached_posts[$hashtag_id];
-        }
-
-        $api_url = "https://graph.facebook.com/$hashtag_id/top_media?user_id=$user_id&fields=id,media_url,media_type,comments_count,like_count,caption,children{media_url,id,media_type},permalink,timestamp&access_token=$access_token";
-
-        $postsResponse = wp_remote_get($api_url, array('timeout' => 30));
-
-        if (is_wp_error($postsResponse)) {
-            echo 'Error: Unable to retrieve Hashtag Instagram posts.';
-        } else {
-            $postsBody = wp_remote_retrieve_body($postsResponse);
-            $posts = json_decode($postsBody, true);
-
-            if (empty($posts['data'])) {
-                return 'Please add Instagram Access Token';
-            }
-
-            // Update the cached posts array with the new data
-            $cached_posts[$hashtag_id] = $posts['data'];
-
-            // Store the updated array in the transient
-            set_transient($transient_key, $cached_posts, HOUR_IN_SECONDS);
-
-            return $cached_posts[$hashtag_id];
-        }
-    }
-
-
     public function update_instagram_feed_data($access_token, $connected_account_type, $user_id, $limit = 100)
     {
         $option_key = 'ep_instagram_feed_data';
@@ -259,6 +247,35 @@ class InstagramFeed extends Instagram
     }
 
 
+
+    /**
+     * Hover overlay content of a feed item.
+     *
+     * Free shows the Instagram permalink icon. EmbedPress Pro replaces it with
+     * the like / comment counts when the embed enables them.
+     *
+     * @param int    $like_count
+     * @param int    $comments_count
+     * @param array  $params  Embed params ('feed') or the load-more params
+     *                        posted by the frontend ('loadmore').
+     * @param string $context 'feed' (initial render) or 'loadmore' (AJAX).
+     * @return string
+     */
+    public static function item_info_html($like_count, $comments_count, $params, $context = 'feed')
+    {
+        $html = '<div class="insta-gallery-item-permalink">' . Helper::get_instagram_icon() . '</div>';
+
+        /**
+         * Filters the hover overlay of an Instagram feed item.
+         *
+         * @param string $html           Default: the permalink icon.
+         * @param int    $like_count     Likes reported by the Graph API.
+         * @param int    $comments_count Comments reported by the Graph API.
+         * @param array  $params         Embed params (see $context).
+         * @param string $context        'feed' or 'loadmore'.
+         */
+        return (string) apply_filters('embedpress/instagram/item_info_html', $html, $like_count, $comments_count, (array) $params, $context);
+    }
 
     public function getInstaFeedItem($post, $index, $account_type, $hashtag, $profile_picture_url, $params = [])
     {
@@ -329,13 +346,7 @@ class InstagramFeed extends Instagram
                 </div>
             </div>
             <div class="insta-gallery-item-info">
-                <?php if (apply_filters('embedpress/is_allow_rander', false) && (isset($params['instafeedFeedType']) && $params['instafeedFeedType'] === 'hashtag_type' || (isset($params['instafeedLikesCount']) && $params['instafeedLikesCount'] !== 'false')) && ((!empty($params['instafeedLikesCount']) && $params['instafeedLikesCount'] !== 'false') || (!empty($params['instafeedCommentsCount']) && $params['instafeedCommentsCount'] !== 'false'))) : ?>
-                    <?php do_action('embedpress/instafeed_reaction_count', $params, $like_count, $comments_count); ?>
-                <?php else : ?>
-                    <div class="insta-gallery-item-permalink">
-                        <?php echo Helper::get_instagram_icon(); ?>
-                    </div>
-                <?php endif; ?>
+                <?php echo self::item_info_html($like_count, $comments_count, $params, 'feed'); ?>
             </div>
         </div>
 
@@ -354,13 +365,6 @@ class InstagramFeed extends Instagram
         $current_url = isset($params['url']) ? $params['url'] : $this->url;
 
         $hashtag = $this->getHashTag($current_url);
-        if (!empty($hashtag) && !apply_filters('embedpress/is_allow_rander', false)) {
-            return sprintf(
-                esc_html__('Unlock %s support by upgrading to our %s! Upgrade today to unlock a whole new level of functionality and make the most out of your experience with Hashtag.', 'embedpress'),
-                '<strong>hashtag</strong>',
-                '<strong>Pro subscription</strong>'
-            );
-        }
 
         $feed_type = isset($params['instafeedFeedType']) ? $params['instafeedFeedType'] : 'user_account_type';
 
@@ -376,38 +380,33 @@ class InstagramFeed extends Instagram
 
         $styleAttribute = '';
         $classes = '';
+        $layout = isset($params['instaLayout']) ? self::resolve_layout($params['instaLayout']) : '';
 
-        if (isset($params['instaLayout'])) {
-            if ($params['instaLayout'] === 'insta-grid') {
+        if ($layout === 'insta-grid') {
+            if (isset($params['instafeedColumns']) && is_numeric($params['instafeedColumns']) && $params['instafeedColumns'] > 0) {
+                $gap = isset($params['instafeedColumnsGap']) ? absint($params['instafeedColumnsGap']) : 0;
 
-                // $classes = 'insta-grid';
-
-                if (isset($params['instafeedColumns']) && is_numeric($params['instafeedColumns']) && $params['instafeedColumns'] > 0) {
-                    $column = (100 / intval($params['instafeedColumns']));
-                    $gap = isset($params['instafeedColumnsGap']) ? absint($params['instafeedColumnsGap']) : 0;
-
-                    $styleAttribute = 'style="grid-template-columns: repeat(' . absint($params['instafeedColumns']) . ', minmax(0, 1fr)); gap: ' . $gap . 'px;"';
-                } else {
-                    $styleAttribute = 'style="grid-template-columns: repeat(1, minmax(0, 1fr));"';
-                }
-            } else if ($params['instaLayout'] === 'insta-masonry') {
-                // $classes = ' insta-masonry';
-                $styleAttribute = 'style="column-count: ' . absint($params['instafeedColumns']) . '; gap: ' . absint(isset($params['instafeedColumnsGap']) ? $params['instafeedColumnsGap'] : 0) . 'px;"';
-            } else if ($params['instaLayout'] === 'insta-carousel') {
-                $classes = 'cg-carousel__track js-carousel__track';
-                $styleAttribute = '';
-                $slides_show = isset($params['slidesShow']) ? absint($params['slidesShow']) : 0;
-                if ($slides_show > 0) {
-                    $column = (100 / $slides_show);
-                    $space = isset($params['carouselSpacing']) ? absint($params['carouselSpacing']) : 0;
-                    $styleAttribute = 'style="grid-auto-columns: calc(' . esc_attr($column) . '% - ' . $space . 'px); gap: ' . $space . 'px"';
-                }
+                $styleAttribute = 'style="grid-template-columns: repeat(' . absint($params['instafeedColumns']) . ', minmax(0, 1fr)); gap: ' . $gap . 'px;"';
             } else {
-                $styleAttribute = ''; // Or some default style
+                $styleAttribute = 'style="grid-template-columns: repeat(1, minmax(0, 1fr));"';
             }
-        } else {
-            $styleAttribute = ''; // Or some default style
         }
+
+        /**
+         * Filters the class / style attributes of the `.insta-gallery` element.
+         *
+         * Free sets them for Grid only. EmbedPress Pro sets them for its own
+         * layouts (Masonry column count, Carousel track).
+         *
+         * @param array  $gallery { class: string (extra CSS classes),
+         *                          style: string (complete `style="..."`
+         *                          attribute, escaped, or '') }
+         * @param string $layout  Resolved layout (resolve_layout()).
+         * @param array  $params  Embed params.
+         */
+        $gallery_attrs = apply_filters('embedpress/instagram/gallery_attributes', ['class' => $classes, 'style' => $styleAttribute], $layout, $params);
+        $classes = isset($gallery_attrs['class']) ? (string) $gallery_attrs['class'] : '';
+        $styleAttribute = isset($gallery_attrs['style']) ? (string) $gallery_attrs['style'] : '';
 
 
         $feed_data = get_option('ep_instagram_feed_data');
@@ -423,15 +422,33 @@ class InstagramFeed extends Instagram
 
         $hashtag_id = '';
         if (!empty($hashtag)) {
-            $option_key = 'ep_instagram_hashtag_feed';
-            $hashtag_feed = get_option($option_key, array());
+            /**
+             * Filters the posts of an Instagram hashtag feed.
+             *
+             * The hashtag feed is an EmbedPress Pro feature: free does not
+             * fetch hashtag media. Pro returns the feed here; with no answer
+             * the embed shows an upgrade notice instead.
+             *
+             * @param array|null $feed    { id: string (hashtag id, also the
+             *                              load-more key), posts: array|string }
+             *                            or null when unavailable.
+             * @param string     $hashtag Hashtag from the URL (no '#').
+             * @param string     $token   Access token of the connected account.
+             * @param string     $user_id Connected (business) account id.
+             * @param array      $params  Embed params.
+             */
+            $hashtag_feed = apply_filters('embedpress/instagram/hashtag_feed', null, $hashtag, $accessToken, $userID, $params);
 
-            $hashtag_id = $this->getHashTagId($accessToken, $hashtag, $userID);
-            $insta_posts = $this->getHashtagPosts($accessToken, $hashtag, $userID);
+            if (!is_array($hashtag_feed)) {
+                return sprintf(
+                    esc_html__('Unlock %s support by upgrading to our %s! Upgrade today to unlock a whole new level of functionality and make the most out of your experience with Hashtag.', 'embedpress'),
+                    '<strong>hashtag</strong>',
+                    '<strong>Pro subscription</strong>'
+                );
+            }
 
-            $hashtag_feed[$hashtag_id] = $insta_posts;
-
-            update_option($option_key, $hashtag_feed);
+            $hashtag_id = isset($hashtag_feed['id']) ? $hashtag_feed['id'] : '';
+            $insta_posts = isset($hashtag_feed['posts']) ? $hashtag_feed['posts'] : [];
         }
 
         // Check and assign each item to separate variables
@@ -460,7 +477,8 @@ class InstagramFeed extends Instagram
             ob_start(); ?>
 
             <?php
-            $avater_url = 'http://2.gravatar.com/avatar/b642b4217b34b1e8d3bd915fc65c4452?s=150&d=mm&r=g';
+            // Bundled placeholder: no request to an external avatar service.
+            $avater_url = EMBEDPRESS_URL_ASSETS . 'images/default-avatar.svg';
 
             
             if (!empty($params['instafeedProfileImageUrl']) && $params['instafeedProfileImageUrl'] !== 'true' && $params['instafeedProfileImageUrl'] !== 'false') {
@@ -531,29 +549,28 @@ class InstagramFeed extends Instagram
                         <?php endif; ?>
                     </section>
                 </header>
-            <?php else : ?>
-                <div class="hashtag-container">
-                    <div class="embedpress-hashtag-header">
+            <?php else :
+                /**
+                 * Filters the header printed above a hashtag feed (EmbedPress
+                 * Pro). Only reached when Pro supplied the hashtag feed.
+                 *
+                 * @param string $html       Default ''.
+                 * @param string $hashtag    Hashtag (no '#').
+                 * @param string $avatar_url Profile image URL.
+                 * @param array  $params     Embed params.
+                 */
+                echo apply_filters('embedpress/instagram/hashtag_header_html', '', $hashtag, $avater_url, $params);
+            endif; ?>
 
-                        <?php if (!empty($params['instafeedProfileImage']) && $params['instafeedProfileImage'] !== 'false') : ?>
-
-                            <div class="embedpress-hashtag-header-img"> <a target="_blank" href="<?php echo esc_url("https://www.instagram.com/explore/tags/$hashtag/"); ?>" class="embedpress-href"> <img decoding="async" loading="lazy" class="embedpress-hashtag-round" src="<?php echo esc_url($avater_url); ?>" width="30" height="30"> <span class="embedpress-hashtag-username"><?php echo esc_html("#$hashtag"); ?></span>
-                                </a>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if (!empty($params['instafeedFollowBtn']) && $params['instafeedFollowBtn'] !== 'false' && !empty($params['instafeedFollowBtnLabel']) && $params['instafeedFollowBtnLabel'] !== 'false') : ?>
-                            <div class="insta-followbtn">
-                                <a target="_new" href="<?php echo esc_url("https://www.instagram.com/explore/tags/$hashtag/"); ?>" type="button" class="btn btn-primary"><?php echo esc_html($params['instafeedFollowBtnLabel']); ?></a>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <?php if (apply_filters('embedpress/is_allow_rander', false) && (!empty($params['instafeedTab']) && $params['instafeedTab'] !== 'false')) : ?>
-                <?php do_action('embedpress/instafeed_tab_option'); ?>
-            <?php endif; ?>
+            <?php
+            /**
+             * Fires between the feed header and the gallery. EmbedPress Pro
+             * prints the media-type tabs here when the embed enables them.
+             *
+             * @param array $params Embed params.
+             */
+            do_action('embedpress/instagram/before_gallery', $params);
+            ?>
 
             <?php
             $params_data = [
@@ -591,15 +608,18 @@ class InstagramFeed extends Instagram
                         }
                         ?>
                     </div>
-                    <div class="cg-carousel__btns hidden">
-                        <button type="button" class="cg-carousel__btn" id="js-carousel__prev-1" aria-label="<?php esc_attr_e('Previous', 'embedpress'); ?>"><svg aria-hidden="true" focusable="false" width="20" height="30" viewBox="-5 0 23 23" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M11.24.29.361 10.742l-.06.054a.97.97 0 0 0-.301.642v.124a.97.97 0 0 0 .3.642l.054.044L11.239 22.71a1.061 1.061 0 0 0 1.459 0 .964.964 0 0 0 0-1.402l-10.15-9.746 10.15-9.87a.964.964 0 0 0 0-1.402 1.061 1.061 0 0 0-1.459 0Z" fill="#fff" />
-                            </svg></button>
-
-                        <button type="button" class="cg-carousel__btn" id="js-carousel__next-1" aria-label="<?php esc_attr_e('Next', 'embedpress'); ?>"><svg aria-hidden="true" focusable="false" width="20" height="30" viewBox="-5 0 23 23" xmlns="http://www.w3.org/2000/svg">
-                                <path d="m1.76.29 10.879 10.452.06.054a.97.97 0 0 1 .301.642v.124a.97.97 0 0 1-.3.642l-.054.044L1.761 22.71a1.061 1.061 0 0 1-1.459 0 .964.964 0 0 1 0-1.402l10.15-9.746-10.15-9.87a.964.964 0 0 1 0-1.402 1.061 1.061 0 0 1 1.459 0Z" fill="#fff" />
-                            </svg></button>
-                    </div>
+                    <?php
+                    /**
+                     * Filters markup printed right after the `.insta-gallery`
+                     * element. EmbedPress Pro prints its carousel navigation
+                     * buttons here.
+                     *
+                     * @param string $html   Default ''.
+                     * @param string $layout Resolved layout.
+                     * @param array  $params Embed params.
+                     */
+                    echo apply_filters('embedpress/instagram/after_gallery_html', '', $layout, $params);
+                    ?>
                 </div>
 
                 <!-- Popup div -->

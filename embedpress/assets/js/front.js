@@ -381,83 +381,38 @@ let epGlobals = {};
         epLoadMore();
     }
 
-    // Content protection system function 
-    const unlockSubmitHander = (perentSel, that) => {
-        var ep_client_id = jQuery(that).closest('form').find('input[name="ep_client_id"]').val();
-        var password = jQuery(`input[name="pass_${ep_client_id}"]`).val();
-        var post_id = jQuery(`input[name="post_id"]`).val();
-        const buttonText = jQuery(that).closest('.password-form-container').find('input[type="submit"]').val();
-        const unlokingText = jQuery(that).data('unlocking-text');
+    // Extension point: re-initialise embed features after an extension swaps
+    // locked markup for the real embed. Dispatch on document:
+    //   new CustomEvent('embedpress:content-unlocked', { detail: { clientId, context, container, wrapper } })
+    // context is 'ep-gutenberg-content' | 'ep-shortcode-content' | 'ep-elementor-content'.
+    // Elementor contexts are handled in the Elementor handler further below.
+    document.addEventListener('embedpress:content-unlocked', function (e) {
+        const detail = (e && e.detail) || {};
+        if (detail.context === 'ep-elementor-content') {
+            return;
+        }
+        const container = detail.container;
+        const targetEl = detail.wrapper || container;
 
+        if (container && jQuery(container).find('.ose-youtube').length > 0) {
+            epGlobals.youtubeChannelGallery();
+        }
 
-        var data = {
-            'action': 'lock_content_form_handler',
-            'client_id': ep_client_id,
-            'password': password,
-            'post_id': post_id,
-        };
+        if ($('.embedpress-gutenberg-wrapper .ep-nft-gallery-wrapper').length > 0) {
+            epLoadMore();
+        }
 
-        jQuery('#' + perentSel + '-' + ep_client_id + ' .password-form input[type="submit"]').val(unlokingText);
+        // Custom player initialization for the newly revealed embed
+        targetEl?.classList?.remove('plyr-initialized');
 
-        jQuery.post(embedpressFrontendData.ajaxurl, data, function (response) {
-            if (response.success) {
-                if (!response.embedHtml) {
-                    jQuery('#' + perentSel + '-' + ep_client_id + ' .password-form input[type="submit"]').val(buttonText);
-                    jQuery('#' + perentSel + '-' + ep_client_id + ' .password-form input[type="password"]').val('');
-                    jQuery(that).closest('.password-form-container').find('.error-message').removeClass('hidden');
-                }
-                else {
-                    // Replace the content inside the wrapper, keeping the wrapper itself
-                    const wrapperEl = jQuery('#' + perentSel + '-' + ep_client_id);
-                    const parentWrapper = wrapperEl.parent('.ep-embed-content-wraper');
+        if (typeof initPlayer === 'function') {
+            initPlayer(targetEl);
+        }
 
-                    if (parentWrapper.length > 0) {
-                        // If there's a parent .ep-embed-content-wraper, replace its content
-                        parentWrapper.html(response.embedHtml);
-                    } else {
-                        // Otherwise replace the wrapper content directly
-                        wrapperEl.html(response.embedHtml);
-                    }
-
-                    if (jQuery('#' + perentSel + '-' + ep_client_id + ' .ose-youtube').length > 0) {
-                        epGlobals.youtubeChannelGallery();
-                    }
-
-                    if ($('.embedpress-gutenberg-wrapper .ep-nft-gallery-wrapper').length > 0) {
-                        epLoadMore();
-                    }
-
-                    // Custom player initialization when content protection enabled
-                    const targetEl = parentWrapper.length > 0 ? parentWrapper[0] : wrapperEl[0];
-                    targetEl?.classList?.remove('plyr-initialized');
-
-                    if (typeof initPlayer === 'function') {
-                        initPlayer(targetEl);
-                    }
-                    if (embedpressFrontendData.isProPluginActive) {
-                        const adIdEl = document.querySelector('#' + perentSel + '-' + ep_client_id + ' [data-sponsored-id]');
-                        if (typeof adInitialization === 'function') {
-                            adInitialization(adIdEl, adIdEl?.getAttribute('data-ad-index'));
-                        }
-                    }
-
-                }
-            } else {
-                jQuery('#password-error_' + ep_client_id).html(response.form);
-                jQuery('#password-error_' + ep_client_id).show();
-            }
-        }, 'json');
-    }
-
-    // unlockSubmitHander called for gutentberg
-    jQuery('.ep-gutenberg-content .password-form').submit(function (e) {
-        e.preventDefault(); // Prevent the default form submission
-        unlockSubmitHander('ep-gutenberg-content', this);
-    });
-
-    jQuery('.ep-shortcode-content .password-form').submit(function (e) {
-        e.preventDefault(); // Prevent the default form submission
-        unlockSubmitHander('ep-shortcode-content', this);
+        // PDF thumbnail + lightbox for a newly revealed [embedpress_pdf] / PDF block
+        if (typeof window.epPdfLightboxInit === 'function') {
+            window.epPdfLightboxInit(targetEl);
+        }
     });
 
     window.addEventListener('load', function (e) {
@@ -472,6 +427,31 @@ let epGlobals = {};
         }
 
     });
+
+    // Escape a value for use in HTML text or a quoted attribute.
+    const escHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+
+    // Return an escaped absolute http(s) URL, or '' for anything else (javascript:, data:, relative, malformed).
+    const safeUrl = (value) => {
+        try {
+            const url = new URL(String(value ?? ''));
+            return ['https:', 'http:'].includes(url.protocol) ? escHtml(url.href) : '';
+        } catch (e) {
+            return '';
+        }
+    };
+
+    // Escape the caption, linking #hashtags. Split first so tags are matched in the raw
+    // text, never inside the entities produced by escaping.
+    const formatInstaCaption = (caption) => String(caption ?? '').split(/(#\w+)/g).map((part, index) => {
+        if (index % 2 === 0) {
+            return escHtml(part);
+        }
+        const tagUrl = `https://www.instagram.com/explore/tags/${encodeURIComponent(part.substring(1))}`;
+        return `<span class="tag-wrapper"><a target="_blank" href="${escHtml(tagUrl)}">${escHtml(part)}</a></span>`;
+    }).join('');
 
     // Get the insta-gallery container element
     const getPopupTemplate = (instPost, hashtag = '', accountType) => {
@@ -501,16 +481,12 @@ let epGlobals = {};
         let getTime = new Date(instaPostData.timestamp);
         getTime = getTime.toLocaleString('en-US', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' });
 
-        let captionText = instaPostData.caption ? instaPostData.caption : '';
-        const tagRegex = /(#\w+)/g;
-
-        const wrapTag = (match) => {
-            const tag = match.substring(1); // Remove the '#' character
-            const tagUrl = `https://www.instagram.com/explore/tags/${tag}`;
-            return `<span class="tag-wrapper"><a target="_blank" href="${tagUrl}">${match}</a></span>`;
-        };
-
-        captionText = captionText.replace(tagRegex, wrapTag);
+        // Post fields come from the Instagram API (hashtag feeds include other users' posts),
+        // so everything below is escaped before it goes into the innerHTML template.
+        const captionText = formatInstaCaption(instaPostData.caption);
+        const postId = escHtml(instaPostData.id);
+        const permalink = safeUrl(instaPostData.permalink);
+        const sharePermalink = escHtml(encodeURIComponent(permalink ? instaPostData.permalink : ''));
 
         let carouselTemplate = '';
         if (instaPostData.media_type === 'CAROUSEL_ALBUM') {
@@ -518,10 +494,10 @@ let epGlobals = {};
 
             instaPostData.children.data?.map((item) => {
                 if (item.media_type?.toLowerCase() === 'video') {
-                    carouselTemplate += `<video width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" controls src="${item.media_url || ''}" alt="${item.caption || ''}" controlsList="nodownload"></video>`;
+                    carouselTemplate += `<video width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" controls src="${safeUrl(item.media_url)}" alt="${escHtml(item.caption)}" controlsList="nodownload"></video>`;
                 }
                 else {
-                    carouselTemplate += `<img width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" src="${item.media_url || ''}" alt="${item.caption || ''}" />`;
+                    carouselTemplate += `<img width="630" class="popup-media-image cg-carousel__slide js-carousel__slide" src="${safeUrl(item.media_url)}" alt="${escHtml(item.caption)}" />`;
                 }
             });
 
@@ -535,34 +511,31 @@ let epGlobals = {};
         }
         else {
             if (instaPostData.media_type?.toLowerCase() === 'video') {
-                carouselTemplate += `<video width="630" class="popup-media-image" controls src="${instaPostData.media_url || ''}" alt="${instaPostData.caption || ''}"></video>`;
+                carouselTemplate += `<video width="630" class="popup-media-image" controls src="${safeUrl(instaPostData.media_url)}" alt="${escHtml(instaPostData.caption)}"></video>`;
             }
             else {
-                carouselTemplate += `<img width="630" class="popup-media-image" src="${instaPostData.media_url || ''}" alt="${instaPostData.caption || ''}" />`;
+                carouselTemplate += `<img width="630" class="popup-media-image" src="${safeUrl(instaPostData.media_url)}" alt="${escHtml(instaPostData.caption)}" />`;
             }
         }
 
-        let srcUrl = `https://www.instagram.com/${instaPostData.username}/`;
+        let srcUrl = `https://www.instagram.com/${encodeURIComponent(instaPostData.username || '')}/`;
 
         if (hashtag) {
             instaPostData.username = '#' + hashtag;
-            srcUrl = `https://www.instagram.com/explore/tags/${hashtag}/`;
+            srcUrl = `https://www.instagram.com/explore/tags/${encodeURIComponent(hashtag)}/`;
         }
 
+        srcUrl = escHtml(srcUrl);
 
+
+        // Extension point: EmbedPress Pro registers `popupStats(postData, icons)`
+        // on window.EmbedPressInstagram to add the like / comment counts.
         let likeComments = '';
-
-        if (embedpressFrontendData.isProPluginActive) {
-            if (instaPostData.show_likes_count == 'true') {
-                likeComments += `
-                    <div class="embedpress-inline popup-like-button"><a target="_blank" href="${instaPostData.permalink}">${likeIcon} ${instaPostData.like_count || 0}</a></div> 
-                `;
-            }
-            if (instaPostData.show_comments_count == 'true') {
-                likeComments += `
-                    <div class="embedpress-inline"><a target="_blank" href="${instaPostData.permalink}">${commentsIcon} ${instaPostData.comments_count || 0}</a></div>
-                `;
-            }
+        const igExt = window.EmbedPressInstagram;
+        if (igExt && typeof igExt.popupStats === 'function') {
+            // Pro builds HTML from these fields, so hand it escaped copies (#330).
+            const safePost = Object.assign({}, instaPostData, { permalink: permalink, like_count: escHtml(instaPostData.like_count || 0), comments_count: escHtml(instaPostData.comments_count || 0) });
+            likeComments = igExt.popupStats(safePost, { likeIcon: likeIcon, commentsIcon: commentsIcon }, 'front') || '';
         }
 
 
@@ -572,7 +545,7 @@ let epGlobals = {};
         }
         if (instaPostData.popup_follow_button == 'true' || instaPostData.popup_follow_button == 'yes') {
             followBtn = `<div class="insta-followbtn">
-                <a target="_new" href="${srcUrl}" type="button" class="btn btn-primary">${instaPostData.popup_follow_button_text}</a>
+                <a target="_new" href="${srcUrl}" type="button" class="btn btn-primary">${escHtml(instaPostData.popup_follow_button_text)}</a>
             </div>`;
         }
 
@@ -580,7 +553,7 @@ let epGlobals = {};
         popupHtml += `
         <div class="popup-container">
                 <div class="popup-md-9 white">
-                    <div class="embedpress-popup-block embedpress-popup-img" id="post-${instaPostData.id}">
+                    <div class="embedpress-popup-block embedpress-popup-img" id="post-${postId}">
                         ${carouselTemplate}
                     </div>
                 </div>
@@ -589,7 +562,7 @@ let epGlobals = {};
                         <div class="embedpress-popup-header">
                             <div class="embedpress-popup-header-img"> <a target="_blank" href="${srcUrl}"
                                     target="_blank" class="embedpress-href">
-                                     <img decoding="async" loading="lazy" class="embedpress-popup-round" src="${instaPostData.profile_picture_url}" width="30" height="30"> <span class="embedpress-popup-username">${instaPostData.username}</span>
+                                     <img decoding="async" loading="lazy" class="embedpress-popup-round" src="${safeUrl(instaPostData.profile_picture_url)}" width="30" height="30"> <span class="embedpress-popup-username">${escHtml(instaPostData.username)}</span>
                                 </a>
                             </div>
                             ${followBtn}
@@ -599,19 +572,19 @@ let epGlobals = {};
                             ${likeComments}
                                 <div class="embedpress-inline">
                                 <div class="embedpress-popup-share-buttons"> <a
-                                        href="https://www.facebook.com/sharer/sharer.php?u=${instaPostData.permalink}" target="_blank">
+                                        href="https://www.facebook.com/sharer/sharer.php?u=${sharePermalink}" target="_blank">
                                         <span class="dashicons dashicons-facebook"></span></a> <a
-                                        href="https://twitter.com/intent/tweet?url=${instaPostData.permalink}"
+                                        href="https://twitter.com/intent/tweet?url=${sharePermalink}"
                                         target="_blank"><span>
                                         <svg viewBox="0 0 18 18" aria-hidden="true" class="r-4qtqp9 r-yyyyoo r-dnmrzs r-bnwqim r-1plcrui r-lrvibr r-lrsllp r-18jsvk2 r-16y2uox r-8kz0gk" width="18" height="18"><path d="M13.683 1.688h2.481l-5.42 6.195 6.377 8.43h-4.993L8.217 11.2l-4.474 5.113H1.26l5.798-6.626L.941 1.688H6.06l3.535 4.673zm-.871 13.14h1.375L5.313 3.095H3.838z"/></svg>
                                         </span></a>                                       
-                                        <a href="https://www.linkedin.com/shareArticle?mini=true&amp;url=${instaPostData.permalink}"
+                                        <a href="https://www.linkedin.com/shareArticle?mini=true&amp;url=${sharePermalink}"
                                         target="_blank"><span class="dashicons dashicons-linkedin"></span></a> <a
-                                        href="https://pinterest.com/pin/create/button/?url=${instaPostData.permalink}"
+                                        href="https://pinterest.com/pin/create/button/?url=${sharePermalink}"
                                         target="_blank"><span class="dashicons dashicons-pinterest"></span></a></div>
                                 <div class="embedpress-href embedpress-popup-share">${shareIcon}</div>
                             </div><div class="embedpress-inline embedpress-popup-instagram-buttons"><a
-                                    href="${instaPostData.permalink}" target="_blank"
+                                    href="${permalink}" target="_blank"
                                     class="embedpress-href">${instaIcon}</a></div>
                         </div>
                         
@@ -700,52 +673,20 @@ let epGlobals = {};
 
     const instafeeds = document.querySelectorAll('.ose-instagram-feed');
 
-    epGlobals.initializeTabs = (containerEl) => {
-
-        // Initial tab selection
-        showItems('ALL');
-
-        containerEl.addEventListener('click', function (event) {
-            const clickedElement = event.target;
-            if (!clickedElement) {
-                return; // No element clicked, ignore the event
-            }
-
-            if (containerEl.querySelector('.load-more-button-container') && (clickedElement.getAttribute('data-media-type') === 'VIDEO' || clickedElement.getAttribute('data-media-type') === 'CAROUSEL_ALBUM')) {
-                containerEl.querySelector('.load-more-button-container').style.display = 'none';
-            }
-            else if (containerEl.querySelector('.load-more-button-container') && (clickedElement.getAttribute('data-media-type') === 'ALL')) {
-                containerEl.querySelector('.load-more-button-container').style.display = 'flex';
-            }
-
-            // Handle tab click
-            if (clickedElement.matches('.tabs li')) {
-                if (clickedElement.classList.contains('active')) {
-                    return;
-                } else {
-                    const mediaType = clickedElement.getAttribute('data-media-type');
-                    showItems(mediaType);
-
-                    const tabs = containerEl.querySelectorAll('.tabs li');
-                    tabs.forEach(t => t.classList.remove('active'));
-                    clickedElement.classList.add('active');
-                }
-            }
-
-        });
-
-        function showItems(mediaType) {
-            const items = containerEl.getElementsByClassName('insta-gallery-item');
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (mediaType === 'ALL' || item.getAttribute('data-media-type') === mediaType) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            }
-        }
-    }
+    /**
+     * Announce that an Instagram feed was rendered or received new items.
+     * Neutral extension point: EmbedPress Pro listens for it to (re)bind the
+     * media-type tabs it renders. Free does nothing else here.
+     *
+     * Event: `embedpress:instagram:feed-ready` on document,
+     * detail = { feed: HTMLElement (.ose-instagram-feed), reason: 'init' | 'loadmore' | 'elementor' }
+     */
+    epGlobals.instagramFeedReady = (feedEl, reason) => {
+        if (!feedEl) return;
+        document.dispatchEvent(new CustomEvent('embedpress:instagram:feed-ready', {
+            detail: { feed: feedEl, reason: reason }
+        }));
+    };
 
     epGlobals.instaLoadMore = () => {
         // Unbind any previously bound click event to avoid multiple bindings
@@ -802,9 +743,9 @@ let epGlobals = {};
 
                     loadmoreBtn.data('loaded-posts', loadedPosts);
 
-                    // After loading more items, reinitialize the tabs for the specific container
+                    // Let extensions (Pro tabs) re-apply to the new items
                     const containerEl = loadmoreBtn.closest('.ose-instagram-feed')[0];
-                    epGlobals.initializeTabs(containerEl);
+                    epGlobals.instagramFeedReady(containerEl, 'loadmore');
 
                     if (response.total_feed_posts === response.next_post_index) {
                         loadmoreBtn.remove();
@@ -819,7 +760,7 @@ let epGlobals = {};
 
     if (instafeeds.length > 0) {
         instafeeds.forEach(function (feed) {
-            epGlobals.initializeTabs(feed);
+            epGlobals.instagramFeedReady(feed, 'init');
         });
     }
 
@@ -858,191 +799,14 @@ let epGlobals = {};
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    epGlobals.initCarousel = (carouselSelector, options, carouselId) => {
+    // The Instagram Carousel layout is initialised by EmbedPress Pro
+    // (assets/js/instagram-feed-pro.js).
 
-        const carouselOptions = {
-            slidesPerView: options.slideshow,
-            spacing: options.spacing,
-            loop: options.loop,
-            autoplay: options.autoplay,
-            transitionSpeed: options.transitionspeed,
-            autoplaySpeed: options.autoplayspeed,
-            arrows: options.arrows,
-            breakpoints: {
-                0: {
-                    slidesPerView: 1
-                },
-                768: {
-                    slidesPerView: Math.max(1, parseInt(options.slideshow, 10) - 1)
-                },
-                1024: {
-                    slidesPerView: Math.max(1, parseInt(options.slideshow, 10))
-                }
-            }
-        };
-
-        // INIT CAROUSEL
-        const carousel = new CgCarousel(carouselSelector, carouselOptions, {});
-
-        // Navigation
-        const next = document.querySelector(`[data-carouselid="${carouselId}"] #js-carousel__next-1`);
-        next?.addEventListener('click', () => carousel.next());
-
-        const prev = document.querySelector(`[data-carouselid="${carouselId}"] #js-carousel__prev-1`);
-        prev?.addEventListener('click', () => carousel.prev());
-    }
-
-    const instaWrappers = document.querySelectorAll('.ep-embed-content-wraper');
-
-    if (instaWrappers.length > 0) {
-        instaWrappers.forEach((wrapper) => {
-            const carouselId = wrapper.getAttribute('data-carouselid');
-
-            if (!carouselId) return;
-
-            let options = wrapper.getAttribute(`data-carousel-options`);
-
-            options = JSON.parse(options);
-            const carouselSelector = `[data-carouselid="${carouselId}"] .embedpress-insta-container`;
-
-            if (options.arrows) {
-                document.querySelector(`[data-carouselid="${carouselId}"] .cg-carousel__btns`).classList.remove('hidden');
-            }
-
-            epGlobals.initCarousel(carouselSelector, options, carouselId);
-
-        });
-    }
-
-    // Youtube Channel Carousel
-
-    const youtubeCarouselWraper = document.querySelectorAll('[data-youtube-channel-carousel]');
-
-    if (youtubeCarouselWraper.length > 0) {
-        youtubeCarouselWraper.forEach((wrapper) => {
-            const carouselId = wrapper.getAttribute('data-youtube-channel-carousel');
-            if (!carouselId) return;
-
-            // let options = wrapper.getAttribute(`data-carousel-options`);
-
-            // options = JSON.parse(options);
-
-            const carouselSelector = `[data-youtube-channel-carousel="${carouselId}"] .youtube__content__body`;
-
-            // if (options.arrows) {
-            //     document.querySelector(`[data-youtube-channel-carousel="${carouselId}"] .cg-carousel__btns`).classList.remove('hidden');
-            // }
-
-            const options = {
-                slidesPerView: 2,
-                autoplay: true,
-                loop: true,
-                breakpoints: {
-                    768: {
-                        slidesPerView: 2
-                    },
-                    1024: {
-                        slidesPerView: 4
-                    }
-                }
-            }
-
-            // epGlobals.initCarousel(carouselSelector, options, {});
-
-        });
-    }
-
-
+    // The YouTube channel Grid / Carousel layouts (and the carousel slider)
+    // are implemented by EmbedPress Pro (assets/js/youtube-layouts-pro.js).
 
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    const carousel = document.querySelector('.youtube-carousel');
-
-    if (!carousel) {
-        return;
-    }
-
-    const items = document.querySelectorAll('.item');
-    const prevButton = document.querySelector('.preview');
-    const nextButton = document.querySelector('.next');
-
-    let itemsToShow = getItemsToShow(); // Determine items to show based on screen width
-
-    const totalItems = items.length;
-    let currentIndex = 0;
-
-    function updateCarousel() {
-        const offset = -currentIndex * (100 / itemsToShow);
-        carousel.style.transform = `translateX(${offset}%)`;
-    }
-
-    function nextSlide() {
-        const remainingItems = totalItems - (currentIndex + itemsToShow);
-        if (remainingItems >= itemsToShow) {
-            currentIndex += itemsToShow;
-        } else if (remainingItems > 0) {
-            currentIndex += remainingItems;
-        } else {
-            currentIndex = 0;
-        }
-        updateCarousel();
-    }
-
-    function prevSlide() {
-        if (currentIndex > 0) {
-            currentIndex -= itemsToShow;
-            if (currentIndex < 0) {
-                currentIndex = 0;
-            }
-        } else {
-            currentIndex = totalItems - itemsToShow;
-        }
-        updateCarousel();
-    }
-
-    nextButton?.addEventListener('click', nextSlide);
-    prevButton?.addEventListener('click', prevSlide);
-
-    // Optional: Autoplay
-    let autoplay = false;
-    const autoplayInterval = 3000; // Change the time as needed
-    let autoplayId;
-
-    function startAutoplay() {
-        autoplayId = setInterval(nextSlide, autoplayInterval);
-    }
-
-    function stopAutoplay() {
-        clearInterval(autoplayId);
-    }
-
-    if (autoplay) {
-        startAutoplay();
-
-        // Stop autoplay on mouseover, resume on mouseout
-        carousel.addEventListener('mouseover', stopAutoplay);
-        carousel.addEventListener('mouseout', startAutoplay);
-    }
-
-    // Handle responsive behavior
-    window.addEventListener('resize', () => {
-        itemsToShow = getItemsToShow();
-        updateCarousel();
-
-    });
-
-    function getItemsToShow() {
-        const width = window.innerWidth;
-        if (width >= 1024) {
-            return 3;
-        } else if (width >= 768) {
-            return 2;
-        } else {
-            return 1;
-        }
-    }
-});
 
 
 
@@ -1090,58 +854,21 @@ jQuery(window).on("elementor/frontend/init", function () {
             epElLoadMore();
         }
 
-        // Content protection system function 
-        const unlockElSubmitHander = (perentSel, that) => {
-            var ep_client_id = jQuery(that).closest('form').find('input[name="ep_client_id"]').val();
-            var password = jQuery(`input[name="pass_${ep_client_id}"]`).val();
-            var post_id = jQuery(`input[name="post_id"]`).val();
-            const buttonText = jQuery(that).closest('.password-form-container').find('input[type="submit"]').val();
-            const unlokingText = jQuery(that).data('unlocking-text');
+        // Re-initialise this widget's features after an extension reveals
+        // locked content (see the 'embedpress:content-unlocked' note above).
+        document.addEventListener('embedpress:content-unlocked', function (e) {
+            const detail = (e && e.detail) || {};
+            if (detail.context !== 'ep-elementor-content' || !detail.container || !$scope[0].contains(detail.container)) {
+                return;
+            }
 
-            var data = {
-                'action': 'lock_content_form_handler',
-                'client_id': ep_client_id,
-                'password': password,
-                'post_id': post_id,
-            };
+            if (jQuery(detail.container).find('.ose-youtube').length > 0) {
+                epGlobals.youtubeChannelGallery();
+            }
 
-            jQuery('#' + perentSel + '-' + ep_client_id + ' .password-form input[type="submit"]').val(unlokingText);
-
-            jQuery.post(embedpressFrontendData.ajaxurl, data, function (response) {
-                if (response.success) {
-                    if (!response.embedHtml) {
-                        jQuery('#' + perentSel + '-' + ep_client_id + ' .password-form input[type="submit"]').val(buttonText);
-                        jQuery('#' + perentSel + '-' + ep_client_id + ' .password-form input[type="password"]').val('');
-                        jQuery(that).closest('.password-form-container').find('.error-message').removeClass('hidden');
-                    }
-                    else {
-                        if ($('.ep-content-locked').has('#' + perentSel + '-' + ep_client_id).length) {
-                            $('.ep-content-locked').removeClass('ep-content-locked');
-                        }
-
-                        jQuery('#' + perentSel + '-' + ep_client_id + ' .ep-embed-content-wraper').html(response.embedHtml);
-
-                        $('#' + perentSel + '-' + ep_client_id).removeClass('ep-content-protection-enabled');
-
-                        if (jQuery('#' + perentSel + '-' + ep_client_id + ' .ose-youtube').length > 0) {
-                            epGlobals.youtubeChannelGallery();
-                        }
-
-                        if ($('.elementor-widget-embedpres_elementor .ep-nft-gallery-wrapper').length > 0) {
-                            epElLoadMore();
-                        }
-                    }
-                } else {
-                    jQuery('#password-error_' + ep_client_id).html(response.form);
-                    jQuery('#password-error_' + ep_client_id).show();
-                }
-            }, 'json');
-        }
-
-        // unlockElSubmitHander called for Elementor
-        jQuery('.ep-elementor-content .password-form').submit(function (e) {
-            e.preventDefault(); // Prevent the default form submission
-            unlockElSubmitHander('ep-elementor-content', this);
+            if ($('.elementor-widget-embedpres_elementor .ep-nft-gallery-wrapper').length > 0) {
+                epElLoadMore();
+            }
         });
 
 
@@ -1151,22 +878,6 @@ jQuery(window).on("elementor/frontend/init", function () {
 
             instaWrappers.forEach((wrapper) => {
                 wrapper.classList.add('class-content-wrapper');
-                const carouselId = wrapper.getAttribute('data-carouselid');
-
-                if (!carouselId) return;
-
-                let options = wrapper.getAttribute(`data-carousel-options`);
-
-                options = JSON.parse(options);
-                const carouselSelector = `[data-carouselid="${carouselId}"] .embedpress-insta-container`;
-
-
-                if (options.arrows) {
-                    document.querySelector(`[data-carouselid="${carouselId}"] .cg-carousel__btns`).classList.remove('hidden');
-                }
-
-                epGlobals.initCarousel(carouselSelector, options, carouselId);
-
             });
         }
 
@@ -1174,7 +885,8 @@ jQuery(window).on("elementor/frontend/init", function () {
         const instaFeed = document.querySelector(`${selectorEl} .ose-instagram-feed`);
         const instaGallery = document.querySelector(`${selectorEl} .insta-gallery`);
         if (instaFeed) {
-            epGlobals.initializeTabs(instaFeed);
+            // Pro (carousel + tabs) re-initialises on this event.
+            epGlobals.instagramFeedReady(instaFeed, 'elementor');
         }
         if (instaGallery) {
             epGlobals.instaPopup(instaGallery);
@@ -1193,24 +905,9 @@ jQuery(window).on("elementor/frontend/init", function () {
 
     };
 
-    const adsHandler = function ($scope, $) {
-        window.epAdIndex = typeof (window.epAdIndex) === 'undefined' ? 0 : window.epAdIndex + 1;
-        let classes = $scope[0].className;
-        let classJoint = '.' + classes.split(' ').join('.');
-        const selectorEl = document.querySelector(classJoint + ' [data-sponsored-id]');
-
-        if (jQuery('body').hasClass('elementor-editor-active') && embedpressFrontendData.isProPluginActive) {
-            if (typeof adInitialization === 'function') {
-                adInitialization(selectorEl, window.epAdIndex);
-            }
-        }
-
-    }
-
     elementorFrontend.hooks.addAction("frontend/element_ready/embedpres_elementor.default", filterableGalleryHandler);
     elementorFrontend.hooks.addAction("frontend/element_ready/embedpress_pdf.default", filterableGalleryHandler);
     elementorFrontend.hooks.addAction("frontend/element_ready/embedpres_document.default", filterableGalleryHandler);
-    elementorFrontend.hooks.addAction("frontend/element_ready/embedpres_elementor.default", adsHandler);
     elementorFrontend.hooks.addAction("frontend/element_ready/embedpres_elementor.default", epGlobals.handlePosterImageLoad);
 
     // Re-initialize custom player when Elementor widget becomes ready
@@ -1306,8 +1003,16 @@ jQuery(document).ready(function ($) {
         return $(videoPopupHtml).appendTo('body');
     }
 
+    // Channel-layout cards that open the video popup. Free's List layout
+    // uses it; extensions add their layouts' card selectors to
+    // window.EmbedPressYoutubeChannel.popupItemSelectors.
+    function popupItemSelector() {
+        const ext = window.EmbedPressYoutubeChannel || {};
+        return ['.layout-list .item'].concat(ext.popupItemSelectors || []).join(', ');
+    }
+
     function openVideoPopup(index) {
-        const items = $('.layout-grid .item, .layout-list .item, .layout-carousel .item');
+        const items = $(popupItemSelector());
         if (index >= 0 && index < items.length) {
             // Remove any existing video popup before creating a new one
             $('#videoPopup').remove();
@@ -1378,120 +1083,18 @@ jQuery(document).ready(function ($) {
         });
     }
 
-    $(document).on('click', '.layout-grid .item, .layout-list .item, .layout-carousel .item', function () {
-        const items = $('.layout-grid .item, .layout-list .item, .layout-carousel .item');
+    $(document).on('click', '.item', function () {
+        const selector = popupItemSelector();
+        if (!$(this).is(selector)) {
+            return;
+        }
+        const items = $(selector);
         const index = items.index(this);
         openVideoPopup(index);
     });
 });
-jQuery(document).ready(function ($) {
-    let currentIndex = 0;
-    // Recomputed on each open so galleries rendered after this point
-    // (e.g. inside an Elementor popup or loaded via AJAX) are handled too.
-    let $photos = $();
-
-    function createPopupGooglePhotos() {
-        if ($('#ep-popup-overlay').length === 0) {
-            const photoPopup = `
-            <div class="popup-overlay" id="ep-popup-overlay" style="display: none!important">
-               
-                <div class="popup">
-                    <span class="close-btn" id="close-btn">
-                        <svg width="20" height="20" viewBox="0 0 0.6 0.6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M.132.132a.025.025 0 0 1 .035 0L.3.265.432.133a.025.025 0 1 1 .035.035L.335.3l.132.132a.025.025 0 0 1-.035.035L.3.335.168.467A.025.025 0 0 1 .133.432L.265.3.132.168a.025.025 0 0 1 0-.035" fill="#fff"/></svg>
-                    </span>
-                    <button type="button" class="prev-btn" id="prev-btn" aria-label="Previous">
-                        <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 0.6 0.6" data-name="Flat Color" xmlns="http://www.w3.org/2000/svg" class="icon flat-color"><path d="M.525.275h-.39L.268.143A.025.025 0 1 0 .233.108L.058.283a.025.025 0 0 0 0 .035l.175.175a.025.025 0 0 0 .035 0 .025.025 0 0 0 0-.035L.135.325h.39a.025.025 0 0 0 0-.05" style="fill:#fff"/></svg>
-                    </button>
-                    <div id="popup-content" class="loading">
-                        <div class="photo-loader"></div>
-                        <img id="popup-image" src="" style="display:none;" loading="lazy" />
-                    </div>
-                    <button type="button" class="next-btn" id="next-btn" aria-label="Next">
-                        <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 0.6 0.6" data-name="Flat Color" xmlns="http://www.w3.org/2000/svg" class="icon flat-color"><path d="M.543.282.368.107a.025.025 0 0 0-.035.035l.133.132H.075a.025.025 0 0 0 0 .05h.39L.332.456a.025.025 0 0 0 0 .035.025.025 0 0 0 .035 0L.542.316a.025.025 0 0 0 0-.035" style="fill:#fff"/></svg>
-                    </button>
-                </div>
-            </div>`;
-            $('body').append(photoPopup);
-
-            // Loader spinner CSS (can be moved to your CSS file)
-            const spinnerStyles = `
-            <style>
-                .popup #popup-content .photo-loader {
-                    display: none;
-                }
-                .popup #popup-content.loading .photo-loader {
-                    width: 40px;
-                    height: 40px;
-                    border: 4px solid #fff;
-                    border-top: 4px solid transparent;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                    margin: 40px auto;
-                    display: block;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>`;
-            $('head').append(spinnerStyles);
-
-            // Events
-            $('#ep-popup-overlay').on('click', function (e) {
-                if ($(e.target).is('#ep-popup-overlay') || $(e.target).is('.popup')) {
-                    $('#ep-popup-overlay').hide();
-                }
-            });
-
-            $('#close-btn').on('click', function () {
-                $('#ep-popup-overlay').hide();
-            });
-
-            $('#prev-btn').on('click', function () {
-                currentIndex = (currentIndex - 1 + $photos.length) % $photos.length;
-                updatePopupImage();
-            });
-
-            $('#next-btn').on('click', function () {
-                currentIndex = (currentIndex + 1) % $photos.length;
-                updatePopupImage();
-            });
-        }
-    }
-
-    function updatePopupImage() {
-        const imgSrc = $photos.eq(currentIndex).find('img').attr('data-photo-src');
-        const $popupImage = $('#popup-image');
-        const $popupContent = $('#popup-content');
-
-        $popupContent.addClass('loading');
-        $popupImage.hide();
-
-        const preload = new Image();
-        preload.src = imgSrc;
-
-        preload.onload = function () {
-            $popupImage.attr('src', imgSrc);
-            $popupContent.removeClass('loading');
-            $popupImage.fadeIn();
-        };
-    }
-
-    // Delegated binding: works for `.photo-item` elements that are added to the
-    // DOM after page load — e.g. an EmbedPress gallery placed inside an Elementor
-    // popup, which Elementor injects only when the popup is opened. A direct
-    // `$('.photo-item').on('click', ...)` bound here would miss those elements.
-    $(document).on('click', '.photo-item', function () {
-        // Scope navigation (prev/next) to the gallery that was actually clicked,
-        // so multiple galleries on the same page don't get mixed together.
-        var $gallery = $(this).closest('.photos-gallery-grid, .photos-gallery-justify, .photos-gallery-masonary');
-        $photos = $gallery.length ? $gallery.find('.photo-item') : $('.photo-item');
-        currentIndex = $photos.index(this);
-        createPopupGooglePhotos();
-        updatePopupImage();
-        $('#ep-popup-overlay').show();
-    });
-});
+// Google Photos Grid / Masonry / Justify (and their photo lightbox) are
+// implemented by EmbedPress Pro (assets/js/google-photos-pro.js).
 
 
 // pause audio/video

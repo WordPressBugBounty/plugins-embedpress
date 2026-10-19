@@ -44,10 +44,16 @@ class Analytics
         }
 
         // Enqueue the analytics script (this should be built by Vite)
+        // wp-hooks: the dashboard exposes extension slots via
+        // wp.hooks.applyFilters() that Pro fills with its own components
+        // (geo map, export control). The bundle reads them off the global, so
+        // the package must be loaded before it runs.
         wp_enqueue_script(
             'embedpress-analytics',
             EMBEDPRESS_URL_ASSETS . 'js/analytics.build.js',
-            ['wp-element', 'wp-i18n'],
+            // React comes from WordPress's own handles, not the bundle.
+            // wp-hooks: Pro registers its analytics filters on the shared registry.
+            \EmbedPress\Core\AssetManager::with_react_deps(['wp-element', 'wp-i18n', 'wp-hooks']),
             EMBEDPRESS_PLUGIN_VERSION,
             true
         );
@@ -62,10 +68,18 @@ class Analytics
             );
         }
 
-        // Add module attribute for ES modules
+        // Add module attribute for ES modules. `$tag` also carries the handle's
+        // translations and any inline before/after scripts, so only the bundle's
+        // own tag (id="embedpress-analytics-js") is rewritten — an inline script
+        // turned into a module would lose its synchronous execution.
         add_filter('script_loader_tag', function($tag, $handle) {
             if ($handle === 'embedpress-analytics') {
-                return str_replace('<script ', '<script type="module" ', $tag);
+                return preg_replace(
+                    '/<script(?=[^>]*\\bid=([\'"])embedpress-analytics-js\\1)/',
+                    '<script type="module"',
+                    $tag,
+                    1
+                );
             }
             return $tag;
         }, 10, 2);
@@ -89,6 +103,7 @@ class Analytics
             'currentUser' => wp_get_current_user()->ID,
             'siteUrl' => site_url(),
             'trackingEnabled' => (bool) $tracking_enabled,
+            'geolocationEnabled' => \EmbedPress\Includes\Classes\Analytics\Geolocation::is_lookup_enabled(),
         ]);
 
         // Also make WordPress REST API settings available

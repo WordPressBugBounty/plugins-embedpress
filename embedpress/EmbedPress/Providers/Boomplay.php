@@ -56,15 +56,15 @@ class Boomplay extends ProviderAdapter implements ProviderInterface
 		if (preg_match("{$this->urlRegexPattern}i", $url, $matches)) {
 			$type = $matches[1]; // songs | playlists | album
 			$content_id = $matches[2];
-			$endpoint_type = apply_filters( 'embedpress_boomplay_content_type', 'MUSIC', $type);
+			// Free embeds single songs. Playlists and albums use a different
+			// Boomplay embed endpoint that free does not provide: an extension
+			// (EmbedPress Pro) can supply it through this filter. With no
+			// endpoint, free shows the "not supported" notice instead.
+			$default_endpoint = in_array( $type, ['albums', 'playlists'], true ) ? '' : 'MUSIC';
+			$endpoint_type    = apply_filters( 'embedpress_boomplay_content_type', $default_endpoint, $type );
 
 			$width = isset( $this->config['maxwidth']) ? $this->config['maxwidth']: '100%';
 			$height = isset( $this->config['maxheight']) ? $this->config['maxheight']: 450;
-
-			$html = "<iframe src='" . esc_url("https://www.boomplay.com/embed/$content_id/$endpoint_type") . "' frameborder='0' height='" . esc_attr($height) . "' width='" . esc_attr($width) . "'></iframe>";
-
-
-
 
 			$response = [
 				'type'          => $type,
@@ -72,25 +72,14 @@ class Boomplay extends ProviderAdapter implements ProviderInterface
 				'provider_name' => 'Boomplay',
 				'provider_url'  => $providerUrl,
 				'url'           => $url,
-				'html'          => $html,
 			];
 
-			if ( in_array( $type, ['albums', 'playlists'])) {
+			if ( empty( $endpoint_type ) ) {
 				$alert_message = sprintf( '<p><strong>%s</strong>. <span style="font-size: 13px;">%s</span></p>', __( 'Embedding Boomplay playlists and albums are supported in EmbedPress Pro', 'embedpress'), __( 'This message is only visible to you.', 'embedpress'));
-				// for gutenberg
-
-				if ( !apply_filters('embedpress/is_allow_rander', false) ) {
-					$response['alert'] = $alert_message;
-				}
-
-				if (  is_admin() && !apply_filters('embedpress/is_allow_rander', false)  ) {
-					$response['html'] = $alert_message;
-				}
-
-				if ( !is_admin() && !apply_filters('embedpress/is_allow_rander', false) ) {
-					$response['html'] = $url;
-				}
-
+				$response['alert'] = $alert_message;
+				$response['html']  = is_admin() ? $alert_message : $url;
+			} else {
+				$response['html'] = "<iframe src='" . esc_url("https://www.boomplay.com/embed/$content_id/$endpoint_type") . "' frameborder='0' height='" . esc_attr($height) . "' width='" . esc_attr($width) . "'></iframe>";
 			}
 		} else {
 			$response = [];

@@ -54,6 +54,14 @@ class GoogleReviewsManaged
     // Stored with autoload=no so it doesn't bloat every wp_load_alloptions().
     const OPT_AUTH = 'embedpress_google_reviews_managed_auth';
 
+    // wp_options key recording the site admin's explicit consent to connect
+    // this site to api.embedpress.com (set only by the "Connect to EmbedPress
+    // API" action). Nothing is sent to the API before this exists.
+    const OPT_CONSENT = 'embedpress_google_reviews_managed_consent';
+
+    // Public privacy policy linked from the consent prompt.
+    const PRIVACY_URL = 'https://wpdeveloper.com/privacy-policy';
+
     public function __construct()
     {
         add_action(self::CRON_HOOK, [$this, 'poll_job'], 10, 1);
@@ -201,11 +209,35 @@ class GoogleReviewsManaged
     }
 
     /**
-     * Lazily obtain a connection token. The managed proxy (place search + instant
-     * reviews) now REQUIRES a Bearer token, but place search is a free, no-setup
-     * feature — so the first search on a fresh install transparently runs the
-     * open Connect handshake to provision a token, then proceeds. Returns true
-     * when a usable token exists (already connected, or just connected).
+     * Whether the site admin has agreed to connect to the EmbedPress API.
+     *
+     * A token issued before the consent option existed came from the admin
+     * clicking Connect (which already disclosed what is sent), so it counts
+     * as consent; disconnecting clears both.
+     */
+    public static function has_consent(): bool
+    {
+        return (bool) get_option(self::OPT_CONSENT, false) || self::is_connected();
+    }
+
+    /**
+     * Record the admin's explicit consent. Called only from the Connect
+     * action, never implicitly.
+     */
+    public static function grant_consent(): void
+    {
+        update_option(self::OPT_CONSENT, [
+            'granted_at' => time(),
+            'user_id'    => get_current_user_id(),
+        ], false);
+    }
+
+    /**
+     * Re-obtain a connection token when the admin has ALREADY consented (e.g.
+     * the proxy revoked a stale token). Never connects without consent: on a
+     * fresh install this returns false and the caller surfaces the "Connect to
+     * EmbedPress API" prompt instead of contacting the API. Returns true when
+     * a usable token exists.
      *
      * A failed connect is not fatal to the caller: it returns false and the
      * caller can fall back / surface its own error. We throttle repeat attempts
@@ -216,6 +248,9 @@ class GoogleReviewsManaged
     {
         if (self::is_connected()) {
             return true;
+        }
+        if (!self::has_consent()) {
+            return false;
         }
         // Back off if we tried recently and failed — avoid hammering connect.php
         // on every autocomplete keystroke when the proxy is down.
@@ -248,10 +283,15 @@ class GoogleReviewsManaged
      */
     public static function connect(): array
     {
+        if (!self::has_consent()) {
+            return ['ok' => false, 'message' => __('Connect to the EmbedPress API first.', 'embedpress')];
+        }
+
+        // Only what the proxy needs to bind a token to this install. The
+        // admin email is deliberately NOT sent (the API does not require it).
         $payload = [
             'site_url'       => home_url(),
             'fingerprint'    => self::compute_fingerprint(),
-            'admin_email'    => get_option('admin_email'),
             'plugin_version' => defined('EMBEDPRESS_VERSION') ? EMBEDPRESS_VERSION : '',
             'wp_version'     => get_bloginfo('version'),
             'tier'           => \EmbedPress\Includes\Classes\Helper::is_pro_active() ? 'pro' : 'free',
@@ -299,6 +339,8 @@ class GoogleReviewsManaged
     public static function disconnect(): void
     {
         delete_option(self::OPT_AUTH);
+        // Disconnecting withdraws consent: no further automatic re-connects.
+        delete_option(self::OPT_CONSENT);
     }
 
     /**
@@ -747,29 +789,18 @@ class GoogleReviewsManaged
      *     until exhausted, capped server-side at MAX_REVIEWS_PER_JOB=1000).
      *   - >0 is a soft cap that the worker honors as a hard stop.
      *
-     * GLOBAL CAP: 1000 reviews/place max (product + Cloud-Run-free-tier
-     * decision, 2026-06-19). Requested here AND enforced server-side.
-     *
-     * TIER CAP: FREE users get at most FREE_MAX_REVIEWS (10) per place — a
-     * "request all" (0) is rewritten to 10 so free never pulls the full set.
-     * PRO is uncapped (0 = all up to the server ceiling). This is the single
-     * enforcement point: every fetch (add, refetch, render) routes through here.
+     * TECHNICAL CEILING: 1000 reviews/place max (worker runtime + storage
+     * bound, 2026-06-19). Requested here AND enforced server-side. It is the
+     * same for every site — the plugin applies no plan-based quota here; any
+     * per-site/plan quota is the hosted service's decision (enqueue.php).
+     * Every fetch (add, refetch, render) routes through here.
      */
-    const FREE_MAX_REVIEWS = 10;
-
     private static function resolve_max(array $args): int
     {
-        $is_pro    = \EmbedPress\Includes\Classes\Helper::is_pro_active();
-        $free_cap  = (int) apply_filters('embedpress/google_reviews/free_max_reviews', self::FREE_MAX_REVIEWS);
         $requested = isset($args['fetch_max']) ? (int) $args['fetch_max'] : 0;
 
-        if (!$is_pro) {
-            // Free: "all" (0) → free cap; an explicit N → min(N, free cap).
-            return $requested <= 0 ? $free_cap : min($requested, $free_cap);
-        }
-
-        // Pro: "all" stays all (proxy expands to its 1000 ceiling); an explicit
-        // N is bounded by the 1000-review global cap.
+        // "all" stays all (proxy expands to its 1000 ceiling); an explicit N is
+        // bounded by the 1000-review technical ceiling.
         if ($requested <= 0) {
             return 0; // "all" — proxy caps at MAX_REVIEWS_PER_JOB (1000)
         }

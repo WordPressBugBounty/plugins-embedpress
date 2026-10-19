@@ -152,41 +152,25 @@
         return wrapper;
     }
 
-    // Resolve the effective badge position. Positioning is a Pro feature —
-    // only the default 'below' is free. When Pro is inactive, any non-default
-    // position falls back to 'below' (and 'above' insert reverts to after).
-    function resolvePosition(el) {
-        var pos = el.getAttribute('data-ep-count-position');
-        if (!pos || pos === 'below') return 'below';
-        if (!cfg.isPro) return 'below';
-        return pos;
-    }
+    // Registry of rendered badges, for scripts that adjust them (see
+    // announceBadge below). Entries: {embed: Element, badge: Element}.
+    var api = window.EmbedPressViewCount = window.EmbedPressViewCount || {};
+    api.badges = Array.isArray(api.badges) ? api.badges : [];
 
-    // The badge always sits OUTSIDE the embed (never overlaying it). Position
-    // only decides which side — 'above-*' inserts before the embed, otherwise
-    // after — and the CSS modifier class handles horizontal alignment.
-    function isAbove(el) {
-        return resolvePosition(el).indexOf('above') === 0;
-    }
-
+    // The badge always sits OUTSIDE the embed (never overlaying it), directly
+    // below it.
     function placeBadge(el, node) {
-        var above = isAbove(el);
         if (el.tagName === 'IFRAME') {
             if (!el.parentNode) return;
-            // 'above' goes before the iframe; 'below' goes after it, but still
-            // before a trailing "Powered By EmbedPress" line so the count
-            // always sits above the branding.
-            var ref = above ? el : el.nextSibling;
-            if (!above) {
-                var sib = el.nextElementSibling;
-                while (sib) {
-                    if (sib.classList && sib.classList.contains('embedpress-el-powered')) { ref = sib; break; }
-                    sib = sib.nextElementSibling;
-                }
+            // Goes after the iframe, but still before a trailing "Powered By
+            // EmbedPress" line so the count always sits above the branding.
+            var ref = el.nextSibling;
+            var sib = el.nextElementSibling;
+            while (sib) {
+                if (sib.classList && sib.classList.contains('embedpress-el-powered')) { ref = sib; break; }
+                sib = sib.nextElementSibling;
             }
             el.parentNode.insertBefore(node, ref);
-        } else if (above) {
-            el.insertBefore(node, el.firstChild);
         } else {
             // Keep the badge above any "Powered By EmbedPress" branding.
             var powered = el.querySelector(':scope > .embedpress-el-powered')
@@ -199,12 +183,17 @@
         }
     }
 
-    // Apply the per-embed alignment/side class. 'below' keeps the original
-    // placement, so no class is added.
-    function applyPosition(el, badge) {
-        var pos = resolvePosition(el);
-        if (pos === 'below') return;
-        badge.classList.add('ep-view-count--pos-' + pos);
+    // Record a newly placed badge and announce it with an
+    // `embedpress:view-count:badge` CustomEvent (detail: {embed, badge}) so
+    // other scripts can adjust it. Badges placed before such a script loaded
+    // remain available on window.EmbedPressViewCount.badges.
+    function announceBadge(el, badge) {
+        api.badges.push({ embed: el, badge: badge });
+        try {
+            document.dispatchEvent(new CustomEvent('embedpress:view-count:badge', {
+                detail: { embed: el, badge: badge }
+            }));
+        } catch (e) { /* CustomEvent unsupported — registry above still has it */ }
     }
 
     function findExistingBadge(el) {
@@ -234,7 +223,7 @@
         if (existing) return existing;
         var badge = buildBadge();
         placeBadge(el, badge);
-        applyPosition(el, badge);
+        announceBadge(el, badge);
         return badge;
     }
 

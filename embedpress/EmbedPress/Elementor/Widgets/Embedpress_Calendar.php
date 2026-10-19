@@ -8,7 +8,6 @@ use \Elementor\Modules\DynamicTags\Module as TagsModule;
 use \Elementor\Widget_Base as Widget_Base;
 use \Elementor\Plugin;
 use EmbedPress\Includes\Traits\Branding;
-use Embedpress_Google_Helper;
 use EmbedPress\Includes\Classes\Helper;
 
 ( defined( 'ABSPATH' ) ) or die( "No direct script access allowed." );
@@ -18,52 +17,6 @@ class Embedpress_Calendar extends Widget_Base
 	use Branding;
 	protected $pro_class = '';
 	protected $pro_text = '';
-	public function __construct($data = [], $args = null) {
-		parent::__construct($data, $args);
-
-		wp_register_style('fullcalendar', EPGC_ASSET_URL . 'lib/fullcalendar4/core/main.min.css', null, EMBEDPRESS_VERSION);
-		wp_register_style('fullcalendar_daygrid', EPGC_ASSET_URL . 'lib/fullcalendar4/daygrid/main.min.css', ['fullcalendar'], EMBEDPRESS_VERSION);
-		wp_register_style('fullcalendar_timegrid', EPGC_ASSET_URL . 'lib/fullcalendar4/timegrid/main.min.css', ['fullcalendar_daygrid'], EMBEDPRESS_VERSION);
-		wp_register_style('fullcalendar_list', EPGC_ASSET_URL . 'lib/fullcalendar4/list/main.min.css', ['fullcalendar'], EMBEDPRESS_VERSION);
-		wp_register_style('epgc', EPGC_ASSET_URL . 'css/epgc.css', ['fullcalendar_timegrid'], EMBEDPRESS_VERSION);
-		wp_register_style('tippy_light', EPGC_ASSET_URL . 'lib/tippy/light-border.css', null, EMBEDPRESS_VERSION);
-
-		//wp_enqueue_style( 'fullcalendar');
-		//wp_enqueue_style( 'fullcalendar_daygrid');
-		//wp_enqueue_style( 'fullcalendar_timegrid');
-		//wp_enqueue_style( 'fullcalendar_list');
-		//wp_enqueue_style( 'epgc');
-		//wp_enqueue_style( 'tippy_light');
-
-
-		wp_register_script('popper',EPGC_ASSET_URL . 'lib/popper.min.js', null, EMBEDPRESS_VERSION, true);
-		wp_register_script('tippy',EPGC_ASSET_URL . 'lib/tippy/tippy-bundle.umd.min.js', ['popper'], EMBEDPRESS_VERSION, true);
-		wp_register_script('my_moment',EPGC_ASSET_URL . 'lib/moment/moment-with-locales.min.js', null, EMBEDPRESS_VERSION, true);
-		wp_register_script('my_moment_timezone',EPGC_ASSET_URL . 'lib/moment/moment-timezone-with-data.min.js', ['my_moment'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar',EPGC_ASSET_URL . 'lib/fullcalendar4/core/main.min.js', ['my_moment_timezone'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar_moment',EPGC_ASSET_URL . 'lib/fullcalendar4/moment/main.min.js', ['fullcalendar'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar_moment_timezone',EPGC_ASSET_URL . 'lib/fullcalendar4/moment-timezone/main.min.js', ['fullcalendar_moment'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar_daygrid',EPGC_ASSET_URL . 'lib/fullcalendar4/daygrid/main.min.js', ['fullcalendar'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar_timegrid',EPGC_ASSET_URL . 'lib/fullcalendar4/timegrid/main.min.js', ['fullcalendar_daygrid'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar_list',EPGC_ASSET_URL . 'lib/fullcalendar4/list/main.min.js', ['fullcalendar'], EMBEDPRESS_VERSION, true);
-		wp_register_script('fullcalendar_locales',EPGC_ASSET_URL . 'lib/fullcalendar4/core/locales-all.min.js',['fullcalendar'], EMBEDPRESS_VERSION, true);
-		wp_register_script('epgc', EPGC_ASSET_URL . 'js/main.js',['fullcalendar'], EMBEDPRESS_VERSION, true);
-
-		//wp_enqueue_script('popper');
-		//wp_enqueue_script('my_moment');
-		//wp_enqueue_script('my_moment_timezone');
-		//wp_enqueue_script('fullcalendar');
-		//wp_enqueue_script('fullcalendar_moment');
-		//wp_enqueue_script('fullcalendar_moment_timezone');
-		//wp_enqueue_script('fullcalendar_daygrid');
-		//wp_enqueue_script('fullcalendar_timegrid');
-		//wp_enqueue_script('fullcalendar_list');
-		//wp_enqueue_script('fullcalendar_locales');
-		//wp_enqueue_script('epgc');
-
-		// Localization is now handled by LocalizationManager
-		// This section is kept for backward compatibility but functionality has been moved
-	}
 	public function get_name()
 	{
 		return 'embedpress_calendar';
@@ -89,12 +42,24 @@ class Embedpress_Calendar extends Widget_Base
 		return 'eicon-calendar';
 	}
 
+	/**
+	 * The public calendar is a plain iframe and needs no scripts. The private
+	 * calendar (provided by EmbedPress Pro) adds its FullCalendar handles here.
+	 *
+	 * Filter `embedpress/calendar/elementor_script_depends` (string[] $handles):
+	 * script handles the widget depends on. The callback must make sure the
+	 * handles are registered.
+	 */
     public function get_script_depends() {
-        return ['popper','tippy', 'my_moment', 'my_moment_timezone', 'fullcalendar', 'fullcalendar_moment', 'fullcalendar_moment_timezone', 'fullcalendar_daygrid', 'fullcalendar_timegrid', 'fullcalendar_list', 'fullcalendar_locales', 'epgc'];
+        return (array) apply_filters('embedpress/calendar/elementor_script_depends', []);
     }
 
+	/**
+	 * Filter `embedpress/calendar/elementor_style_depends` (string[] $handles):
+	 * style handles the widget depends on (see get_script_depends()).
+	 */
 	public function get_style_depends() {
-        return ['fullcalendar', 'fullcalendar_daygrid', 'fullcalendar_list','epgc', 'tippy_light'];
+        return (array) apply_filters('embedpress/calendar/elementor_style_depends', []);
 	}
 
 	/**
@@ -233,6 +198,11 @@ class Embedpress_Calendar extends Widget_Base
 			]
 		);
 
+		// Follow the global "Powered By EmbedPress" setting (off on fresh
+		// installs, WP.org Guideline 10) like the PDF and Document widgets.
+		$g_settings = (array) get_option( EMBEDPRESS_PLG_NAME, [] );
+		$powered_by_default = isset( $g_settings['embedpress_document_powered_by'] ) && 'yes' === $g_settings['embedpress_document_powered_by'] ? 'yes' : 'no';
+
 		$this->add_control(
 			'embedpress_calendar_powered_by',
 			[
@@ -241,7 +211,7 @@ class Embedpress_Calendar extends Widget_Base
 				'label_on'     => __( 'Show', 'embedpress' ),
 				'label_off'    => __( 'Hide', 'embedpress' ),
 				'return_value' => 'yes',
-				'default'      => apply_filters( 'embedpress_calendar_powered_by_control', 'yes' ),
+				'default'      => apply_filters( 'embedpress_calendar_powered_by_control', $powered_by_default ),
 			]
 		);
 
@@ -304,28 +274,26 @@ class Embedpress_Calendar extends Widget_Base
 			?>
 			<div <?php echo $this->get_render_attribute_string('embedpress-calendar-render'); ?>>
 				<?php if (!empty($settings['embedpress_public_cal_link']) && !empty($settings['embedpress_calendar_type']) && 'public' === $settings['embedpress_calendar_type']) {
-					// Apply lazy loading if enabled (but not in editor mode)
-					if (!empty($settings['enable_lazy_load']) && $settings['enable_lazy_load'] === 'yes' && !$is_editor_view) { ?>
-						<div class="ep-lazy-iframe-placeholder"
-							data-ep-lazy-src="<?php echo esc_attr($settings['embedpress_public_cal_link']); ?>"
-							data-ep-iframe-style="<?php echo esc_attr($dimension); ?>; max-width:100%; display: inline-block"
-							data-ep-iframe-frameborder="0"
-							style="<?php echo esc_attr($dimension); ?>; max-width:100%; display: inline-block"></div>
-					<?php } else { ?>
-						<iframe title="" style="<?php echo esc_attr($dimension); ?>; max-width:100%; display: inline-block" src="<?php echo esc_url($settings['embedpress_public_cal_link']); ?>" frameborder="0"></iframe>
-					<?php }
+					$calendar_iframe = '<iframe title="" style="' . esc_attr($dimension) . '; max-width:100%; display: inline-block" src="' . esc_url($settings['embedpress_public_cal_link']) . '" frameborder="0"></iframe>';
+					/** This filter is documented in EmbedPress/Elementor/Widgets/Embedpress_Pdf.php ($context also carries 'dimension'). */
+					echo apply_filters('embedpress/lazy_load/html', $calendar_iframe, $settings, ['surface' => 'elementor-calendar', 'is_editor' => (bool) $is_editor_view, 'dimension' => $dimension]);
 				} else {
 					if ($is_editor_view && empty($settings['embedpress_public_cal_link']) && !$is_private_cal) { ?>
 						<p><?php esc_html_e('Please paste your public google calendar link.', 'embedpress'); ?></p>
 					<?php }
 
-					if ($is_private_cal && !apply_filters('embedpress/is_allow_rander', false)) { ?>
-						<p><?php esc_html_e('You need EmbedPress Pro to display Private Calendar Data.', 'embedpress'); ?></p>
-					<?php } else {
-						// Render the private calendar in both the editor and the frontend.
-						// The AJAX endpoint backing this uses the epgc_cache_time transient,
-						// so repeat editor opens don't re-hit Google when caching is on.
-						do_action('embedpress_google_helper_shortcode', 10);
+					// The private calendar is provided by EmbedPress Pro through the
+					// neutral `embedpress_google_helper_shortcode` action; with
+					// nothing (compatible) hooked, show the upsell notice instead.
+					// Only a private calendar fires the action: a public calendar
+					// without a link must not reach it (Pro <= 3.9.1 fatals there).
+					if ($is_private_cal) {
+						if (\EmbedPress\Includes\Classes\Helper::has_private_calendar_renderer()) {
+							// Render the private calendar in both the editor and the frontend.
+							do_action('embedpress_google_helper_shortcode', 10);
+						} else { ?>
+							<p><?php esc_html_e('You need EmbedPress Pro to display Private Calendar Data.', 'embedpress'); ?></p>
+						<?php }
 					}
 
 				} ?>

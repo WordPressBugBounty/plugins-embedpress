@@ -85,9 +85,6 @@ if (
     }
 }
 
-// Check if Black Friday banner should be shown (until December 5, 2025)
-$show_bfriday_banner = (time() < strtotime('2025-12-04 23:59:59'));
-
 // Get global brand settings
 $global_brand_settings = get_option(EMBEDPRESS_PLG_NAME . ':global_brand', []);
 $global_brand_logo_url = isset($global_brand_settings['logo_url']) ? $global_brand_settings['logo_url'] : '';
@@ -394,13 +391,6 @@ $username = $current_user->display_name ? $current_user->display_name : $current
         <div class="embedpress-pop-up">
             <div class="embedpress-flex  embedpress-pop-up-content">
                 <div class="pop-up-left-content">
-                    <?php if ($show_bfriday_banner): ?>
-                        <div class="bfriday-deal-campaign">
-                            <a href="https://embedpress.com/in/bfcm2025-unlock-premium-features" target="_blank">
-                                <img src="<?php echo esc_url(EMBEDPRESS_URL_ASSETS . 'images/bfcm2025-banner.png'); ?>" alt="Black Friday Sale">
-                            </a>
-                        </div>
-                    <?php endif; ?>
                     <span class="premium-tag"><?php esc_html_e('Premium', 'embedpress'); ?></span>
                     <h2 class="embedpress-font-xl embedpress-font-family-dmsans embedpress-pop-up-header"><?php esc_html_e('Unlock More Power in Every Embed', 'embedpress'); ?></h2>
                     <p class="embedpress-font-m embedpress-font-family-dmsans embedpress-pop-up-sub-header">
