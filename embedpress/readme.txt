@@ -6,7 +6,7 @@ Tags: embed, embed YouTube, embed PDF, Google Docs, Social Feeds
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 5.6
-Stable tag: 4.7.0
+Stable tag: 4.7.1
 License: GPLv3 or later
 License URI: https://opensource.org/licenses/GPL-3.0
 
@@ -407,6 +407,10 @@ Some admin screens load images from embedpress.com and cloud.zoobbe.com (What's 
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
+
+= [4.7.1] – 2026-10-28 =
+- Fixed: Elementor PDF and Document widgets showed no file when the URL came from a dynamic source (such as an ACF field) without EmbedPress Pro.
+- Few minor bug fixes and improvements.
 
 = [4.7.0] – 2026-10-19 =
 - Improved: Pro features now live entirely in EmbedPress Pro, so the free plugin no longer ships locked Pro code. Pro features require EmbedPress Pro 3.10.0 or newer.

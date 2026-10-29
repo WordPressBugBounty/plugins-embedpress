@@ -609,6 +609,14 @@ class Embedpress_Document extends Widget_Base
             // separately in EmbedPressBlockRenderer::apply_dynamic_source
             // and Shortcode::parseContent.
             $resolved = DynamicFieldResolver::resolve_elementor_dynamic($settings['__dynamic__']['embedpress_document_file_link']);
+            if ($resolved === '') {
+                // The resolver above is supplied by Pro and returns '' on a
+                // free install (or with Pro older than 3.10.0). Fall back to
+                // Elementor's own dynamic-tag rendering so ACF URL, Toolset,
+                // JetEngine and Post Custom Field tags keep working on free.
+                $display = $this->get_settings_for_display('embedpress_document_file_link');
+                $resolved = !empty($display['url']) ? esc_url_raw($display['url']) : '';
+            }
             if ($resolved !== '') {
                 $url = $resolved;
             }
